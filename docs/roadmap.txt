@@ -1,7 +1,12 @@
 
 Links:
+
 	http://www.boost.org/doc/libs/1_59_0/doc/html/interprocess.html
 	http://habrahabr.ru/post/122108/
+
+	http://code.metager.de/source/xref/gnu/
+	http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
+	https://msdn.microsoft.com/ru-ru/library/windows/desktop/aa366551(v=vs.85).aspx
 
 OS: 
 	1) linux
