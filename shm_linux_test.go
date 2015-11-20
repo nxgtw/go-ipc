@@ -12,10 +12,6 @@ func TestShmFsFromReader(t *testing.T) {
 		testData = `
 			#
 			# /etc/fstab
-			# Created by anaconda on Wed Aug 12 18:53:33 2015
-			#
-			# Accessible filesystems, by reference, are maintained under '/dev/disk'
-			# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
 			# name dir type opts freq passno
 			UUID=cd459033-ae0a-4fb4-96fb-2323365a8e21 /                       ext4    defaults        1 1
 			UUID=4542ef12-df3d-4336-9d12-740763854139 /boot                   ext4    defaults        1 2
