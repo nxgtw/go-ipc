@@ -6,14 +6,14 @@ const (
 	SHM_RDONLY = iota
 	SMH_RDWR
 	SHM_CREATE
-	SSM_CREATE_ONLY
+	SHM_CREATE_ONLY
 )
 
 type MemoryRegion struct {
 	impl *memoryRegionImpl
 }
 
-func NewMemoryRegion() *MemoryRegion {
+func NewMemoryRegion(name string, size uint64) *MemoryRegion {
 	return &MemoryRegion{impl: newMemoryRegionImpl()}
 }
 
