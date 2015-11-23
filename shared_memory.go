@@ -8,17 +8,22 @@ import (
 
 const (
 	SHM_RDONLY = iota
-	SMH_RDWR
+	SHM_RDWR
 	SHM_CREATE
-	SHM_CREATE_ONLY
+	SHM_CREATE_IF_NOT_EXISTS
+	SHM_TRUNC
 )
 
 type MemoryRegion struct {
 	impl *memoryRegionImpl
 }
 
-func NewMemoryRegion(name string, size uint64, mode int, flags uint32) (*MemoryRegion, error) {
-	result := &MemoryRegion{impl: newMemoryRegionImpl()}
+func NewMemoryRegion(name string, size int64, mode int, flags uint32) (*MemoryRegion, error) {
+	impl, err := newMemoryRegionImpl(name, size, mode, flags)
+	if err != nil {
+		return nil, err
+	}
+	result := &MemoryRegion{impl: impl}
 	runtime.SetFinalizer(result, func(object interface{}) {
 		//TODO (avd) - define destroy behavior
 	})
@@ -26,5 +31,9 @@ func NewMemoryRegion(name string, size uint64, mode int, flags uint32) (*MemoryR
 }
 
 func (region *MemoryRegion) Destroy() {
+	region.impl.Destroy()
+}
 
+func (region *MemoryRegion) Close() {
+	region.impl.Close()
 }

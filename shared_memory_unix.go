@@ -23,29 +23,54 @@ var (
 )
 
 type memoryRegionImpl struct {
-	fd int
+	fd   int
+	path string
 }
 
-func newMemoryRegionImpl() *memoryRegionImpl {
-	return &memoryRegionImpl{}
+func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (*memoryRegionImpl, error) {
+	var err error
+	mode, err = modeToUnixMode(mode)
+	if err != nil {
+		return nil, err
+	}
+	flags, err = flagsToUnixFlags(flags)
+	if err != nil {
+		return nil, err
+	}
+	var path string
+	if path, err = shmName(name); err != nil {
+		return nil, err
+	}
+	fd, err := shmOpen(path, mode, flags)
+	if err != nil {
+		return nil, err
+	}
+	if err = unix.Ftruncate(fd, size); err != nil {
+		return nil, err
+	}
+	return &memoryRegionImpl{fd: fd, path: path}, nil
+}
+
+func (impl *memoryRegionImpl) Destroy() {
+	impl.Close()
+	unix.Unlink(impl.path) // TODO (avd) - error handling
+}
+
+func (impl *memoryRegionImpl) Close() {
+	unix.Close(impl.fd) // TODO (avd) - error handling
 }
 
 // glibc/sysdeps/posix/shm_open.c
-func shmOpen(name string, flag int, mode uint32) (err error) {
-	var path string
-	if path, err = shmName(); err != nil {
-		return err
-	}
-	var fd int
-	if fd, err = unix.Open(path, flag, mode); err != nil {
-		return err
+func shmOpen(path string, flag int, mode uint32) (fd int, err error) {
+	if fd, err = unix.Open(path, flag, 0777); err != nil { // TODO (avd) - 0777?
+		return
 	}
 	unix.CloseOnExec(fd)
-	return nil
+	return
 }
 
 // glibc/sysdeps/posix/shm-directory.h
-func shmName() (name string, err error) {
+func shmName(name string) (string, error) {
 	name = strings.TrimLeft(name, "/")
 	nameLen := len(name)
 	if nameLen == 1 || nameLen >= maxNameLen || strings.Contains(name, "/") {
@@ -64,4 +89,28 @@ func shmDirectory() (string, error) {
 		return shmPath, errors.New("error locating the shared memory path")
 	}
 	return shmPath, nil
+}
+
+func flagsToUnixFlags(flags uint32) (uint32, error) {
+	var uflags uint32
+	if flags&SHM_CREATE != 0 {
+		uflags |= unix.O_CREAT
+	}
+	if flags&SHM_CREATE_IF_NOT_EXISTS != 0 {
+		uflags |= unix.O_EXCL
+	}
+	if flags&SHM_TRUNC != 0 {
+		uflags |= unix.O_TRUNC
+	}
+	if flags&SHM_RDONLY != 0 {
+		uflags |= unix.O_RDONLY
+	}
+	if flags&SHM_RDWR != 0 {
+		uflags |= unix.O_RDWR
+	}
+	return flags, nil
+}
+
+func modeToUnixMode(mode int) (int, error) {
+	return unix.O_RDWR | unix.O_CREAT, nil
 }

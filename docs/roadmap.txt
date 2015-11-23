@@ -23,6 +23,7 @@ Synchronization:
 	1) Named mutexes/semaphores
 Other:
 	1) NO cgo, syscalls only!
+	2) random names generator
 	
 Roadmap:
 	sm linux --> sm windows --> sm osx
