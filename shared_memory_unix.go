@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -41,8 +42,9 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (*memo
 	if path, err = shmName(name); err != nil {
 		return nil, err
 	}
-	fd, err := shmOpen(path, mode, flags)
+	fd, err := shmOpen(path, mode)
 	if err != nil {
+		print("asdasd")
 		return nil, err
 	}
 	if err = unix.Ftruncate(fd, size); err != nil {
@@ -51,18 +53,33 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (*memo
 	return &memoryRegionImpl{fd: fd, path: path}, nil
 }
 
-func (impl *memoryRegionImpl) Destroy() {
-	impl.Close()
-	unix.Unlink(impl.path) // TODO (avd) - error handling
+func (impl *memoryRegionImpl) Destroy() error {
+	if err := impl.Close(); err == nil {
+		return unix.Unlink(impl.path)
+	} else {
+		return err
+	}
 }
 
-func (impl *memoryRegionImpl) Close() {
-	unix.Close(impl.fd) // TODO (avd) - error handling
+func (impl *memoryRegionImpl) Close() error {
+	if impl.fd != -1 {
+		if err := unix.Close(impl.fd); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("shared memory object was not opened")
+	}
+	impl.fd = -1
+	return nil
+}
+
+func (impl *memoryRegionImpl) Truncate(size int64) error {
+	return unix.Ftruncate(impl.fd, size)
 }
 
 // glibc/sysdeps/posix/shm_open.c
-func shmOpen(path string, flag int, mode uint32) (fd int, err error) {
-	if fd, err = unix.Open(path, flag, 0777); err != nil { // TODO (avd) - 0777?
+func shmOpen(path string, mode int) (fd int, err error) {
+	if fd, err = unix.Open(path, mode, 0666); err != nil { // TODO (avd) - 0777?
 		return
 	}
 	unix.CloseOnExec(fd)
@@ -92,25 +109,25 @@ func shmDirectory() (string, error) {
 }
 
 func flagsToUnixFlags(flags uint32) (uint32, error) {
-	var uflags uint32
-	if flags&SHM_CREATE != 0 {
-		uflags |= unix.O_CREAT
-	}
-	if flags&SHM_CREATE_IF_NOT_EXISTS != 0 {
-		uflags |= unix.O_EXCL
-	}
-	if flags&SHM_TRUNC != 0 {
-		uflags |= unix.O_TRUNC
-	}
-	if flags&SHM_RDONLY != 0 {
-		uflags |= unix.O_RDONLY
-	}
-	if flags&SHM_RDWR != 0 {
-		uflags |= unix.O_RDWR
-	}
 	return flags, nil
 }
 
 func modeToUnixMode(mode int) (int, error) {
-	return unix.O_RDWR | unix.O_CREAT, nil
+	var umode int
+	if mode&SHM_OPEN_CREATE != 0 {
+		umode |= (unix.O_CREAT | unix.O_RDWR | unix.O_TRUNC)
+	}
+	if mode&SHM_OPEN_CREATE_IF_NOT_EXISTS != 0 {
+		umode |= (unix.O_EXCL | unix.O_CREAT)
+	}
+	if mode&SHM_OPEN_TRUNC != 0 {
+		umode |= unix.O_TRUNC
+	}
+	if mode&SHM_OPEN_RDONLY != 0 {
+		umode |= unix.O_RDONLY
+	}
+	if mode&SHM_OPEN_RDWR != 0 {
+		umode |= unix.O_RDWR
+	}
+	return umode, nil
 }
