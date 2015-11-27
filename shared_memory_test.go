@@ -16,15 +16,19 @@ func TestCreateMemoryRegion(t *testing.T) {
 	}
 }
 
-/*
-func TestCreateMemoryRegionEcxl(t *testing.T) {
-	region, err := NewMemoryRegion("go-ipc-test", 0, SHM_OPEN_CREATE|SHM_OPEN_RDWR, 0)
+func TestCreateMemoryRegionExclusive(t *testing.T) {
+	region, err := NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_CREATE, 0)
 	assert.NoError(t, err)
 	if assert.NotNil(t, region) {
-		defer region.Destroy()
+		assert.NoError(t, region.Destroy())
 	}
-	region2, err2 := NewMemoryRegion("go-ipc-test", 0, SHM_OPEN_CREATE_IF_NOT_EXISTS|SHM_OPEN_RDONLY, 0)
-	assert.Error(t, err2)
-	assert.Nil(t, region2)
+	region, err = NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_CREATE_IF_NOT_EXISTS, 0)
+	assert.Error(t, err)
 }
-*/
+
+func TestMemoryRegionSize(t *testing.T) {
+	region, err := NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_CREATE, 0)
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(1024), region.Size())
+	}
+}

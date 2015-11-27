@@ -7,11 +7,10 @@ import (
 )
 
 const (
-	SHM_OPEN_RDONLY = 1
-	SHM_OPEN_RDWR   = iota
+	SHM_OPEN_READ = 1 << iota
+	SHM_OPEN_WRITE
 	SHM_OPEN_CREATE
 	SHM_OPEN_CREATE_IF_NOT_EXISTS
-	SHM_OPEN_TRUNC
 )
 
 // MemoryRegion represents a shared memory area mapped into the address space
@@ -42,4 +41,8 @@ func (region *MemoryRegion) Destroy() error {
 
 func (region *MemoryRegion) Close() error {
 	return region.impl.Close()
+}
+
+func (region *MemoryRegion) Size() int64 {
+	return region.impl.Size()
 }
