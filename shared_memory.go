@@ -15,7 +15,7 @@ const (
 
 // MemoryRegion represents a shared memory area mapped into the address space
 type MemoryRegion struct {
-	impl *memoryRegionImpl
+	memoryRegionImpl
 }
 
 // Returns a new shared memory region.
@@ -27,22 +27,10 @@ func NewMemoryRegion(name string, size int64, mode int, flags uint32) (*MemoryRe
 	if err != nil {
 		return nil, err
 	}
-	result := &MemoryRegion{impl: impl}
-	runtime.SetFinalizer(impl, func(object interface{}) {
-		impl := object.(*memoryRegionImpl)
-		impl.Close()
+	result := &MemoryRegion{*impl}
+	runtime.SetFinalizer(&result, func(object interface{}) {
+		region := object.(*MemoryRegion)
+		region.Close()
 	})
 	return result, nil
-}
-
-func (region *MemoryRegion) Destroy() error {
-	return region.impl.Destroy()
-}
-
-func (region *MemoryRegion) Close() error {
-	return region.impl.Close()
-}
-
-func (region *MemoryRegion) Size() int64 {
-	return region.impl.Size()
 }

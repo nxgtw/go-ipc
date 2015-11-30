@@ -41,9 +41,10 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (impl 
 	if path, err = shmName(name); err != nil {
 		return nil, err
 	}
-	file, err := shmOpen(path, mode)
+	var file *os.File
+	file, err = shmOpen(path, mode)
 	if err != nil {
-		return nil, err
+		return
 	} else {
 		defer func() {
 			if err != nil && file != nil {
@@ -54,7 +55,8 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (impl 
 	if err = file.Truncate(size); err != nil {
 		return
 	}
-	if data, mmapErr := unix.Mmap(int(file.Fd()), 0, int(size), unix.PROT_NONE, unix.MAP_SHARED); err != nil {
+	prot := shmProtFromMode(mode)
+	if data, mmapErr := unix.Mmap(int(file.Fd()), 0, int(size), prot, unix.MAP_SHARED); err != nil {
 		err = mmapErr
 		return
 	} else {
@@ -65,7 +67,7 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (impl 
 
 func (impl *memoryRegionImpl) Destroy() error {
 	if err := impl.Close(); err == nil {
-		return os.Remove(impl.file.Name())
+		return DestroyRegion(impl.file.Name())
 	} else {
 		return err
 	}
@@ -88,6 +90,10 @@ func (impl *memoryRegionImpl) Size() int64 {
 	} else {
 		return fileInfo.Size()
 	}
+}
+
+func DestroyRegion(name string) error {
+	return os.Remove(name)
 }
 
 // glibc/sysdeps/posix/shm_open.c
@@ -139,4 +145,15 @@ func modeToUnixMode(mode int) (int, error) {
 		umode |= os.O_WRONLY
 	}
 	return umode, nil
+}
+
+func shmProtFromMode(mode int) int {
+	prot := unix.PROT_NONE
+	if mode&SHM_OPEN_READ != 0 {
+		prot |= unix.PROT_READ
+	}
+	if mode&SHM_OPEN_WRITE != 0 {
+		prot |= unix.PROT_WRITE
+	}
+	return prot
 }

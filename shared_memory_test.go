@@ -11,8 +11,18 @@ import (
 func TestCreateMemoryRegion(t *testing.T) {
 	region, err := NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_CREATE, 0)
 	assert.NoError(t, err)
+	assert.NotNil(t, region)
+}
+
+func TestDestroyMemoryRegion(t *testing.T) {
+	region, err := NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_CREATE, 0)
+	assert.NoError(t, err)
 	if assert.NotNil(t, region) {
-		assert.NoError(t, region.Destroy())
+		if !assert.NoError(t, region.Destroy()) {
+			return
+		}
+		_, err = NewMemoryRegion("go-ipc-test", 1024, SHM_OPEN_READ, 0)
+		assert.Error(t, err)
 	}
 }
 
