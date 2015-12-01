@@ -7,8 +7,10 @@ package ipc
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -23,12 +25,16 @@ var (
 	shmPath     string
 )
 
-type memoryRegionImpl struct {
+type memoryObjectImpl struct {
 	file *os.File
-	data []byte
 }
 
-func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (impl *memoryRegionImpl, err error) {
+type memoryRegionImpl struct {
+	data []byte
+	size int
+}
+
+func newMemoryObjectImpl(name string, size int64, mode int, flags uint32) (impl *memoryObjectImpl, err error) {
 	mode, err = modeToUnixMode(mode)
 	if err != nil {
 		return nil, err
@@ -55,36 +61,31 @@ func newMemoryRegionImpl(name string, size int64, mode int, flags uint32) (impl 
 	if err = file.Truncate(size); err != nil {
 		return
 	}
-	prot := shmProtFromMode(mode)
-	if data, mmapErr := unix.Mmap(int(file.Fd()), 0, int(size), prot, unix.MAP_SHARED); err != nil {
-		err = mmapErr
-		return
-	} else {
-		impl = &memoryRegionImpl{file: file, data: data}
-	}
+	impl = &memoryObjectImpl{file: file}
 	return
 }
 
-func (impl *memoryRegionImpl) Destroy() error {
+func (impl *memoryObjectImpl) Destroy() error {
 	if err := impl.Close(); err == nil {
-		return DestroyRegion(impl.file.Name())
+		return os.Remove(impl.file.Name())
 	} else {
 		return err
 	}
 }
 
-func (impl *memoryRegionImpl) Close() error {
-	if err := unix.Munmap(impl.data); err != nil {
-		return err
-	}
+func (impl *memoryObjectImpl) Name() string {
+	return filepath.Base(impl.file.Name())
+}
+
+func (impl *memoryObjectImpl) Close() error {
 	return impl.file.Close()
 }
 
-func (impl *memoryRegionImpl) Truncate(size int64) error {
+func (impl *memoryObjectImpl) Truncate(size int64) error {
 	return impl.file.Truncate(size)
 }
 
-func (impl *memoryRegionImpl) Size() int64 {
+func (impl *memoryObjectImpl) Size() int64 {
 	if fileInfo, err := impl.file.Stat(); err != nil {
 		return 0
 	} else {
@@ -92,8 +93,41 @@ func (impl *memoryRegionImpl) Size() int64 {
 	}
 }
 
-func DestroyRegion(name string) error {
-	return os.Remove(name)
+func (impl *memoryObjectImpl) Fd() int {
+	return int(impl.file.Fd())
+}
+
+func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
+	prot := shmProtFromMode(mode)
+	if data, err := unix.Mmap(obj.Fd(), offset, size, prot, unix.MAP_SHARED); err != nil {
+		return nil, err
+	} else {
+		return &memoryRegionImpl{data: data, size: size}, nil
+	}
+}
+
+func (impl *memoryRegionImpl) Close() error {
+	return unix.Munmap(impl.data)
+}
+
+func (impl *memoryRegionImpl) Data() []byte {
+	return impl.data
+}
+
+func (impl *memoryRegionImpl) Flush() error {
+	return msync(impl.data, unix.MS_SYNC)
+}
+
+func (impl *memoryRegionImpl) Size() int {
+	return impl.size
+}
+
+func DestroyMemoryObject(name string) error {
+	if path, err := shmName(name); err != nil {
+		return err
+	} else {
+		return os.Remove(path)
+	}
 }
 
 // glibc/sysdeps/posix/shm_open.c
@@ -156,4 +190,9 @@ func shmProtFromMode(mode int) int {
 		prot |= unix.PROT_WRITE
 	}
 	return prot
+}
+
+func msync(data []byte, flags int) error {
+	_, _, err := unix.Syscall(unix.SYS_MSYNC, uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), uintptr(flags))
+	return err
 }
