@@ -21,6 +21,6 @@ type iSharedMemoryObject interface {
 type iSharedMemoryRegion interface {
 	Data() []byte
 	Size() int
-	Flush() error
+	Flush(async bool) error
 	Close() error
 }

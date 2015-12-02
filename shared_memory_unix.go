@@ -6,10 +6,12 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -30,16 +32,13 @@ type memoryObjectImpl struct {
 }
 
 type memoryRegionImpl struct {
-	data []byte
-	size int
+	data       []byte
+	size       int
+	pageOffset int64
 }
 
-func newMemoryObjectImpl(name string, size int64, mode int, flags uint32) (impl *memoryObjectImpl, err error) {
+func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryObjectImpl, err error) {
 	mode, err = modeToUnixMode(mode)
-	if err != nil {
-		return nil, err
-	}
-	flags, err = flagsToUnixFlags(flags)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +47,7 @@ func newMemoryObjectImpl(name string, size int64, mode int, flags uint32) (impl 
 		return nil, err
 	}
 	var file *os.File
-	file, err = shmOpen(path, mode)
+	file, err = shmOpen(path, mode, perm)
 	if err != nil {
 		return
 	} else {
@@ -57,9 +56,6 @@ func newMemoryObjectImpl(name string, size int64, mode int, flags uint32) (impl 
 				file.Close()
 			}
 		}()
-	}
-	if err = file.Truncate(size); err != nil {
-		return
 	}
 	impl = &memoryObjectImpl{file: file}
 	return
@@ -99,10 +95,11 @@ func (impl *memoryObjectImpl) Fd() int {
 
 func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
 	prot := shmProtFromMode(mode)
-	if data, err := unix.Mmap(obj.Fd(), offset, size, prot, unix.MAP_SHARED); err != nil {
+	pageOffset := calcValidOffset(offset)
+	if data, err := unix.Mmap(obj.Fd(), offset-pageOffset, size+int(pageOffset), prot, unix.MAP_SHARED); err != nil {
 		return nil, err
 	} else {
-		return &memoryRegionImpl{data: data, size: size}, nil
+		return &memoryRegionImpl{data: data, size: size, pageOffset: pageOffset}, nil
 	}
 }
 
@@ -111,11 +108,15 @@ func (impl *memoryRegionImpl) Close() error {
 }
 
 func (impl *memoryRegionImpl) Data() []byte {
-	return impl.data
+	return impl.data[impl.pageOffset:]
 }
 
-func (impl *memoryRegionImpl) Flush() error {
-	return msync(impl.data, unix.MS_SYNC)
+func (impl *memoryRegionImpl) Flush(async bool) error {
+	flag := unix.MS_SYNC
+	if async {
+		flag = unix.MS_ASYNC
+	}
+	return msync(impl.data, flag)
 }
 
 func (impl *memoryRegionImpl) Size() int {
@@ -131,8 +132,8 @@ func DestroyMemoryObject(name string) error {
 }
 
 // glibc/sysdeps/posix/shm_open.c
-func shmOpen(path string, mode int) (file *os.File, err error) {
-	return os.OpenFile(path, mode, 0666) // TODO (avd) - 0777?
+func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
+	return os.OpenFile(path, mode, perm)
 }
 
 // glibc/sysdeps/posix/shm-directory.h
@@ -157,36 +158,33 @@ func shmDirectory() (string, error) {
 	return shmPath, nil
 }
 
-func flagsToUnixFlags(flags uint32) (uint32, error) {
-	return flags, nil
-}
-
-func modeToUnixMode(mode int) (int, error) {
-	var umode int
-	if mode&SHM_OPEN_CREATE != 0 {
-		umode |= (os.O_CREATE | os.O_RDWR | os.O_TRUNC)
+func modeToUnixMode(mode int) (umode int, err error) {
+	if mode&SHM_CREATE != 0 {
+		umode |= (os.O_CREATE | os.O_TRUNC | os.O_RDWR)
+		return
 	}
-	if mode&SHM_OPEN_CREATE_IF_NOT_EXISTS != 0 {
-		umode |= (os.O_EXCL | os.O_CREATE)
+	if mode&SHM_CREATE_ONLY != 0 {
+		umode |= (os.O_CREATE | os.O_EXCL | os.O_RDWR)
+		return
 	}
-	if mode&SHM_OPEN_READ != 0 {
-		if mode&SHM_OPEN_WRITE != 0 {
-			umode |= os.O_RDWR
-		} else {
+	if mode&SHM_READ != 0 {
+		if mode&SHM_RW == 0 {
 			umode |= os.O_RDONLY
+		} else {
+			return 0, fmt.Errorf("both SHM_READ and SHM_RW flags are set")
 		}
-	} else if mode&SHM_OPEN_WRITE != 0 {
-		umode |= os.O_WRONLY
+	} else if mode&SHM_RW != 0 {
+		umode |= os.O_RDWR
 	}
-	return umode, nil
+	return
 }
 
 func shmProtFromMode(mode int) int {
 	prot := unix.PROT_NONE
-	if mode&SHM_OPEN_READ != 0 {
+	if mode&SHM_READ != 0 {
 		prot |= unix.PROT_READ
 	}
-	if mode&SHM_OPEN_WRITE != 0 {
+	if mode&SHM_RW != 0 {
 		prot |= unix.PROT_WRITE
 	}
 	return prot
@@ -194,5 +192,13 @@ func shmProtFromMode(mode int) int {
 
 func msync(data []byte, flags int) error {
 	_, _, err := unix.Syscall(unix.SYS_MSYNC, uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), uintptr(flags))
-	return err
+	if err != syscall.Errno(0) {
+		return err
+	}
+	return nil
+}
+
+func calcValidOffset(offset int64) int64 {
+	pageSize := int64(os.Getpagesize())
+	return (offset - (offset/pageSize)*pageSize)
 }

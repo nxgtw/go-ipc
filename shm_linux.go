@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	SHMFS_SUPER_MAGIC = 0x01021994
-	RAMFS_MAGIC       = 0x858458f6
+	cSHMFS_SUPER_MAGIC = 0x01021994
+	cRAMFS_MAGIC       = 0x858458f6
 )
 
 type mntent struct {
@@ -47,7 +47,7 @@ func checkShmPath(path string) bool {
 }
 
 func isShmFs(fsType int64) bool {
-	return fsType == SHMFS_SUPER_MAGIC || fsType == RAMFS_MAGIC
+	return fsType == cSHMFS_SUPER_MAGIC || fsType == cRAMFS_MAGIC
 }
 
 func shmFsFromMounts() string {

@@ -1,1 +1,1 @@
-A golang libraby for inter-process communication
+A golang library for inter-process communication

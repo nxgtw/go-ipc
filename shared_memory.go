@@ -3,14 +3,16 @@
 package ipc
 
 import (
+	"os"
 	"runtime"
 )
 
 const (
-	SHM_OPEN_READ = 1 << iota
-	SHM_OPEN_WRITE
-	SHM_OPEN_CREATE
-	SHM_OPEN_CREATE_IF_NOT_EXISTS
+	SHM_CREATE = 1 << iota
+	SHM_CREATE_ONLY
+	SHM_OPEN_ONLY
+	SHM_READ
+	SHM_RW
 )
 
 // MemoryObject represents an object which can be used to
@@ -32,10 +34,11 @@ type MappableHandle interface {
 
 // Returns a new shared memory object.
 // name - a name of the region. should not contain '/' and exceed 255 symbols
-// mode - open mode. see SHM_OPEN* constants
-// flags - a set of (probably, platform-specific) flags. see SHM_FLAG_* constants
-func NewMemoryObject(name string, size int64, mode int, flags uint32) (*MemoryObject, error) {
-	impl, err := newMemoryObjectImpl(name, size, mode, flags)
+// size - object size
+// mode - open mode. see SHM_* constants
+// perm - file's mode and permission bits.
+func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, error) {
+	impl, err := newMemoryObjectImpl(name, mode, perm)
 	if err != nil {
 		return nil, err
 	}
