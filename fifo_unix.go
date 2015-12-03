@@ -33,7 +33,6 @@ func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	}
 	file, err := os.OpenFile(path, mode, perm)
 	if err != nil {
-		os.Remove(path)
 		return nil, err
 	}
 	return &Fifo{file: file}, nil
