@@ -9,14 +9,6 @@ import (
 	"syscall"
 )
 
-const (
-	SHM_CMD_CREATE  = "create"
-	SHM_CMD_DESTROY = "destroy"
-	SHM_CMD_READ    = "read"
-	SHM_CMD_TEST    = "test"
-	SHM_CMD_WRITE   = "write"
-)
-
 func argsForShmCreateCommand(name string, size int64) []string {
 	return []string{"-object=" + name, "create", fmt.Sprintf("%d", size)}
 }
@@ -50,14 +42,12 @@ func byteSliceToString(data []byte) string {
 	return buffer.String()
 }
 
-func runTestShmProg(args []string) (string, error) {
-	args = append([]string{"run", "./test/shared_memory_test_prog.go"}, args...)
+func runTestShmProg(args []string) (output string, err error) {
+	args = append([]string{"run", "./test_cmd/shared_memory/main.go"}, args...)
 	cmd := exec.Command("go", args...)
-	var err error
-	if err = cmd.Start(); err != nil {
-		return "", err
-	}
-	if err = cmd.Wait(); err != nil {
+	var out []byte
+	out, err = cmd.CombinedOutput()
+	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				err = fmt.Errorf("%v, status code = %d", err, status)
@@ -65,12 +55,10 @@ func runTestShmProg(args []string) (string, error) {
 		}
 	} else {
 		if cmd.ProcessState.Success() {
-			if out, err := cmd.CombinedOutput(); err == nil {
-				return string(out), nil
-			}
+			output = string(out)
 		} else {
 			err = fmt.Errorf("process has exited with an error")
 		}
 	}
-	return "", err
+	return
 }
