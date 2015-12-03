@@ -24,14 +24,17 @@ type Fifo struct {
 // perm - file permissions
 func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	path := fifoPath(name)
-	mode, err := accessModeToUnixMode(mode)
+	osMode, err := accessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
+	}
+	if mode&O_NONBLOCK != 0 {
+		osMode |= unix.O_NONBLOCK
 	}
 	if err := unix.Mkfifo(path, uint32(perm)); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, mode, perm)
+	file, err := os.OpenFile(path, osMode, perm)
 	if err != nil {
 		return nil, err
 	}

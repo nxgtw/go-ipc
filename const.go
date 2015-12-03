@@ -10,7 +10,7 @@ const (
 	O_READ_ONLY
 	O_WRITE_ONLY
 	O_READWRITE
-	O_NONBLOCK // for FIFO open only
+	O_NONBLOCK // TODO (avd) - move to unix-specific file. for FIFO open only
 )
 
 // constants for shared memory regions

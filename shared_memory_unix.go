@@ -131,7 +131,7 @@ func DestroyMemoryObject(name string) error {
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
 	var unixMode int
-	unixMode, err = modeToUnixMode(mode)
+	unixMode, err = modeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error)
 	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
 		file, err = os.OpenFile(path, unixMode, perm)
 	case mode&O_OPEN_OR_CREATE != 0:
-		amode, _ := accessModeToUnixMode(mode)
+		amode, _ := accessModeToOsMode(mode)
 		for {
 			if file, err = os.OpenFile(path, amode|unix.O_CREAT|unix.O_EXCL, perm); !os.IsExist(err) {
 				break
@@ -173,59 +173,6 @@ func shmDirectory() (string, error) {
 		return shmPath, errors.New("error locating the shared memory path")
 	}
 	return shmPath, nil
-}
-
-func createModeToUnixMode(mode int) (int, error) {
-	if mode&O_OPEN_OR_CREATE != 0 {
-		if mode&(O_CREATE_ONLY|O_OPEN_ONLY) != 0 {
-			return 0, fmt.Errorf("incompatible open flags")
-		}
-		return os.O_CREATE | os.O_TRUNC | os.O_RDWR, nil
-	}
-	if mode&O_CREATE_ONLY != 0 {
-		if mode&O_OPEN_ONLY != 0 {
-			return 0, fmt.Errorf("incompatible open flags")
-		}
-		return os.O_CREATE | os.O_EXCL | os.O_RDWR, nil
-	}
-	if mode&O_OPEN_ONLY != 0 {
-		return 0, nil
-	}
-	return 0, fmt.Errorf("no create mode flags")
-}
-
-func accessModeToUnixMode(mode int) (umode int, err error) {
-	if mode&O_NONBLOCK != 0 {
-		umode |= unix.O_NONBLOCK
-	}
-	if mode&O_READ_ONLY != 0 {
-		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {
-			return 0, fmt.Errorf("incompatible open flags")
-		}
-		return umode | os.O_RDONLY, nil
-	}
-	if mode&O_WRITE_ONLY != 0 {
-		if mode&O_READWRITE != 0 {
-			return 0, fmt.Errorf("incompatible open flags")
-		}
-		return umode | os.O_WRONLY, nil
-	}
-	if mode&O_READWRITE != 0 {
-		return umode | os.O_RDWR, nil
-	}
-	return 0, fmt.Errorf("no access mode flags")
-}
-
-func modeToUnixMode(mode int) (int, error) {
-	if createMode, err := createModeToUnixMode(mode); err == nil {
-		if accessMode, err := accessModeToUnixMode(mode); err == nil {
-			return createMode | accessMode, nil
-		} else {
-			return 0, err
-		}
-	} else {
-		return 0, err
-	}
 }
 
 func shmProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
