@@ -38,10 +38,6 @@ type memoryRegionImpl struct {
 }
 
 func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryObjectImpl, err error) {
-	mode, err = modeToUnixMode(mode)
-	if err != nil {
-		return nil, err
-	}
 	var path string
 	if path, err = shmName(name); err != nil {
 		return nil, err
@@ -50,12 +46,6 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	file, err = shmOpen(path, mode, perm)
 	if err != nil {
 		return
-	} else {
-		defer func() {
-			if err != nil && file != nil {
-				file.Close()
-			}
-		}()
 	}
 	impl = &memoryObjectImpl{file: file}
 	return
@@ -94,9 +84,12 @@ func (impl *memoryObjectImpl) Fd() int {
 }
 
 func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
-	prot := shmProtFromMode(mode)
+	prot, flags, err := shmProtAndFlagsFromMode(mode)
+	if err != nil {
+		return nil, err
+	}
 	pageOffset := calcValidOffset(offset)
-	if data, err := unix.Mmap(obj.Fd(), offset-pageOffset, size+int(pageOffset), prot, unix.MAP_SHARED); err != nil {
+	if data, err := unix.Mmap(obj.Fd(), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
 		return nil, err
 	} else {
 		return &memoryRegionImpl{data: data, size: size, pageOffset: pageOffset}, nil
@@ -127,13 +120,37 @@ func DestroyMemoryObject(name string) error {
 	if path, err := shmName(name); err != nil {
 		return err
 	} else {
-		return os.Remove(path)
+		err := os.Remove(path)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 }
 
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
-	return os.OpenFile(path, mode, perm)
+	var unixMode int
+	unixMode, err = modeToUnixMode(mode)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
+		file, err = os.OpenFile(path, unixMode, perm)
+	case mode&O_OPEN_OR_CREATE != 0:
+		amode, _ := accessModeToUnixMode(mode)
+		for {
+			if file, err = os.OpenFile(path, amode|unix.O_CREAT|unix.O_EXCL, perm); !os.IsExist(err) {
+				break
+			} else {
+				if file, err = os.OpenFile(path, amode, perm); !os.IsNotExist(err) {
+					break
+				}
+			}
+		}
+	}
+	return
 }
 
 // glibc/sysdeps/posix/shm-directory.h
@@ -158,36 +175,77 @@ func shmDirectory() (string, error) {
 	return shmPath, nil
 }
 
-func modeToUnixMode(mode int) (umode int, err error) {
-	if mode&SHM_CREATE != 0 {
-		umode |= (os.O_CREATE | os.O_TRUNC | os.O_RDWR)
-		return
-	}
-	if mode&SHM_CREATE_ONLY != 0 {
-		umode |= (os.O_CREATE | os.O_EXCL | os.O_RDWR)
-		return
-	}
-	if mode&SHM_READ != 0 {
-		if mode&SHM_RW == 0 {
-			umode |= os.O_RDONLY
-		} else {
-			return 0, fmt.Errorf("both SHM_READ and SHM_RW flags are set")
+func createModeToUnixMode(mode int) (int, error) {
+	if mode&O_OPEN_OR_CREATE != 0 {
+		if mode&(O_CREATE_ONLY|O_OPEN_ONLY) != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
 		}
-	} else if mode&SHM_RW != 0 {
-		umode |= os.O_RDWR
+		return os.O_CREATE | os.O_TRUNC | os.O_RDWR, nil
 	}
-	return
+	if mode&O_CREATE_ONLY != 0 {
+		if mode&O_OPEN_ONLY != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
+		}
+		return os.O_CREATE | os.O_EXCL | os.O_RDWR, nil
+	}
+	if mode&O_OPEN_ONLY != 0 {
+		return 0, nil
+	}
+	return 0, fmt.Errorf("no create mode flags")
 }
 
-func shmProtFromMode(mode int) int {
-	prot := unix.PROT_NONE
-	if mode&SHM_READ != 0 {
-		prot |= unix.PROT_READ
+func accessModeToUnixMode(mode int) (umode int, err error) {
+	if mode&O_NONBLOCK != 0 {
+		umode |= unix.O_NONBLOCK
 	}
-	if mode&SHM_RW != 0 {
-		prot |= unix.PROT_WRITE
+	if mode&O_READ_ONLY != 0 {
+		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
+		}
+		return umode | os.O_RDONLY, nil
 	}
-	return prot
+	if mode&O_WRITE_ONLY != 0 {
+		if mode&O_READWRITE != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
+		}
+		return umode | os.O_WRONLY, nil
+	}
+	if mode&O_READWRITE != 0 {
+		return umode | os.O_RDWR, nil
+	}
+	return 0, fmt.Errorf("no access mode flags")
+}
+
+func modeToUnixMode(mode int) (int, error) {
+	if createMode, err := createModeToUnixMode(mode); err == nil {
+		if accessMode, err := accessModeToUnixMode(mode); err == nil {
+			return createMode | accessMode, nil
+		} else {
+			return 0, err
+		}
+	} else {
+		return 0, err
+	}
+}
+
+func shmProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
+	switch mode {
+	case SHM_READ_ONLY:
+		prot = unix.PROT_READ
+		flags = unix.MAP_SHARED
+	case SHM_READ_PRIVATE:
+		prot = unix.PROT_READ
+		flags = unix.MAP_PRIVATE
+	case SHM_READWRITE:
+		prot = unix.PROT_READ | unix.PROT_WRITE
+		flags = unix.MAP_SHARED
+	case SHM_COPY_ON_WRITE:
+		prot = unix.PROT_READ | unix.PROT_WRITE
+		flags = unix.MAP_PRIVATE
+	default:
+		err = fmt.Errorf("invalid shm region flags")
+	}
+	return
 }
 
 func msync(data []byte, flags int) error {

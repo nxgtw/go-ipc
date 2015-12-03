@@ -3,47 +3,41 @@
 package ipc
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"syscall"
+
+	"bitbucket.org/avd/go-ipc/test"
+)
+
+const (
+	shmProgName = "./test/shared_memory/main.go"
 )
 
 func argsForShmCreateCommand(name string, size int64) []string {
-	return []string{"-object=" + name, "create", fmt.Sprintf("%d", size)}
+	return []string{shmProgName, "-object=" + name, "create", fmt.Sprintf("%d", size)}
 }
 
 func argsForShmDestroyCommand(name string) []string {
-	return []string{"-object=" + name, "destroy"}
+	return []string{shmProgName, "-object=" + name, "destroy"}
 }
 
 func argsForShmReadCommand(name string, offset int64, lenght int) []string {
-	return []string{"-object=" + name, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght)}
+	return []string{shmProgName, "-object=" + name, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght)}
 }
 
 func argsForShmTestCommand(name string, offset int64, data []byte) []string {
-	strBytes := byteSliceToString(data)
-	return []string{"-object=" + name, "test", fmt.Sprintf("%d", offset), strBytes}
+	strBytes := ipc_test.BytesToString(data)
+	return []string{shmProgName, "-object=" + name, "test", fmt.Sprintf("%d", offset), strBytes}
 }
 
 func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
-	strBytes := byteSliceToString(data)
-	return []string{"-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
-}
-
-func byteSliceToString(data []byte) string {
-	buffer := bytes.NewBuffer(nil)
-	for _, value := range data {
-		if value < 16 {
-			buffer.WriteString(fmt.Sprint("0"))
-		}
-		buffer.WriteString(fmt.Sprintf("%X", value))
-	}
-	return buffer.String()
+	strBytes := ipc_test.BytesToString(data)
+	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
 }
 
 func runTestShmProg(args []string) (output string, err error) {
-	args = append([]string{"run", "./test_cmd/shared_memory/main.go"}, args...)
+	args = append([]string{"run"}, args...)
 	cmd := exec.Command("go", args...)
 	var out []byte
 	out, err = cmd.CombinedOutput()

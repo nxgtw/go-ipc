@@ -3,21 +3,20 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 
 	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/test"
 )
 
 var (
 	objName = flag.String("object", "", "shared memory object name")
 )
 
-const usage = `test program for shared memory.
+const usage = `  test program for shared memory.
 available commands:
   create {size}
   destroy
@@ -35,7 +34,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	if obj, err := ipc.NewMemoryObject(*objName, ipc.SHM_CREATE, 0666); err != nil {
+	if obj, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666); err != nil {
 		return err
 	} else {
 		return obj.Truncate(int64(size))
@@ -61,43 +60,37 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.SHM_READ, 0666)
+	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ, int64(offset), length)
+	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), length)
 	if err != nil {
 		return err
 	}
 	if len(region.Data()) > 0 {
-		for _, value := range region.Data() {
-			if value < 16 {
-				fmt.Print("0")
-			}
-			fmt.Printf("%X", value)
-		}
-		fmt.Println()
+		fmt.Println(ipc_test.BytesToString(region.Data()))
 	}
 	return nil
 }
 
 func test() error {
-	if flag.NArg() < 3 {
+	if flag.NArg() != 3 {
 		return fmt.Errorf("test: must provide exactly three arguments")
 	}
 	offset, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.SHM_READ, 0666)
+	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {
 		return err
 	}
-	data, err := parseBytes(flag.Arg(2))
+	data, err := ipc_test.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ, int64(offset), len(data))
+	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), len(data))
 	if err != nil {
 		return err
 	}
@@ -110,22 +103,22 @@ func test() error {
 }
 
 func write() error {
-	if flag.NArg() < 3 {
+	if flag.NArg() != 3 {
 		return fmt.Errorf("test: must provide exactly three arguments")
 	}
 	offset, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.SHM_RW, 0666)
+	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if err != nil {
 		return err
 	}
-	data, err := parseBytes(flag.Arg(2))
+	data, err := ipc_test.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_RW, int64(offset), len(data))
+	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READWRITE, int64(offset), len(data))
 	if err != nil {
 		return err
 	}
@@ -152,31 +145,6 @@ func runCommand() error {
 	default:
 		return fmt.Errorf("unknown command")
 	}
-}
-
-func parseBytes(input string) ([]byte, error) {
-	if len(input)%2 != 0 {
-		return nil, fmt.Errorf("invalid byte array len")
-	}
-	var err error
-	var b byte
-	buff := bytes.NewBuffer(nil)
-	for err == nil {
-		if len(input) < 2 {
-			err = io.EOF
-		} else {
-			if _, err = fmt.Sscanf(input[:2], "%X", &b); err == nil {
-				buff.WriteByte(b)
-				if len(input) >= 2 {
-					input = input[2:]
-				}
-			}
-		}
-	}
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return buff.Bytes(), nil
 }
 
 func main() {
