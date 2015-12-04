@@ -5,6 +5,7 @@
 package ipc
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -21,18 +22,23 @@ type Fifo struct {
 //	O_READ_ONLY
 //	O_WRITE_ONLY
 //	O_READWRITE
+//	O_FIFO_NONBLOCK can be used with O_READ_ONLY and O_READWRITE
 // perm - file permissions
 func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	path := fifoPath(name)
+	if err := unix.Mkfifo(path, uint32(perm)); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
 	osMode, err := accessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
-	if mode&O_NONBLOCK != 0 {
+	if mode&O_FIFO_NONBLOCK != 0 {
+		// add this check, as system error text is not descriptive
+		if osMode&os.O_WRONLY != 0 {
+			return nil, fmt.Errorf("cannot open fifo in write-only non-blocking mode")
+		}
 		osMode |= unix.O_NONBLOCK
-	}
-	if err := unix.Mkfifo(path, uint32(perm)); err != nil && !os.IsExist(err) {
-		return nil, err
 	}
 	file, err := os.OpenFile(path, osMode, perm)
 	if err != nil {

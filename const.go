@@ -4,19 +4,20 @@ package ipc
 
 // common flags for opening/creation of objects
 const (
-	O_OPEN_OR_CREATE = 1 << iota
-	O_CREATE_ONLY
-	O_OPEN_ONLY
-	O_READ_ONLY
-	O_WRITE_ONLY
-	O_READWRITE
-	O_NONBLOCK // TODO (avd) - move to unix-specific file. for FIFO open only
+	// flags below are common for all the platforms and open operations
+	O_OPEN_OR_CREATE = 0x00000001
+	O_CREATE_ONLY    = 0x00000002
+	O_OPEN_ONLY      = 0x00000004
+	O_READ_ONLY      = 0x00000008
+	O_WRITE_ONLY     = 0x00000010
+	O_READWRITE      = 0x00000020
+	// other values can be platform-specific, and/or operation-specific
 )
 
 // constants for shared memory regions
 const (
-	SHM_READ_ONLY = iota
-	SHM_READ_PRIVATE
-	SHM_READWRITE
-	SHM_COPY_ON_WRITE
+	SHM_READ_ONLY     = 0x00000001
+	SHM_READ_PRIVATE  = 0x00000002
+	SHM_READWRITE     = 0x00000004
+	SHM_COPY_ON_WRITE = 0x00000008
 )

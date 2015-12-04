@@ -21,13 +21,9 @@ func StringToBytes(input string) ([]byte, error) {
 	for err == nil {
 		if len(input) < 2 {
 			err = io.EOF
-		} else {
-			if _, err = fmt.Sscanf(input[:2], "%X", &b); err == nil {
-				buff.WriteByte(b)
-				if len(input) >= 2 {
-					input = input[2:]
-				}
-			}
+		} else if _, err = fmt.Sscanf(input[:2], "%X", &b); err == nil {
+			buff.WriteByte(b)
+			input = input[2:]
 		}
 	}
 	if err != nil && err != io.EOF {
@@ -41,7 +37,7 @@ func StringToBytes(input string) ([]byte, error) {
 func BytesToString(data []byte) string {
 	buff := bytes.NewBuffer(nil)
 	for _, value := range data {
-		if value < 16 {
+		if value < 16 { // force leading 0 for 1-digit values
 			buff.WriteString("0")
 		}
 		buff.WriteString(fmt.Sprintf("%X", value))

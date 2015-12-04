@@ -14,6 +14,10 @@ const (
 	defaultObjectName = "go-ipc-test"
 )
 
+var (
+	shmTestData = []byte{1, 2, 3, 4, 128, 255}
+)
+
 func TestCreateMemoryRegion(t *testing.T) {
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	assert.NoError(t, err)
@@ -105,7 +109,7 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 }
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
-	testdata := []byte{1, 2, 3, 4, 128, 255}
+	shmTestData := []byte{1, 2, 3, 4, 128, 255}
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -114,22 +118,22 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(testdata))
+	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer region.Close()
-	copy(region.Data(), testdata)
+	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	region2, err := NewMemoryRegion(object, SHM_READ_ONLY, 128, len(testdata))
+	region2, err := NewMemoryRegion(object, SHM_READ_ONLY, 128, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Equal(t, testdata, region2.Data())
+	assert.Equal(t, shmTestData, region2.Data())
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
-	testdata := []byte{1, 2, 3, 4, 128, 255}
+	shmTestData := []byte{1, 2, 3, 4, 128, 255}
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -138,19 +142,18 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(testdata))
+	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer region.Close()
-	copy(region.Data(), testdata)
+	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	output, err := runTestShmProg(argsForShmTestCommand(defaultObjectName, 128, testdata))
-	assert.NoError(t, err, output)
+	result := runTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
+	assert.NoError(t, result.err)
 }
 
 func TestReadMemoryAnotherProcess(t *testing.T) {
-	testdata := []byte{1, 2, 3, 4, 128, 255}
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -159,14 +162,14 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	_, err = runTestShmProg(argsForShmWriteCommand(defaultObjectName, 0, testdata))
-	if !assert.NoError(t, err) {
+	result := runTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
+	if !assert.NoError(t, result.err) {
 		return
 	}
-	region, err := NewMemoryRegion(object, SHM_READ_ONLY, 0, len(testdata))
+	region, err := NewMemoryRegion(object, SHM_READ_ONLY, 0, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer region.Close()
-	assert.Equal(t, testdata, region.Data())
+	assert.Equal(t, shmTestData, region.Data())
 }

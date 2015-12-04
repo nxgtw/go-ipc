@@ -130,14 +130,14 @@ func DestroyMemoryObject(name string) error {
 
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
-	var unixMode int
-	unixMode, err = modeToOsMode(mode)
+	var osMode int
+	osMode, err = modeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
 	switch {
 	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
-		file, err = os.OpenFile(path, unixMode, perm)
+		file, err = os.OpenFile(path, osMode, perm)
 	case mode&O_OPEN_OR_CREATE != 0:
 		amode, _ := accessModeToOsMode(mode)
 		for {

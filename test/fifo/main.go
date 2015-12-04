@@ -20,6 +20,7 @@ var (
 const usage = `  test program for fifo.
 available commands:
   create
+    this operation never blocks
   destroy
   read len
   test {expected values byte array}
@@ -32,11 +33,10 @@ func create() error {
 		return fmt.Errorf("create: must provide exactly one argument")
 	}
 	mode := ipc.O_READWRITE
-	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
-	}
-	if _, err := ipc.NewFifo(*objName, mode, 0666); err != nil {
+	if fifo, err := ipc.NewFifo(*objName, mode, 0666); err != nil {
 		return err
+	} else {
+		fifo.Close()
 	}
 	return nil
 }
@@ -58,15 +58,16 @@ func read() error {
 	}
 	mode := ipc.O_READ_ONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= ipc.O_FIFO_NONBLOCK
 	}
-	object, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
+	defer fifo.Close()
 	buffer := make([]byte, length)
 	var n int
-	if n, err = object.Read(buffer); err == nil {
+	if n, err = fifo.Read(buffer); err == nil {
 		if n == length {
 			if length > 0 {
 				fmt.Println(ipc_test.BytesToString(buffer))
@@ -84,18 +85,19 @@ func test() error {
 	}
 	mode := ipc.O_READ_ONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= ipc.O_FIFO_NONBLOCK
 	}
-	object, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
+	defer fifo.Close()
 	data, err := ipc_test.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
 	buffer := make([]byte, len(data))
-	if _, err = object.Read(buffer); err == nil {
+	if _, err = fifo.Read(buffer); err == nil {
 		for i, value := range data {
 			if value != buffer[i] {
 				return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, buffer[i])
@@ -109,19 +111,20 @@ func write() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly two arguments")
 	}
-	mode := ipc.O_READWRITE
+	mode := ipc.O_WRITE_ONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= ipc.O_FIFO_NONBLOCK
 	}
-	object, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
+	defer fifo.Close()
 	data, err := ipc_test.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	_, err = object.Write(data)
+	_, err = fifo.Write(data)
 	return err
 }
 

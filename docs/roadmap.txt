@@ -7,6 +7,11 @@ Links:
 	http://code.metager.de/source/xref/gnu/
 	http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	https://msdn.microsoft.com/ru-ru/library/windows/desktop/aa366551(v=vs.85).aspx
+	https://github.com/edsrzf/mmap-go
+	
+D-bus:
+	https://github.com/norisatir/go-dbus
+	https://github.com/guelfey/go.dbus
 
 OS: 
 	1) linux

@@ -37,6 +37,7 @@ func create() error {
 	if obj, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666); err != nil {
 		return err
 	} else {
+		defer obj.Close()
 		return obj.Truncate(int64(size))
 	}
 }
@@ -64,10 +65,12 @@ func read() error {
 	if err != nil {
 		return err
 	}
+	defer object.Close()
 	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), length)
 	if err != nil {
 		return err
 	}
+	defer region.Close()
 	if len(region.Data()) > 0 {
 		fmt.Println(ipc_test.BytesToString(region.Data()))
 	}
@@ -86,11 +89,13 @@ func test() error {
 	if err != nil {
 		return err
 	}
+	defer object.Close()
 	data, err := ipc_test.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
 	}
 	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), len(data))
+	defer region.Close()
 	if err != nil {
 		return err
 	}
@@ -114,6 +119,7 @@ func write() error {
 	if err != nil {
 		return err
 	}
+	defer object.Close()
 	data, err := ipc_test.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
@@ -122,6 +128,10 @@ func write() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		region.Flush(true)
+		region.Close()
+	}()
 	rData := region.Data()
 	for i, value := range data {
 		rData[i] = value
