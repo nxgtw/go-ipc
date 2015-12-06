@@ -60,6 +60,9 @@ func TestFifoBlockRead(t *testing.T) {
 		!assert.Equal(t, testData, buff) {
 		return
 	}
+	if !assert.Equal(t, testData, buff) {
+		return
+	}
 	appResult, success := waitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
 		appKillChan <- true
