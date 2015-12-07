@@ -79,7 +79,9 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 	if killChan != nil {
 		go func() {
 			if kill, ok := <-killChan; kill && ok {
-				cmd.Process.Kill()
+				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+					cmd.Process.Kill()
+				}
 			}
 		}()
 	}

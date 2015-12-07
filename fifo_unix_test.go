@@ -18,7 +18,7 @@ func TestFifoCreate(t *testing.T) {
 	if !assert.NoError(t, DestroyFifo(testFifoName)) {
 		return
 	}
-	fifo, err := NewFifo(testFifoName, O_READWRITE, 0666)
+	fifo, err := NewFifo(testFifoName, O_READ_ONLY|O_FIFO_NONBLOCK, 0666)
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 	}
@@ -29,7 +29,7 @@ func TestFifoCreateAbsPath(t *testing.T) {
 	if !assert.NoError(t, DestroyFifo("/tmp/go-fifo-test")) {
 		return
 	}
-	fifo, err := NewFifo("/tmp/go-fifo-test", O_READWRITE, 0666)
+	fifo, err := NewFifo("/tmp/go-fifo-test", O_READ_ONLY|O_FIFO_NONBLOCK, 0666)
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 	}
@@ -46,7 +46,7 @@ func TestFifoBlockRead(t *testing.T) {
 	defer DestroyFifo(testFifoName)
 	buff := make([]byte, len(testData))
 	appKillChan := make(chan bool, 1)
-	defer close(appKillChan)
+	defer func() { appKillChan <- true }()
 	ch := runTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
 	success := waitForFunc(func() {
@@ -65,7 +65,64 @@ func TestFifoBlockRead(t *testing.T) {
 	}
 	appResult, success := waitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
-		appKillChan <- true
+		return
+	}
+	assert.NoError(t, appResult.err)
+}
+
+// 1) write data into a fifo in blocking mode
+// 2) read that data in another process in blocking mode
+// 3) the results are compared by another process
+func TestFifoBlockWrite(t *testing.T) {
+	testData := []byte{0, 128, 255}
+	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+		return
+	}
+	defer DestroyFifo(testFifoName)
+	appKillChan := make(chan bool, 1)
+	defer func() { appKillChan <- true }()
+	ch := runTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	fifo, err := NewFifo(testFifoName, O_WRITE_ONLY, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = fifo.Write(testData)
+	if !assert.NoError(t, err) {
+		return
+	}
+	appResult, success := waitForAppResultChan(ch, time.Second)
+	if !assert.True(t, success) {
+		return
+	}
+	assert.NoError(t, appResult.err)
+}
+
+// 1) write data into a fifo in non-blocking mode
+// 2) read that data in another process in blocking mode
+// 3) the results are compared by another process
+func TestFifoNonBlockWrite(t *testing.T) {
+	testData := []byte{0, 128, 255}
+	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+		return
+	}
+	defer DestroyFifo(testFifoName)
+	appKillChan := make(chan bool, 1)
+	defer func() { appKillChan <- true }()
+	ch := runTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	fifo, err := NewFifo(testFifoName, O_WRITE_ONLY|O_FIFO_NONBLOCK, 0666)
+	// wait for app to launch and start reading from the fifo
+	for n := 0; err != nil && n < 10; n++ {
+		<-time.After(time.Millisecond * 200)
+		fifo, err = NewFifo(testFifoName, O_WRITE_ONLY|O_FIFO_NONBLOCK, 0666)
+	}
+	if !assert.NoError(t, err) {
+		return
+	}
+	if written, err := fifo.Write(testData); !assert.NoError(t, err) || !assert.Equal(t, written, len(testData)) {
+		return
+	}
+	appResult, success := waitForAppResultChan(ch, time.Second)
+	if !assert.True(t, success) {
 		return
 	}
 	assert.NoError(t, appResult.err)

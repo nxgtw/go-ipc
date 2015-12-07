@@ -21,7 +21,6 @@ type Fifo struct {
 // mode - access mode. can be one of the following:
 //	O_READ_ONLY
 //	O_WRITE_ONLY
-//	O_READWRITE
 //	O_FIFO_NONBLOCK can be used with O_READ_ONLY and O_READWRITE
 // perm - file permissions
 func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
@@ -33,11 +32,12 @@ func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	if err != nil {
 		return nil, err
 	}
+	if osMode&os.O_RDWR != 0 {
+		// open man says "The result is undefined if this flag is applied to a FIFO."
+		// so, we don't allow it and return an error
+		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
+	}
 	if mode&O_FIFO_NONBLOCK != 0 {
-		// add this check, as system error text is not descriptive
-		if osMode&os.O_WRONLY != 0 {
-			return nil, fmt.Errorf("cannot open fifo in write-only non-blocking mode")
-		}
 		osMode |= unix.O_NONBLOCK
 	}
 	file, err := os.OpenFile(path, osMode, perm)

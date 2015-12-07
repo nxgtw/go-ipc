@@ -124,7 +124,9 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	_, err = fifo.Write(data)
+	if written, err := fifo.Write(data); err == nil && written != len(data) {
+		err = fmt.Errorf("must write %d bytes, but wrote %d", len(data), written)
+	}
 	return err
 }
 
