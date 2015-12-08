@@ -51,6 +51,7 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	return
 }
 
+// TODO(avd) - check if it is OK for regions to live after the obj was gc'ed
 func (impl *memoryObjectImpl) Destroy() error {
 	if err := impl.Close(); err == nil {
 		return os.Remove(impl.file.Name())

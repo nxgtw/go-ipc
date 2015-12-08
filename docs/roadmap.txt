@@ -12,6 +12,10 @@ Links:
 D-bus:
 	https://github.com/norisatir/go-dbus
 	https://github.com/guelfey/go.dbus
+	
+Mutex:
+	named_sharable_mutex --> holds m_shmem with interprocess_sharable_mutex --> interprocess_mutex
+	named_mutex --> holds m_shmem with shm_named_mutex --> interprocess_mutex
 
 OS: 
 	1) linux

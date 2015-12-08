@@ -59,6 +59,8 @@ func (f *Fifo) Close() error {
 	return f.file.Close()
 }
 
+// destroys the object, closing it at first
+// if the fifo has already been removed, it returns an error
 func (f *Fifo) Destroy() error {
 	if err := f.file.Close(); err == nil {
 		return os.Remove(f.file.Name())
@@ -67,6 +69,8 @@ func (f *Fifo) Destroy() error {
 	}
 }
 
+// destroys fifo with a given name
+// if the fifo does not exists, the error is nil
 func DestroyFifo(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {
