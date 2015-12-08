@@ -86,6 +86,30 @@ func TestMemoryObjectName(t *testing.T) {
 	}
 }
 
+func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
+	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer DestroyMemoryObject(defaultObjectName)
+	if !assert.NoError(t, object.Truncate(1024)) {
+		return
+	}
+	region, err := NewMemoryRegion(object, SHM_READWRITE, 0, 1024)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.NoError(t, object.Close()) {
+		return
+	}
+	assert.NotPanics(t, func() {
+		data := region.Data()
+		for i, _ := range data {
+			data[i] = byte(i)
+		}
+	})
+}
+
 func TestMemoryObjectCloseOnGc(t *testing.T) {
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {

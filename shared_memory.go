@@ -45,7 +45,7 @@ func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, er
 // Returns a new shared memory region.
 // object - an object containing a descriptor of the file, which can be mmaped
 // size - object size
-// mode - open mode. see O_* constants
+// mode - open mode. see SHM_* constants
 // offset - offset in bytes from the beginning of the mmaped file
 // size - region size
 func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*MemoryRegion, error) {
