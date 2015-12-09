@@ -8,7 +8,9 @@ import (
 	"unsafe"
 )
 
-func objectAddress(v interface{}) uintptr {
+// returns an address of the object stored continuously in the memory
+// the object must not contain any references
+func valueObjectAddress(v interface{}) uintptr {
 	const (
 		interfaceSize = unsafe.Sizeof(v)
 		pointerSize   = unsafe.Sizeof(uintptr(0))
@@ -16,6 +18,16 @@ func objectAddress(v interface{}) uintptr {
 	interfaceBytes := *((*[interfaceSize]byte)(unsafe.Pointer(&v)))
 	objRawPointer := *(*uintptr)(unsafe.Pointer(&(interfaceBytes[interfaceSize-pointerSize])))
 	return objRawPointer
+}
+
+func objectAddress(object interface{}, kind reflect.Kind) uintptr {
+	var addr uintptr
+	addr = valueObjectAddress(object)
+	if kind == reflect.Slice {
+		header := *(*reflect.SliceHeader)(unsafe.Pointer(addr))
+		addr = header.Data
+	}
+	return addr
 }
 
 func alloc(memory []byte, object interface{}) error {
@@ -34,23 +46,24 @@ func alloc(memory []byte, object interface{}) error {
 	if err := checkType(value.Type(), 0); err != nil {
 		return err
 	}
-	var addr uintptr
-	if value.Kind() != reflect.Slice {
-		addr = objectAddress(object)
-	} else {
-		addr = value.Pointer()
-	}
-	vvalue := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
-	copy(memory, vvalue[:])
+	addr := objectAddress(object, value.Kind())
+	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
+	copy(memory, objectData[:size])
 	return nil
+}
+
+func byteSliceToUintPtr(memory []byte) uintptr {
+	return uintptr(unsafe.Pointer(&(memory[0])))
 }
 
 func checkObject(object interface{}) error {
 	return checkType(reflect.ValueOf(object).Type(), 0)
 }
 
+// checks if an object of type can be safely copied by byte.
 // the object must not contain any reference types like
 // maps, strings, pointers and so on
+// slices can be at the top level only
 func checkType(t reflect.Type, depth int) error {
 	kind := t.Kind()
 	if kind == reflect.Array {
@@ -58,7 +71,7 @@ func checkType(t reflect.Type, depth int) error {
 	}
 	if kind == reflect.Slice {
 		if depth != 0 {
-			return fmt.Errorf("unsupported slice in a struct")
+			return fmt.Errorf("unsupported slices as elems or struct fields")
 		}
 		return checkType(t.Elem(), depth+1)
 	}
