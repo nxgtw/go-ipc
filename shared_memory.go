@@ -13,7 +13,17 @@ type MemoryObject struct {
 	*memoryObjectImpl
 }
 
-// MemoryRegion is a mmapped area of a memory object
+// MemoryRegion is a mmapped area of a memory object.
+// Warning. The internal object has a finalizer set,
+// so the region will be unmapped during the gc.
+// Thus, you should be carefull getting internal data.
+// For example, the following code may crash:
+// func f() {
+// 	region := NewMemoryRegion(...)
+// 	return g(region.Data())
+// region may be gc'ed while its data is used by g()
+// To avoid this, pass a region into a function and
+// get its data inside that function.
 type MemoryRegion struct {
 	*memoryRegionImpl
 }

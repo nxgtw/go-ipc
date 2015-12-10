@@ -39,14 +39,14 @@ func TestCheckObjectType(t *testing.T) {
 	assert.NoError(t, checkObject(arr))
 	assert.NoError(t, checkObject(arr[:]))
 	assert.NoError(t, checkObject(validStruct{}))
+	assert.NoError(t, checkObject(sync.Mutex{}))
+
 	assert.Error(t, checkObject(invalidStruct1{}))
 	assert.Error(t, checkObject(invalidStruct2{}))
 	assert.Error(t, checkObject(invalidStruct3{}))
 	assert.Error(t, checkObject(arr2))
 	assert.Error(t, checkObject(arr2[:]))
-	assert.NoError(t, checkObject(sync.Mutex{}))
 	assert.Error(t, checkObject(m))
-
 	assert.Error(t, checkObject(slsl))
 }
 
@@ -56,7 +56,7 @@ func TestAllocInt(t *testing.T) {
 	if !assert.NoError(t, alloc(data, i)) {
 		return
 	}
-	ptr := (*int)(unsafe.Pointer(byteSliceToUintPtr(data)))
+	ptr := (*int)(unsafe.Pointer(byteSliceAddress(data)))
 	assert.Equal(t, i, *ptr)
 }
 
@@ -66,7 +66,7 @@ func TestAllocIntArray(t *testing.T) {
 	if !assert.NoError(t, alloc(data, i)) {
 		return
 	}
-	ptr := (*[3]int)(unsafe.Pointer(byteSliceToUintPtr(data)))
+	ptr := (*[3]int)(unsafe.Pointer(byteSliceAddress(data)))
 	assert.Equal(t, i, *ptr)
 }
 
@@ -84,7 +84,7 @@ func TestAllocStruct(t *testing.T) {
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*s)(unsafe.Pointer(byteSliceToUintPtr(data)))
+	ptr := (*s)(unsafe.Pointer(byteSliceAddress(data)))
 	assert.Equal(t, obj, *ptr)
 }
 
@@ -94,20 +94,42 @@ func TestAllocMutex(t *testing.T) {
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*sync.Mutex)(unsafe.Pointer(byteSliceToUintPtr(data)))
+	ptr := (*sync.Mutex)(unsafe.Pointer(byteSliceAddress(data)))
 	assert.Equal(t, obj, *ptr)
 }
 
-/* TODO(avd) - fix it
 func TestAllocSlice(t *testing.T) {
-	obj := make([]uint, 10)
+	obj := make([]int, 10)
 	for i, _ := range obj {
-		obj[i] = uint(i)
+		obj[i] = int(i)
 	}
-	data := make([]byte, unsafe.Sizeof(uint(0))*10)
+	data := make([]byte, unsafe.Sizeof(int(0))*10)
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*[]byte)(unsafe.Pointer(byteSliceToUintPtr(data)))
-	assert.Equal(t, obj, *ptr)
-}*/
+	sl := intSliceFromMemory(data, 10, 10)
+	assert.Equal(t, obj, sl)
+}
+
+func TestAllocSliceReadAsArray(t *testing.T) {
+	obj := make([]int, 10)
+	for i, _ := range obj {
+		obj[i] = int(i)
+	}
+	data := make([]byte, unsafe.Sizeof(int(0))*10)
+	if !assert.NoError(t, alloc(data, obj)) {
+		return
+	}
+	ptr := (*[10]int)(unsafe.Pointer(byteSliceAddress(data)))
+	assert.Equal(t, obj, (*ptr)[:])
+}
+
+func TestAllocArrayReadAsSlice(t *testing.T) {
+	i := [3]int{0x01, 0x7F, 0xFF}
+	data := make([]byte, unsafe.Sizeof(i))
+	if !assert.NoError(t, alloc(data, i)) {
+		return
+	}
+	sl := intSliceFromMemory(data, 3, 3)
+	assert.Equal(t, i[:], sl)
+}

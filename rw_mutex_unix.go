@@ -16,9 +16,19 @@ type rwMutexImpl struct {
 	name   string
 }
 
+// used for rwMutexImpl.RLocker().
+// we can't use internal mutex's rlocker, as
+// it may be used longer, then the rwMutexImpl object,
+// which can be garbage collected and
+// its shared memory region be removed
+type rlocker rwMutexImpl
+
+func (r *rlocker) Lock()   { (*rwMutexImpl)(r).RLock() }
+func (r *rlocker) Unlock() { (*rwMutexImpl)(r).RUnlock() }
+
 func newRwMutexImpl(name string, mode int, perm os.FileMode) (*rwMutexImpl, error) {
 	name = "go-ipc.rwm." + name
-	obj, err := NewMemoryObject(name, mode, perm)
+	obj, err := NewMemoryObject(name, mode|O_READWRITE, perm)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +45,7 @@ func newRwMutexImpl(name string, mode int, perm os.FileMode) (*rwMutexImpl, erro
 	if err := alloc(region.Data(), sync.RWMutex{}); err != nil {
 		return nil, err
 	}
-	m := (*sync.RWMutex)(unsafe.Pointer(byteSliceToUintPtr(region.Data())))
+	m := (*sync.RWMutex)(unsafe.Pointer(byteSliceAddress(region.Data())))
 	return &rwMutexImpl{m, region, name}, nil
 }
 
@@ -48,7 +58,7 @@ func (rw *rwMutexImpl) RLock() {
 }
 
 func (rw *rwMutexImpl) RLocker() sync.Locker {
-	return rw.m.RLocker()
+	return (*rlocker)(rw)
 }
 
 func (rw *rwMutexImpl) RUnlock() {
@@ -59,8 +69,15 @@ func (rw *rwMutexImpl) Unlock() {
 	rw.m.Unlock()
 }
 
-func (rw *rwMutexImpl) Destroy() {
+func (rw *rwMutexImpl) Destroy() error {
 	rw.m = nil
-	rw.region.Close()
-	DestroyMemoryObject(rw.name)
+	if err := rw.region.Close(); err != nil {
+		return err
+	}
+	rw.region = nil
+	return DestroyMemoryObject(rw.name)
+}
+
+func DestroyRwMutex(name string) error {
+	return DestroyMemoryObject(name)
 }

@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	ipc "bitbucket.org/avd/go-ipc"
-	"bitbucket.org/avd/go-ipc/test"
+	"bitbucket.org/avd/go-ipc/internal/test"
 )
 
 var (

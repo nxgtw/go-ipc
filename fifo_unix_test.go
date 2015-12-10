@@ -82,6 +82,7 @@ func TestFifoBlockWrite(t *testing.T) {
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
 	ch := runTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	// TODO(avd) - run it async
 	fifo, err := NewFifo(testFifoName, O_WRITE_ONLY, 0666)
 	if !assert.NoError(t, err) {
 		return

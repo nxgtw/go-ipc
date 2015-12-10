@@ -8,6 +8,8 @@ import (
 	"unsafe"
 )
 
+const maxObjectSize = 128 * 1024 * 1024
+
 // returns an address of the object stored continuously in the memory
 // the object must not contain any references
 func valueObjectAddress(v interface{}) uintptr {
@@ -20,6 +22,8 @@ func valueObjectAddress(v interface{}) uintptr {
 	return objRawPointer
 }
 
+// returns the address of the given object
+// if a slice is passed, it will returns a pointer to the actual data
 func objectAddress(object interface{}, kind reflect.Kind) uintptr {
 	var addr uintptr
 	addr = valueObjectAddress(object)
@@ -30,13 +34,31 @@ func objectAddress(object interface{}, kind reflect.Kind) uintptr {
 	return addr
 }
 
+// copies value's data into a byte slice.
+// if a slice is passed, it will copy data it references to
+func copyObjectData(value reflect.Value, memory []byte) {
+	addr := objectAddress(value.Interface(), value.Kind())
+	t := value.Type()
+	size := t.Size()
+	if value.Kind() == reflect.Slice {
+		size = uintptr(value.Len()) * t.Elem().Size()
+	}
+	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
+	copy(memory, objectData[:size])
+}
+
+// copies value's data into a byte slice performing soem sanity checks
+// the object either must be a slice, or should be a sort of an object,
+// which does not contain any references inside, i.e. should be placed
+// in the memory continuously.
+// if the object is a slice, only actual data is stored. the calling site
+// must save object's lenght and capacity
 func alloc(memory []byte, object interface{}) error {
-	const maxObjectSize = 128 * 1024 * 1024
-	size := reflect.ValueOf(object).Type().Size()
+	size := int(reflect.ValueOf(object).Type().Size())
 	if size > maxObjectSize {
 		return fmt.Errorf("the object exceeds max object size of %d", maxObjectSize)
 	}
-	if int(size) > len(memory) {
+	if size > len(memory) {
 		return fmt.Errorf("the object is too large for the buffer")
 	}
 	value := reflect.ValueOf(object)
@@ -46,24 +68,31 @@ func alloc(memory []byte, object interface{}) error {
 	if err := checkType(value.Type(), 0); err != nil {
 		return err
 	}
-	addr := objectAddress(object, value.Kind())
-	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
-	copy(memory, objectData[:size])
+	copyObjectData(value, memory)
 	return nil
 }
 
-func byteSliceToUintPtr(memory []byte) uintptr {
+func byteSliceAddress(memory []byte) uintptr {
 	return uintptr(unsafe.Pointer(&(memory[0])))
 }
 
-func checkObject(object interface{}) error {
-	return checkType(reflect.ValueOf(object).Type(), 0)
+func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
+	sl := reflect.SliceHeader{
+		Len:  lenght,
+		Cap:  capacity,
+		Data: byteSliceAddress(memory),
+	}
+	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
 // checks if an object of type can be safely copied by byte.
 // the object must not contain any reference types like
-// maps, strings, pointers and so on
+// maps, strings, pointers and so on.
 // slices can be at the top level only
+func checkObject(object interface{}) error {
+	return checkType(reflect.ValueOf(object).Type(), 0)
+}
+
 func checkType(t reflect.Type, depth int) error {
 	kind := t.Kind()
 	if kind == reflect.Array {
@@ -71,7 +100,7 @@ func checkType(t reflect.Type, depth int) error {
 	}
 	if kind == reflect.Slice {
 		if depth != 0 {
-			return fmt.Errorf("unsupported slices as elems or struct fields")
+			return fmt.Errorf("slices as array elems or struct fields are not supported")
 		}
 		return checkType(t.Elem(), depth+1)
 	}

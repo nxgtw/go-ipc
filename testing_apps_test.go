@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/test"
+	"bitbucket.org/avd/go-ipc/internal/test"
 )
 
 const (
-	shmProgName  = "./test/shared_memory/main.go"
-	fifoProgName = "./test/fifo/main.go"
+	shmProgName  = "./internal/test/shared_memory/main.go"
+	fifoProgName = "./internal/test/fifo/main.go"
 )
 
 type testAppResult struct {
