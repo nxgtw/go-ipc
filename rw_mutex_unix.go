@@ -26,6 +26,7 @@ type rlocker rwMutexImpl
 func (r *rlocker) Lock()   { (*rwMutexImpl)(r).RLock() }
 func (r *rlocker) Unlock() { (*rwMutexImpl)(r).RUnlock() }
 
+// TODO(avd) - handle errors more carefully!
 func newRwMutexImpl(name string, mode int, perm os.FileMode) (*rwMutexImpl, error) {
 	name = "go-ipc.rwm." + name
 	obj, err := NewMemoryObject(name, mode|O_READWRITE, perm)
@@ -43,6 +44,8 @@ func newRwMutexImpl(name string, mode int, perm os.FileMode) (*rwMutexImpl, erro
 		return nil, err
 	}
 	if err := alloc(region.Data(), sync.RWMutex{}); err != nil {
+		region.Close()
+		obj.Destroy()
 		return nil, err
 	}
 	m := (*sync.RWMutex)(unsafe.Pointer(byteSliceAddress(region.Data())))
