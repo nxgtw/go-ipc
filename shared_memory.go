@@ -3,6 +3,7 @@
 package ipc
 
 import (
+	"bytes"
 	"os"
 	"runtime"
 )
@@ -34,6 +35,22 @@ type MappableHandle interface {
 	Fd() int
 }
 
+// This is a reader for safe operations over a shared memory region.
+// It holds a reference to the region, so the former can't be gc'ed
+type MemoryRegionReader struct {
+	region *MemoryRegion
+	*bytes.Reader
+}
+
+func NewMemoryRegionReader(region *MemoryRegion) *MemoryRegionReader {
+	return &MemoryRegionReader{
+		region: region,
+		Reader: bytes.NewReader(region.Data()),
+	}
+}
+
+// TODO(avd) - WriterAt
+
 // Returns a new shared memory object.
 // name - a name of the object. should not contain '/' and exceed 255 symbols
 // size - object size
@@ -45,8 +62,7 @@ func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, er
 		return nil, err
 	}
 	result := &MemoryObject{impl}
-	runtime.SetFinalizer(impl, func(object interface{}) {
-		memObject := object.(*memoryObjectImpl)
+	runtime.SetFinalizer(impl, func(memObject *memoryObjectImpl) {
 		memObject.Close()
 	})
 	return result, nil
@@ -64,8 +80,7 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 		return nil, err
 	}
 	result := &MemoryRegion{impl}
-	runtime.SetFinalizer(impl, func(object interface{}) {
-		region := object.(*memoryRegionImpl)
+	runtime.SetFinalizer(impl, func(region *memoryRegionImpl) {
 		region.Close()
 	})
 	return result, nil

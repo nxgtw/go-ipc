@@ -97,7 +97,14 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 }
 
 func (impl *memoryRegionImpl) Close() error {
-	return unix.Munmap(impl.data)
+	if impl.data != nil {
+		err := unix.Munmap(impl.data)
+		impl.data = nil
+		impl.pageOffset = 0
+		impl.size = 0
+		return err
+	}
+	return nil
 }
 
 func (impl *memoryRegionImpl) Data() []byte {
