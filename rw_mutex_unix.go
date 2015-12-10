@@ -18,7 +18,7 @@ type rwMutexImpl struct {
 
 // used for rwMutexImpl.RLocker().
 // we can't use internal mutex's rlocker, as
-// it may be used longer, then the rwMutexImpl object,
+// it may be used longer, then the rwMutexImpl object exists,
 // which can be garbage collected and
 // its shared memory region be removed
 type rlocker rwMutexImpl
@@ -26,27 +26,35 @@ type rlocker rwMutexImpl
 func (r *rlocker) Lock()   { (*rwMutexImpl)(r).RLock() }
 func (r *rlocker) Unlock() { (*rwMutexImpl)(r).RUnlock() }
 
-// TODO(avd) - handle errors more carefully!
-func newRwMutexImpl(name string, mode int, perm os.FileMode) (*rwMutexImpl, error) {
+func newRwMutexImpl(name string, mode int, perm os.FileMode) (impl *rwMutexImpl, resultErr error) {
 	name = "go-ipc.rwm." + name
-	obj, err := NewMemoryObject(name, mode|O_READWRITE, perm)
-	if err != nil {
-		return nil, err
+	var obj *MemoryObject
+	if obj, resultErr = NewMemoryObject(name, mode|O_READWRITE, perm); resultErr != nil {
+		return
 	}
+	var region *MemoryRegion
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if region != nil {
+			region.Close()
+		}
+		if obj != nil {
+			if mode == O_CREATE_ONLY {
+				obj.Destroy()
+			}
+		}
+	}()
 	size := unsafe.Sizeof(sync.RWMutex{})
-	if err := obj.Truncate(int64(size)); err != nil {
-		obj.Destroy()
-		return nil, err
+	if resultErr = obj.Truncate(int64(size)); resultErr != nil {
+		return
 	}
-	region, err := NewMemoryRegion(obj, SHM_READWRITE, 0, int(size))
-	if err != nil {
-		obj.Destroy()
-		return nil, err
+	if region, resultErr = NewMemoryRegion(obj, SHM_READWRITE, 0, int(size)); resultErr != nil {
+		return
 	}
-	if err := alloc(region.Data(), sync.RWMutex{}); err != nil {
-		region.Close()
-		obj.Destroy()
-		return nil, err
+	if resultErr = alloc(region.Data(), sync.RWMutex{}); resultErr != nil {
+		return
 	}
 	m := (*sync.RWMutex)(unsafe.Pointer(byteSliceAddress(region.Data())))
 	return &rwMutexImpl{m, region, name}, nil
@@ -74,11 +82,11 @@ func (rw *rwMutexImpl) Unlock() {
 
 func (rw *rwMutexImpl) Destroy() error {
 	rw.m = nil
-	if err := rw.region.Close(); err != nil {
-		return err
-	}
+	rw.region.Close()
 	rw.region = nil
-	return DestroyMemoryObject(rw.name)
+	name := rw.name
+	rw.name = ""
+	return DestroyMemoryObject(name)
 }
 
 func DestroyRwMutex(name string) error {
