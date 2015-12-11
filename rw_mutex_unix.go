@@ -16,6 +16,8 @@ type rwMutexImpl struct {
 	name   string
 }
 
+type internalRwMutex sync.RWMutex
+
 // used for rwMutexImpl.RLocker().
 // we can't use internal mutex's rlocker, as
 // it may be used longer, then the rwMutexImpl object exists,
@@ -27,7 +29,7 @@ func (r *rlocker) Lock()   { (*rwMutexImpl)(r).RLock() }
 func (r *rlocker) Unlock() { (*rwMutexImpl)(r).RUnlock() }
 
 func newRwMutexImpl(name string, mode int, perm os.FileMode) (impl *rwMutexImpl, resultErr error) {
-	name = "go-ipc.rwm." + name
+	name = rwmName(name)
 	var obj *MemoryObject
 	if obj, resultErr = NewMemoryObject(name, mode|O_READWRITE, perm); resultErr != nil {
 		return
@@ -46,15 +48,17 @@ func newRwMutexImpl(name string, mode int, perm os.FileMode) (impl *rwMutexImpl,
 			}
 		}
 	}()
-	size := unsafe.Sizeof(sync.RWMutex{})
+	size := unsafe.Sizeof(internalRwMutex{})
 	if resultErr = obj.Truncate(int64(size)); resultErr != nil {
 		return
 	}
 	if region, resultErr = NewMemoryRegion(obj, SHM_READWRITE, 0, int(size)); resultErr != nil {
 		return
 	}
-	if resultErr = alloc(region.Data(), sync.RWMutex{}); resultErr != nil {
-		return
+	if mode == O_CREATE_ONLY {
+		if resultErr = alloc(region.Data(), sync.RWMutex{}); resultErr != nil {
+			return
+		}
 	}
 	m := (*sync.RWMutex)(unsafe.Pointer(byteSliceAddress(region.Data())))
 	return &rwMutexImpl{m, region, name}, nil
@@ -90,5 +94,9 @@ func (rw *rwMutexImpl) Destroy() error {
 }
 
 func DestroyRwMutex(name string) error {
-	return DestroyMemoryObject(name)
+	return DestroyMemoryObject(rwmName(name))
+}
+
+func rwmName(name string) string {
+	return "go-ipc.rwm." + name
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"unsafe"
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
@@ -15,7 +16,7 @@ import (
 
 var (
 	objName = flag.String("object", "", "synchronization object name")
-	objType = flag.String("type", "", "synchronization object type - m | rwm")
+	objType = flag.String("type", "rwm", "synchronization object type - m | rwm")
 	jobs    = flag.Int("jobs", 1, "count of simultaneous jobs")
 )
 
@@ -24,9 +25,10 @@ available commands:
   create
   destroy
   inc64 shm_name n 
+    increments an int64 value at the beginning of the shm_name region n times
   test shm_name n {expected values byte array}
     performs n reads from shm_name and compares the results with the expected data
-    if jobs > 1, all goroutines will execute n reads.
+if jobs > 1, all goroutines will execute operations reads.
 byte array should be passed as a continuous string of 2-symbol hex byte values like '01020A'
 `
 
@@ -73,7 +75,44 @@ func destroy() error {
 }
 
 func inc64() error {
-	return nil
+	if flag.NArg() != 3 {
+		return fmt.Errorf("test: must provide exactly three arguments")
+	}
+	memObject, err := ipc.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READWRITE, 0666)
+	if err != nil {
+		return err
+	}
+	defer memObject.Close()
+	n, err := strconv.Atoi(flag.Arg(2))
+	if err != nil {
+		return err
+	}
+	region, err := ipc.NewMemoryRegion(memObject, ipc.SHM_READWRITE, 0, int(unsafe.Sizeof(int64(0))))
+	if err != nil {
+		return err
+	}
+	defer region.Close()
+	locker, err := createLocker(ipc.O_OPEN_ONLY, false)
+	if err != nil {
+		return err
+	}
+	data := region.Data()
+	ptr := (*int64)(unsafe.Pointer(&(data[0])))
+	if err = performInc(ptr, locker, n); err == nil {
+		fmt.Println(*ptr)
+	}
+	return err
+}
+
+func performInc(ptr *int64, locker sync.Locker, n int) error {
+	return performParallel(func() error {
+		for i := 0; i < n; i++ {
+			locker.Lock()
+			*ptr++
+			locker.Unlock()
+		}
+		return nil
+	})
 }
 
 func test() error {
@@ -94,10 +133,10 @@ func test() error {
 		return err
 	}
 	region, err := ipc.NewMemoryRegion(memObject, ipc.SHM_READ_ONLY, 0, len(expected))
-	defer region.Close()
 	if err != nil {
 		return err
 	}
+	defer region.Close()
 	locker, err := createLocker(ipc.O_OPEN_ONLY, true)
 	if err != nil {
 		return err
@@ -106,22 +145,33 @@ func test() error {
 }
 
 func performTest(expected []byte, actual *ipc.MemoryRegion, locker sync.Locker, n int) error {
+	return performParallel(func() error {
+		for i := 0; i < n; i++ {
+			if err := testData(expected, actual.Data(), locker); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// TODO(avd) - add code to cancel jobs?
+func performParallel(f func() error) error {
 	var result error
 	ch := make(chan error, *jobs)
 	for nJob := 0; nJob < *jobs; nJob++ {
 		go func() {
-			for i := 0; i < n; i++ {
-				if err := testData(expected, actual.Data(), locker); err != nil {
-					ch <- err
-					return
-				}
-			}
-			ch <- nil
+			ch <- f()
 		}()
 	}
+	/*go func() {
+		for {
+			<-time.After(time.Second)
+		}
+	}()*/
 	for nJob := 0; nJob < *jobs; nJob++ {
 		err := <-ch
-		if result == nil && err != nil {
+		if result == nil && err != nil { // save the first error
 			result = err
 		}
 	}

@@ -150,7 +150,6 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 }
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
-	shmTestData := []byte{1, 2, 3, 4, 128, 255}
 	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
@@ -172,7 +171,6 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
-	shmTestData := []byte{1, 2, 3, 4, 128, 255}
 	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 128)
 	if !assert.NoError(t, err) {
 		return

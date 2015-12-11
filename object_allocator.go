@@ -47,7 +47,7 @@ func copyObjectData(value reflect.Value, memory []byte) {
 	copy(memory, objectData[:size])
 }
 
-// copies value's data into a byte slice performing soem sanity checks
+// copies value's data into a byte slice performing soem sanity checks.
 // the object either must be a slice, or should be a sort of an object,
 // which does not contain any references inside, i.e. should be placed
 // in the memory continuously.

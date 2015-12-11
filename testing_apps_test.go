@@ -5,6 +5,7 @@ package ipc
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 const (
 	shmProgName  = "./internal/test/shared_memory/main.go"
 	fifoProgName = "./internal/test/fifo/main.go"
+	syncProgName = "./internal/test/sync/main.go"
 )
 
 type testAppResult struct {
@@ -21,6 +23,7 @@ type testAppResult struct {
 	err    error
 }
 
+// Shared memory test program
 func argsForShmCreateCommand(name string, size int64) []string {
 	return []string{shmProgName, "-object=" + name, "create", fmt.Sprintf("%d", size)}
 }
@@ -43,6 +46,7 @@ func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
 	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
 }
 
+// FIFO memory test program
 func argsForFifoCreateCommand(name string) []string {
 	return []string{fifoProgName, "-object=" + name, "create"}
 }
@@ -63,6 +67,41 @@ func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
 func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
 	strBytes := ipc_test.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
+}
+
+// Sync test program
+
+func argsForSyncCreateCommand(name, t string) []string {
+	return []string{syncProgName, "-object=" + name, "-type=" + t, "create"}
+}
+
+func argsForSyncDestroyCommand(name string) []string {
+	return []string{syncProgName, "-object=" + name, "destroy"}
+}
+
+func argsForSyncInc64Command(name, t string, jobs int, shm_name string, n int) []string {
+	return []string{
+		syncProgName,
+		"-object=" + name,
+		"-type=" + t,
+		"-jobs=" + strconv.Itoa(jobs),
+		"inc64",
+		shm_name,
+		strconv.Itoa(n),
+	}
+}
+
+func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, data []byte) []string {
+	return []string{
+		syncProgName,
+		"-object=" + name,
+		"-type=" + t,
+		"-jobs=" + strconv.Itoa(jobs),
+		"test",
+		shm_name,
+		strconv.Itoa(n),
+		ipc_test.BytesToString(data),
+	}
 }
 
 func boolStr(value bool) string {
@@ -93,12 +132,11 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 			}
 		}
 	} else {
-		if cmd.ProcessState.Success() {
-			result.output = string(out)
-		} else {
+		if !cmd.ProcessState.Success() {
 			result.err = fmt.Errorf("process has exited with an error")
 		}
 	}
+	result.output = string(out)
 	return
 }
 
