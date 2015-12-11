@@ -18,14 +18,31 @@ var (
 	shmTestData = []byte{1, 2, 3, 4, 128, 255}
 )
 
-func TestCreateMemoryRegion(t *testing.T) {
+func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*MemoryRegion, error) {
+	object, err := NewMemoryObject(defaultObjectName, objMode, 0666)
+	if err != nil {
+		return nil, err
+	}
+	if objMode&O_OPEN_ONLY == 0 {
+		if err := object.Truncate(size); err != nil {
+			return nil, err
+		}
+	}
+	if region, err := NewMemoryRegion(object, regionMode, offset, int(size)); err != nil {
+		return nil, err
+	} else {
+		return region, nil
+	}
+}
+
+func TestCreateMemoryObject(t *testing.T) {
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	assert.NoError(t, err)
 	assert.NotNil(t, obj)
 	assert.NoError(t, obj.Destroy())
 }
 
-func TestOpenMemoryRegionReadonly(t *testing.T) {
+func TestOpenMemoryObjectReadonly(t *testing.T) {
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -134,43 +151,36 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
 	shmTestData := []byte{1, 2, 3, 4, 128, 255}
-	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer object.Destroy()
-	if !assert.NoError(t, object.Truncate(1024)) {
-		return
-	}
-	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(shmTestData))
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer region.Close()
+	defer func() {
+		region.Close()
+		DestroyMemoryObject(defaultObjectName)
+	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	region2, err := NewMemoryRegion(object, SHM_READ_ONLY, 128, len(shmTestData))
+	region2, err := createMemoryRegionSimple(O_OPEN_ONLY|O_READ_ONLY, SHM_READ_ONLY, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer func() {
+		region2.Close()
+	}()
 	assert.Equal(t, shmTestData, region2.Data())
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
 	shmTestData := []byte{1, 2, 3, 4, 128, 255}
-	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 128)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer object.Destroy()
-	if !assert.NoError(t, object.Truncate(1024)) {
-		return
-	}
-	region, err := NewMemoryRegion(object, SHM_READWRITE, 128, len(shmTestData))
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer region.Close()
+	defer func() {
+		region.Close()
+		DestroyMemoryObject(defaultObjectName)
+	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
 	result := runTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
@@ -196,4 +206,111 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	}
 	defer region.Close()
 	assert.Equal(t, shmTestData, region.Data())
+}
+
+func TestMemoryRegionNorGcedWithUse(t *testing.T) {
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		DestroyMemoryObject(defaultObjectName)
+	}()
+	defer UseMemoryRegion(region)
+	data := region.data
+	region = nil
+	// we can't use assert.NotPanics here, as if the region is gc'ed,
+	// we get segmentation fault, which cannot be handled by user code.
+	// so, in order for this test to pass, the following code simply
+	// must not crash the entire process.
+	for i := 0; i < 5; i++ {
+		<-time.After(time.Millisecond * 20)
+		runtime.GC()
+		for j, _ := range data {
+			data[i] = byte(j)
+		}
+	}
+}
+
+func TestMemoryRegionReader(t *testing.T) {
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READ_ONLY, 1024, 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		region.Close()
+		DestroyMemoryObject(defaultObjectName)
+	}()
+	reader := NewMemoryRegionReader(region)
+	b := make([]byte, 1024)
+	read, err := reader.ReadAt(b, 0)
+	if !assert.NoError(t, err) || !assert.Equal(t, 1024, read) {
+		return
+	}
+	read, err = reader.ReadAt(b, 1)
+	if !assert.Error(t, err) || !assert.Equal(t, 1023, read) {
+		return
+	}
+	b = make([]byte, 2048)
+	read, err = reader.ReadAt(b, 0)
+	if !assert.Error(t, err) || !assert.Equal(t, 1024, read) {
+		return
+	}
+	read, err = reader.ReadAt(b, 512)
+	if !assert.Error(t, err) || !assert.Equal(t, 512, read) {
+		return
+	}
+}
+
+func TestMemoryRegionWriter(t *testing.T) {
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		region.Close()
+		DestroyMemoryObject(defaultObjectName)
+	}()
+	writer := NewMemoryRegionWriter(region)
+	b := make([]byte, 1024)
+	written, err := writer.WriteAt(b, 0)
+	if !assert.NoError(t, err) || !assert.Equal(t, 1024, written) {
+		return
+	}
+	written, err = writer.WriteAt(b, 1)
+	if !assert.Error(t, err) || !assert.Equal(t, 1023, written) {
+		return
+	}
+	b = make([]byte, 2048)
+	written, err = writer.WriteAt(b, 0)
+	if !assert.Error(t, err) || !assert.Equal(t, 1024, written) {
+		return
+	}
+	written, err = writer.WriteAt(b, 512)
+	if !assert.Error(t, err) || !assert.Equal(t, 512, written) {
+		return
+	}
+}
+
+func TestMemoryRegionReaderWriter(t *testing.T) {
+	data := []byte{1, 2, 3, 4, 5, 6}
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		DestroyMemoryObject(defaultObjectName)
+	}()
+	writer := NewMemoryRegionWriter(region)
+	reader := NewMemoryRegionReader(region)
+	n, err := writer.WriteAt(data, 128)
+	if !assert.NoError(t, err) || !assert.Equal(t, n, len(data)) {
+		return
+	}
+	actual := make([]byte, len(data))
+	n, err = reader.ReadAt(actual, 128)
+	if !assert.NoError(t, err) || !assert.Equal(t, n, len(data)) {
+		return
+	}
+	assert.Equal(t, data, actual)
 }

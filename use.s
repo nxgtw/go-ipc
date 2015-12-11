@@ -1,0 +1,4 @@
+
+
+TEXT ·use(SB),NOSPLIT,$0
+	RET

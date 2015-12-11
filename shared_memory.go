@@ -4,8 +4,10 @@ package ipc
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"runtime"
+	"unsafe"
 )
 
 // MemoryObject represents an object which can be used to
@@ -23,8 +25,7 @@ type MemoryObject struct {
 // 	region := NewMemoryRegion(...)
 // 	return g(region.Data())
 // region may be gc'ed while its data is used by g()
-// To avoid this, pass a region into a function and
-// get its data inside that function.
+// To avoid this, you can use UseMemoryRegion() or region readers/writers
 type MemoryRegion struct {
 	*memoryRegionImpl
 }
@@ -49,7 +50,31 @@ func NewMemoryRegionReader(region *MemoryRegion) *MemoryRegionReader {
 	}
 }
 
-// TODO(avd) - WriterAt
+// This is a writer for safe operations over a shared memory region.
+// It holds a reference to the region, so the former can't be gc'ed
+type MemoryRegionWriter struct {
+	region *MemoryRegion
+}
+
+func NewMemoryRegionWriter(region *MemoryRegion) *MemoryRegionWriter {
+	return &MemoryRegionWriter{region: region}
+}
+
+// to implement io.WriterAt
+func (w *MemoryRegionWriter) WriteAt(p []byte, off int64) (n int, err error) {
+	data := w.region.Data()
+	n = len(data) - int(off)
+	if n > 0 {
+		if n > len(p) {
+			n = len(p)
+		}
+		copy(data[off:], p[:n])
+	}
+	if n < len(p) {
+		err = io.EOF
+	}
+	return
+}
 
 // Returns a new shared memory object.
 // name - a name of the object. should not contain '/' and exceed 255 symbols
@@ -84,4 +109,17 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 		region.Close()
 	})
 	return result, nil
+}
+
+// This ensures, that the object is still alive at the moment of the call.
+// The usecase is when you use memory region's Data() and don't use the
+// region itself anymore. In this case the region can be gc'ed, the memory mapping
+// destroyed and you can get segfault.
+// It can be used like the following:
+// 	region := NewMemoryRegion(...)
+//	UseMemoryRegion(region)
+// 	data := region.Data()
+//	{ work with data }
+func UseMemoryRegion(region *MemoryRegion) {
+	use(unsafe.Pointer(region))
 }

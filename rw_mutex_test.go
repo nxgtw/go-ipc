@@ -75,7 +75,7 @@ func TestRwMutexOpenMode3(t *testing.T) {
 		return
 	}
 	_, err := NewRwMutex(testRwMutexName, O_CREATE_ONLY, 0666)
-	if !assert.Error(t, err) {
+	if !assert.NoError(t, err) {
 		return
 	}
 }

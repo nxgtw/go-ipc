@@ -5,6 +5,7 @@ package ipc
 import (
 	"fmt"
 	"os"
+	"unsafe"
 )
 
 func createModeToOsMode(mode int) (int, error) {
@@ -56,3 +57,7 @@ func modeToOsMode(mode int) (int, error) {
 		return 0, err
 	}
 }
+
+// from syscall package
+//go:noescape
+func use(p unsafe.Pointer)
