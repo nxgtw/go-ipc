@@ -3,6 +3,7 @@
 package ipc
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -114,7 +115,13 @@ func boolStr(value bool) string {
 func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 	args = append([]string{"run"}, args...)
 	cmd := exec.Command("go", args...)
-	var out []byte
+	buff := bytes.NewBuffer(nil)
+	cmd.Stderr = buff
+	cmd.Stdout = buff
+	if err := cmd.Start(); err != nil {
+		result.err = err
+		return
+	}
 	if killChan != nil {
 		go func() {
 			if kill, ok := <-killChan; kill && ok {
@@ -124,7 +131,8 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 			}
 		}()
 	}
-	out, result.err = cmd.CombinedOutput()
+	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
+	result.err = cmd.Wait()
 	if result.err != nil {
 		if exiterr, ok := result.err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -136,7 +144,7 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 			result.err = fmt.Errorf("process has exited with an error")
 		}
 	}
-	result.output = string(out)
+	result.output = buff.String()
 	return
 }
 
