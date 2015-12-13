@@ -3,11 +3,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 	"unsafe"
 
 	ipc "bitbucket.org/avd/go-ipc"
@@ -15,9 +18,11 @@ import (
 )
 
 var (
-	objName = flag.String("object", "", "synchronization object name")
-	objType = flag.String("type", "rwm", "synchronization object type - m | rwm")
-	jobs    = flag.Int("jobs", 1, "count of simultaneous jobs")
+	objName   = flag.String("object", "", "synchronization object name")
+	objType   = flag.String("type", "rwm", "synchronization object type - m | rwm")
+	jobs      = flag.Int("jobs", 1, "count of simultaneous jobs")
+	logFile   = flag.String("log", "", "file to write log into")
+	logObject *log.Logger
 )
 
 const usage = `  test program for synchronization primitives.
@@ -105,7 +110,7 @@ func inc64() error {
 }
 
 func performInc(ptr *int64, locker sync.Locker, n int) error {
-	return performParallel(func() error {
+	return performParallel(func(int) error {
 		for i := 0; i < n; i++ {
 			locker.Lock()
 			*ptr++
@@ -141,13 +146,18 @@ func test() error {
 	if err != nil {
 		return err
 	}
+	go func() {
+		for {
+			<-time.After(time.Second)
+		}
+	}()
 	return performTest(expected, region, locker, n)
 }
 
 func performTest(expected []byte, actual *ipc.MemoryRegion, locker sync.Locker, n int) error {
-	return performParallel(func() error {
+	return performParallel(func(id int) error {
 		for i := 0; i < n; i++ {
-			if err := testData(expected, actual.Data(), locker); err != nil {
+			if err := testData(expected, actual.Data(), locker, i); err != nil {
 				return err
 			}
 		}
@@ -156,19 +166,14 @@ func performTest(expected []byte, actual *ipc.MemoryRegion, locker sync.Locker, 
 }
 
 // TODO(avd) - add code to cancel jobs?
-func performParallel(f func() error) error {
+func performParallel(f func(int) error) error {
 	var result error
 	ch := make(chan error, *jobs)
 	for nJob := 0; nJob < *jobs; nJob++ {
-		go func() {
-			ch <- f()
-		}()
+		go func(id int) {
+			ch <- f(nJob)
+		}(nJob)
 	}
-	/*go func() {
-		for {
-			<-time.After(time.Second)
-		}
-	}()*/
 	for nJob := 0; nJob < *jobs; nJob++ {
 		err := <-ch
 		if result == nil && err != nil { // save the first error
@@ -178,12 +183,17 @@ func performParallel(f func() error) error {
 	return result
 }
 
-func testData(expected, actual []byte, locker sync.Locker) error {
+func testData(expected, actual []byte, locker sync.Locker, id int) error {
 	locker.Lock()
-	defer locker.Unlock()
-	for i, value := range expected {
-		if value != actual[i] {
-			return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, actual[i])
+	writeLog(fmt.Sprintf("%d got the lock", id))
+	defer func() {
+		locker.Unlock()
+		writeLog(fmt.Sprintf("%d released the lock", id))
+	}()
+	for i, expectedValue := range expected {
+		actualValue := actual[i]
+		if expectedValue != actualValue {
+			return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, expectedValue, actualValue)
 		}
 	}
 	return nil
@@ -208,6 +218,24 @@ func runCommand() error {
 	}
 }
 
+func initLogs() {
+	if len(*logFile) == 0 {
+		return
+	}
+	if file, err := os.Create(*logFile); err == nil {
+		logObject = log.New(bufio.NewWriter(file), "", log.LstdFlags)
+	} else {
+		fmt.Fprintf(os.Stderr, "can't init logs: %v", err)
+		os.Exit(1)
+	}
+}
+
+func writeLog(message string) {
+	if logObject != nil {
+		logObject.Println(message)
+	}
+}
+
 func main() {
 	flag.Parse()
 	if len(*objName) == 0 || flag.NArg() == 0 {
@@ -215,6 +243,7 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+	initLogs()
 	if err := runCommand(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

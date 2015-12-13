@@ -92,12 +92,13 @@ func argsForSyncInc64Command(name, t string, jobs int, shm_name string, n int) [
 	}
 }
 
-func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, data []byte) []string {
+func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, data []byte, log string) []string {
 	return []string{
 		syncProgName,
 		"-object=" + name,
 		"-type=" + t,
 		"-jobs=" + strconv.Itoa(jobs),
+		"-log=" + log,
 		"test",
 		shm_name,
 		strconv.Itoa(n),

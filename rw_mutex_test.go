@@ -3,9 +3,11 @@
 package ipc
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -90,6 +92,33 @@ func TestRwMutexOpenMode3(t *testing.T) {
 	}
 }
 
+func printer() chan int {
+	ch := make(chan int, 100)
+	var cur int32
+	go func() {
+		for value := range ch {
+			atomic.StoreInt32(&cur, int32(value))
+			/*if value > 0 {
+				fmt.Printf("%d got the lock\n", value)
+			} else {
+				fmt.Printf("%d released the lock\n", -value)
+			}*/
+		}
+	}()
+	go func() {
+		for {
+			<-time.After(time.Millisecond * 250)
+			value := atomic.LoadInt32(&cur)
+			if value > 0 {
+				fmt.Printf("%d got the lock\n", value)
+			} else {
+				fmt.Printf("%d released the lock\n", -value)
+			}
+		}
+	}()
+	return ch
+}
+
 func TestRwMutexMemory(t *testing.T) {
 	if !assert.NoError(t, DestroyRwMutex(testRwMutexName)) {
 		return
@@ -99,7 +128,7 @@ func TestRwMutexMemory(t *testing.T) {
 		return
 	}
 	defer mut.Destroy()
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 128, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 32, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -111,14 +140,17 @@ func TestRwMutexMemory(t *testing.T) {
 	for i, _ := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testRwMutexName, "rwm", 8, defaultObjectName, 50, data)
+	args := argsForSyncTestCommand(testRwMutexName, "rwm", 1, defaultObjectName, 100, data, "~/sync.log")
 	var wg sync.WaitGroup
 	var flag int32 = 1
-	wg.Add(4)
-	for i := 0; i < 1; i++ {
-		go func() {
+	const jobs = 8
+	wg.Add(jobs)
+	ch := printer()
+	for i := 0; i < jobs; i++ {
+		go func(i int) {
 			for atomic.LoadInt32(&flag) != 0 {
 				mut.Lock()
+				ch <- i
 				// corrupt the data and then restore it.
 				// as the entire operation is under mutex protection,
 				// no one should see these changes.
@@ -129,15 +161,17 @@ func TestRwMutexMemory(t *testing.T) {
 					data[i] = byte(i)
 				}
 				mut.Unlock()
+				ch <- -i
 			}
 			wg.Done()
-		}()
+		}(i)
 	}
 	result := runTestApp(args, nil)
-	atomic.StoreInt32(&flag, 0)
 	if !assert.NoError(t, result.err) {
-		t.Logf("the output is %s", result.output)
+		t.Logf("the output is: %s", result.output)
+		return
 	}
 	print("APP")
+	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
 }
