@@ -133,8 +133,7 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 		}()
 	}
 	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
-	result.err = cmd.Wait()
-	if result.err != nil {
+	if result.err = cmd.Wait(); result.err != nil {
 		if exiterr, ok := result.err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				result.err = fmt.Errorf("%v, status code = %d", result.err, status)

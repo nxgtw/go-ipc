@@ -50,6 +50,8 @@ func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 		} else {
 			err = errRwm
 		}
+	} else if *objType == "spin" {
+		locker, err = ipc.NewSpinMutex(*objName, mode, 0666)
 	} else {
 		err = fmt.Errorf("unknown object type %q", *objType)
 	}
@@ -60,8 +62,13 @@ func create() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("create: must provide exactly one argument")
 	}
-	_, err := createLocker(ipc.O_CREATE_ONLY, false)
-	return err
+	if _, err := createLocker(ipc.O_CREATE_ONLY, false); err != nil {
+		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
+		return err
+	} else {
+		writeLog(fmt.Sprintf("%q has been created successfully", *objName))
+		return nil
+	}
 }
 
 func destroy() error {
@@ -218,16 +225,26 @@ func runCommand() error {
 	}
 }
 
-func initLogs() {
+func initLogs() func() {
+	result := func() {}
 	if len(*logFile) == 0 {
-		return
+		return result
 	}
 	if file, err := os.Create(*logFile); err == nil {
-		logObject = log.New(bufio.NewWriter(file), "", log.LstdFlags)
+		buff := bufio.NewWriter(file)
+		logObject = log.New(buff, "", log.LstdFlags|log.Lmicroseconds)
+		go func() {
+			<-time.After(time.Millisecond * 350)
+			buff.Flush()
+		}()
+		result = func() {
+			buff.Flush()
+		}
 	} else {
 		fmt.Fprintf(os.Stderr, "can't init logs: %v", err)
 		os.Exit(1)
 	}
+	return result
 }
 
 func writeLog(message string) {
@@ -243,7 +260,9 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	initLogs()
+	flushLogs := initLogs()
+	defer flushLogs()
+	writeLog("started")
 	if err := runCommand(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

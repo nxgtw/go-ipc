@@ -18,7 +18,7 @@ type RwMutex struct {
 //	O_CREATE_ONLY
 //	O_OPEN_ONLY
 func NewRwMutex(name string, mode int, perm os.FileMode) (*RwMutex, error) {
-	if !checkRwMutexOpenMode(mode) {
+	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
 	impl, err := newRwMutexImpl(name, mode, perm)
@@ -29,6 +29,6 @@ func NewRwMutex(name string, mode int, perm os.FileMode) (*RwMutex, error) {
 	return result, nil
 }
 
-func checkRwMutexOpenMode(mode int) bool {
+func checkMutexOpenMode(mode int) bool {
 	return /*mode == O_OPEN_OR_CREATE ||*/ mode == O_CREATE_ONLY || mode == O_OPEN_ONLY
 }

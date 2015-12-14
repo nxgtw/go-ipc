@@ -119,7 +119,7 @@ func printer() chan int {
 	return ch
 }
 
-func TestRwMutexMemory(t *testing.T) {
+func NoTestRwMutexMemory(t *testing.T) {
 	if !assert.NoError(t, DestroyRwMutex(testRwMutexName)) {
 		return
 	}
@@ -128,7 +128,7 @@ func TestRwMutexMemory(t *testing.T) {
 		return
 	}
 	defer mut.Destroy()
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 32, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 512, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -140,15 +140,15 @@ func TestRwMutexMemory(t *testing.T) {
 	for i, _ := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testRwMutexName, "rwm", 1, defaultObjectName, 100, data, "~/sync.log")
+	args := argsForSyncTestCommand(testRwMutexName, "rwm", 1, defaultObjectName, 100, data, "/home/avd/sync.log")
 	var wg sync.WaitGroup
 	var flag int32 = 1
-	const jobs = 8
+	const jobs = 4
 	wg.Add(jobs)
 	ch := printer()
 	for i := 0; i < jobs; i++ {
 		go func(i int) {
-			for atomic.LoadInt32(&flag) != 0 {
+			for j := 0; atomic.LoadInt32(&flag) != 0 && j < 162100; j++ {
 				mut.Lock()
 				ch <- i
 				// corrupt the data and then restore it.
@@ -167,11 +167,9 @@ func TestRwMutexMemory(t *testing.T) {
 		}(i)
 	}
 	result := runTestApp(args, nil)
-	if !assert.NoError(t, result.err) {
-		t.Logf("the output is: %s", result.output)
-		return
-	}
-	print("APP")
 	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
+	if !assert.NoError(t, result.err) {
+		t.Logf("test app error. the output is: %s", result.output)
+	}
 }
