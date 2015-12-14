@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
@@ -120,10 +119,10 @@ func TestSpinMutexMemory(t *testing.T) {
 
 func TestSpinMutexValueInc(t *testing.T) {
 	const (
-		iterations = 1000000
-		jobs       = 1
-		remoteJobs = 48
-		expected   = int64(iterations * (jobs + remoteJobs))
+		iterations = 50000
+		jobs       = 4
+		remoteJobs = 4
+		remoteIncs = int64(iterations * remoteJobs)
 	)
 	if !assert.NoError(t, DestroySpinMutex(testSpinMutexName)) {
 		return
@@ -144,27 +143,27 @@ func TestSpinMutexValueInc(t *testing.T) {
 	data := region.Data()
 	ptr := (*int64)(unsafe.Pointer(&(data[0])))
 	args := argsForSyncInc64Command(testSpinMutexName, "spin", remoteJobs, defaultObjectName, iterations)
-	result := runTestApp(args, nil)
 	var wg sync.WaitGroup
+	flag := int32(1)
 	wg.Add(jobs)
+	resultChan := runTestAppAsync(args, nil)
+	localIncs := int64(0)
 	for i := 0; i < jobs; i++ {
 		go func() {
-			print(time.Now().UnixNano())
-			for j := 0; j < iterations; j++ {
-				//mut.Lock()
+			for atomic.LoadInt32(&flag) == 1 {
+				mut.Lock()
 				*ptr++
-				//mut.Unlock()
-				if j%10000 == 0 {
-					time.Sleep(time.Millisecond)
-				}
+				localIncs++
+				mut.Unlock()
 			}
-			print("\n", time.Now().UnixNano())
 			wg.Done()
 		}()
 	}
+	result := <-resultChan
+	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
 	if !assert.NoError(t, result.err) {
 		t.Logf("test app error. the output is: %s", result.output)
 	}
-	assert.Equal(t, expected, *ptr)
+	assert.Equal(t, remoteIncs+localIncs, *ptr)
 }

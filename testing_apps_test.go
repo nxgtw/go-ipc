@@ -113,26 +113,30 @@ func boolStr(value bool) string {
 	return "false"
 }
 
-func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
+func startTestApp(args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer, error) {
 	args = append([]string{"run"}, args...)
 	cmd := exec.Command("go", args...)
 	buff := bytes.NewBuffer(nil)
 	cmd.Stderr = buff
 	cmd.Stdout = buff
 	if err := cmd.Start(); err != nil {
-		result.err = err
-		return
-	}
-	if killChan != nil {
-		go func() {
-			if kill, ok := <-killChan; kill && ok {
-				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
-					cmd.Process.Kill()
+		return nil, nil, err
+	} else {
+		if killChan != nil {
+			go func() {
+				if kill, ok := <-killChan; kill && ok {
+					if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+						cmd.Process.Kill()
+					}
 				}
-			}
-		}()
+			}()
+		}
+		fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
+		return cmd, buff, err
 	}
-	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
+}
+
+func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result testAppResult) {
 	if result.err = cmd.Wait(); result.err != nil {
 		if exiterr, ok := result.err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -148,11 +152,25 @@ func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 	return
 }
 
+func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
+	if cmd, buff, err := startTestApp(args, killChan); err != nil {
+		result.err = err
+		return
+	} else {
+		return waitForCommand(cmd, buff)
+	}
+	return
+}
+
 func runTestAppAsync(args []string, killChan <-chan bool) <-chan testAppResult {
 	ch := make(chan testAppResult, 1)
-	go func() {
-		ch <- runTestApp(args, killChan)
-	}()
+	if cmd, buff, err := startTestApp(args, killChan); err != nil {
+		ch <- testAppResult{err: err}
+	} else {
+		go func() {
+			ch <- waitForCommand(cmd, buff)
+		}()
+	}
 	return ch
 }
 
