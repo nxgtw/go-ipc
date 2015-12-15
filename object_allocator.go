@@ -34,15 +34,20 @@ func objectAddress(object interface{}, kind reflect.Kind) uintptr {
 	return addr
 }
 
+func objectSize(object reflect.Value) int {
+	t := object.Type()
+	size := t.Size()
+	if object.Kind() == reflect.Slice {
+		size = uintptr(object.Len()) * t.Elem().Size()
+	}
+	return int(size)
+}
+
 // copies value's data into a byte slice.
 // if a slice is passed, it will copy data it references to
 func copyObjectData(value reflect.Value, memory []byte) {
 	addr := objectAddress(value.Interface(), value.Kind())
-	t := value.Type()
-	size := t.Size()
-	if value.Kind() == reflect.Slice {
-		size = uintptr(value.Len()) * t.Elem().Size()
-	}
+	size := objectSize(value)
 	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
 	copy(memory, objectData[:size])
 }
@@ -54,16 +59,16 @@ func copyObjectData(value reflect.Value, memory []byte) {
 // if the object is a slice, only actual data is stored. the calling site
 // must save object's lenght and capacity
 func alloc(memory []byte, object interface{}) error {
-	size := int(reflect.ValueOf(object).Type().Size())
+	value := reflect.ValueOf(object)
+	if !value.IsValid() {
+		return fmt.Errorf("inavlid object")
+	}
+	size := objectSize(value)
 	if size > maxObjectSize {
 		return fmt.Errorf("the object exceeds max object size of %d", maxObjectSize)
 	}
 	if size > len(memory) {
 		return fmt.Errorf("the object is too large for the buffer")
-	}
-	value := reflect.ValueOf(object)
-	if !value.IsValid() {
-		return fmt.Errorf("inavlid object")
 	}
 	if err := checkType(value.Type(), 0); err != nil {
 		return err
