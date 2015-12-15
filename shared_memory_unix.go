@@ -209,8 +209,3 @@ func msync(data []byte, flags int) error {
 	}
 	return nil
 }
-
-func calcValidOffset(offset int64) int64 {
-	pageSize := int64(os.Getpagesize())
-	return (offset - (offset/pageSize)*pageSize)
-}

@@ -19,6 +19,7 @@ type memoryObjectImpl struct {
 type memoryRegionImpl struct {
 	data       []byte
 	size       int
+	pageOffset int64
 }
 
 func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryObjectImpl, err error) {
@@ -83,14 +84,53 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 		if handle, err = windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot , 0, 0, nil); err != nil {
 			return nil, err
 		}
-	} else {
-		
+	} else {		
 		// TODO(avd) - finish with it
 	}
-	return nil, nil
+	if size == 0 { // TODO(avd) get current file size
+		
+	}
+	defer windows.CloseHandle(handle)
+	pageOffset := calcValidOffset(offset)
+	lowOffset := uint32(pageOffset)
+	highOffset := uint32(pageOffset>> 32)
+	addr, err := windows.MapViewOfFile(handle, flags, lowOffset, highOffset, uintptr(int64(size) + pageOffset))
+	if err != nil {
+		return nil, err
+	}
+	sz := size + int(pageOffset)
+	return &memoryRegionImpl{byteSliceFromUntptr(addr,sz, sz), size, pageOffset}, nil
 }
 
-func shmProtAndFlagsFromMode(mode int) (prot uint32, flags int, err error) {
+func (impl *memoryRegionImpl) Close() error {
+	return windows.UnmapViewOfFile(byteSliceAddress(impl.data))
+}
+
+func (impl *memoryRegionImpl) Data() []byte {
+	return impl.data[impl.pageOffset:]
+}
+
+func (impl *memoryRegionImpl) Size() int {
+	return impl.size
+}
+
+func (impl *memoryRegionImpl) Flush(async bool) error {
+	return windows.FlushViewOfFile(byteSliceAddress(impl.data), uintptr(len(impl.data)))
+}
+
+func DestroyMemoryObject(name string) error {
+	if path, err := shmName(name); err != nil {
+		return err
+	} else {
+		err := os.Remove(path)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+}
+
+func shmProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 	switch mode {
 	case SHM_READ_ONLY:
 		fallthrough

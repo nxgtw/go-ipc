@@ -1,4 +1,8 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
+// ignore this for a while, as linux rw mutexes don't work,
+// and windows mutexes are not ready yes.
+
+// +build ignore
 
 package ipc
 

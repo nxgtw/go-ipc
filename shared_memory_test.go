@@ -69,8 +69,9 @@ func TestDestroyMemoryObject(t *testing.T) {
 }
 
 func TestDestroyMemoryObject2(t *testing.T) {
-	_, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if assert.NoError(t, err) {
+		obj.Close()
 		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
 	}
 }
@@ -128,6 +129,9 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 }
 
 func TestMemoryObjectCloseOnGc(t *testing.T) {
+	if ! assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
+		return
+	}
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return

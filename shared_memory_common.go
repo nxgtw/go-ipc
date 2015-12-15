@@ -2,6 +2,10 @@
 
 package ipc
 
+import (
+	"os"
+)
+
 // this is to ensure, that all implementations of shm-related structs
 // satisfy the same minimal interface
 var (
@@ -23,4 +27,9 @@ type iSharedMemoryRegion interface {
 	Size() int
 	Flush(async bool) error
 	Close() error
+}
+
+func calcValidOffset(offset int64) int64 {
+	pageSize := int64(os.Getpagesize())
+	return (offset - (offset/pageSize)*pageSize)
 }

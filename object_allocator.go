@@ -90,6 +90,15 @@ func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
+func byteSliceFromUntptr(memory uintptr, lenght, capacity int) []byte {
+	sl := reflect.SliceHeader{
+		Len:  lenght,
+		Cap:  capacity,
+		Data: memory,
+	}
+	return *(*[]byte)(unsafe.Pointer(&sl))
+}
+
 // checks if an object of type can be safely copied by byte.
 // the object must not contain any reference types like
 // maps, strings, pointers and so on.
