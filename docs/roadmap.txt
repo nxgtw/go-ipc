@@ -23,13 +23,12 @@ OS:
 	3) osx
 	4) freebsd
 Mechanisms:
-	1) shared memory + anon shared memory
-	2) named/unnamed pipes
+	1) shared memory 
+	2) named pipes
 	3) mmf
-	4) d-bus
 	5) ipc messaging
 Synchronization:
-	1) Named mutexes/semaphores
+	1) Named spin mutexes
 Other:
 	1) NO cgo, syscalls only!
 	2) random names generator
