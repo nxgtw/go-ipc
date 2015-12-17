@@ -31,51 +31,33 @@ func NewMessageQueue(name string, flags int, perm os.FileMode) (*MessageQueue, e
 	return &MessageQueue{id: int(id)}, nil
 }
 
-func (mq *MessageQueue) Send(value interface{}, prio int) error {
-	objSize := objectSize(reflect.ValueOf(value))
+func (mq *MessageQueue) Send(object interface{}, prio int) error {
+	value := reflect.ValueOf(object)
+	if err := checkType(value.Type(), 0); err != nil {
+		return err
+	}
+	objSize := objectSize(value)
 	data := make([]byte, objSize)
+	print(objSize)
 	if err := alloc(data, value); err != nil {
 		return err
 	}
-	//defer use(unsafe.Pointer(&value))
-	rawData := byteSliceAddress(data)
-	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
-		uintptr(mq.Id()),
-		uintptr(rawData),
-		uintptr(objSize),
-		uintptr(prio),
-		uintptr(0),
-		uintptr(0))
-	if err != syscall.Errno(0) {
-		print(err.Error())
-		return err
-	}
-	return nil
+	return mq_timedsend(mq.Id(), data, objSize, prio, nil)
 }
 
-func (mq *MessageQueue) Receive(typ int, flags int, object interface{}) error {
+func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
 	value := reflect.ValueOf(object)
 	if value.Kind() != reflect.Ptr {
 		return fmt.Errorf("the object must be a pointer")
 	}
-	elemValue := value.Elem()
-	if err := checkType(elemValue.Type(), 0); err != nil {
+	valueElem := value.Elem()
+	if err := checkType(valueElem.Type(), 0); err != nil {
 		return err
 	}
-	objSize := objectSize(elemValue)
+	objSize := objectSize(valueElem)
 	addr := value.Pointer()
-	print("to receive ", objSize, "\n")
-	_, _, err := syscall.Syscall6(unix.SYS_MSGRCV,
-		uintptr(mq.Id()),
-		uintptr(objSize),
-		uintptr(flags),
-		uintptr(addr),
-		uintptr(typ),
-		uintptr(0))
-	if err != syscall.Errno(0) {
-		return err
-	}
-	return nil
+	data := byteSliceFromUntptr(addr, objSize, objSize)
+	return mq_timedreceive(mq.Id(), data, objSize, prio, nil)
 }
 
 func (mq *MessageQueue) Id() int {
@@ -121,6 +103,41 @@ func mq_open(name string, flags int, mode uint32) (int, error) {
 		return -1, err
 	}
 	return int(id), nil
+}
+
+func mq_timedsend(id int, data []byte, lenght int, prio int, timeout *unix.Timespec) error {
+	rawData := byteSliceAddress(data)
+	defer use(unsafe.Pointer(rawData))
+	defer use(unsafe.Pointer(timeout))
+	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
+		uintptr(id),
+		uintptr(rawData),
+		uintptr(lenght),
+		uintptr(prio),
+		uintptr(unsafe.Pointer(timeout)),
+		uintptr(0))
+	if err != syscall.Errno(0) {
+		return err
+	}
+	return nil
+}
+
+func mq_timedreceive(id int, data []byte, lenght int, prio *int, timeout *unix.Timespec) error {
+	rawData := byteSliceAddress(data)
+	defer use(unsafe.Pointer(rawData))
+	defer use(unsafe.Pointer(timeout))
+	defer use(unsafe.Pointer(prio))
+	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
+		uintptr(id),
+		uintptr(rawData),
+		uintptr(lenght),
+		uintptr(unsafe.Pointer(prio)),
+		uintptr(unsafe.Pointer(timeout)),
+		uintptr(0))
+	if err != syscall.Errno(0) {
+		return err
+	}
+	return nil
 }
 
 func mq_unlink(name string) error {

@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -42,21 +43,24 @@ func TestCreateMqOpenOnly(t *testing.T) {
 	assert.Error(t, err)
 }
 
-/*
-func TestMessagingSameProcess(t *testing.T) {
-	mq, err := NewMessageQueue(MSGQUEUE_NEW, O_OPEN_OR_CREATE, 0666)
+func TestMqSameProcess(t *testing.T) {
+	mq, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer mq.Destroy()
 	var message int = 1122
 	go func() {
-		assert.NoError(t, mq.Send(1, 0, message))
+		err := mq.Send(message, 0)
+		if err != nil {
+			print(err.Error())
+		}
+		assert.NoError(t, err)
 	}()
 	message = 0
-	if !assert.NoError(t, mq.Receive(1, 0, &message)) {
+	<-time.After(time.Second)
+	if !assert.NoError(t, mq.Receive(&message, nil)) {
 		return
 	}
 	assert.Equal(t, 1122, message)
 }
-*/
