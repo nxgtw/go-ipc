@@ -5,5 +5,5 @@
 package ipc
 
 const (
-	O_FIFO_NONBLOCK = 0x00000040 // for FIFO open only
+	O_NONBLOCK = 0x00000040
 )

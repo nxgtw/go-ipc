@@ -37,7 +37,7 @@ func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 		// so, we don't allow it and return an error
 		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
 	}
-	if mode&O_FIFO_NONBLOCK != 0 {
+	if mode&O_NONBLOCK != 0 {
 		osMode |= unix.O_NONBLOCK
 	}
 	file, err := os.OpenFile(path, osMode, perm)
@@ -81,7 +81,7 @@ func DestroyFifo(name string) error {
 
 // returns full path for the fifo
 // if its name contains '/' ('/tmp/fifo', './fifo') - use it
-// if only filename was passed, create it in /tmp
+// if only filename was passed, assume it is in /tmp
 func fifoPath(name string) string {
 	if strings.Contains(name, "/") {
 		return name

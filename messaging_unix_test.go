@@ -10,35 +10,53 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateMQ(t *testing.T) {
-	mq, err := NewMessageQueue(MSGQUEUE_NEW, O_OPEN_OR_CREATE, 0666)
+const (
+	testMqName = "go-ipc.testmq"
+)
+
+func TestCreateMq(t *testing.T) {
+	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	if assert.NoError(t, err) {
-		assert.NoError(t, DestroyMessageQueue(mq.Id()))
+		assert.NoError(t, DestroyMessageQueue(testMqName))
 	}
 }
 
-func TestCreateMQExcl(t *testing.T) {
+func TestCreateMqExcl(t *testing.T) {
+	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = NewMessageQueue(testMqName, O_CREATE_ONLY|O_READWRITE, 0666)
+	assert.Error(t, err)
+}
+
+func TestCreateMqOpenOnly(t *testing.T) {
+	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
+		return
+	}
+	_, err = NewMessageQueue(testMqName, O_OPEN_ONLY|O_READWRITE, 0666)
+	assert.Error(t, err)
+}
+
+/*
+func TestMessagingSameProcess(t *testing.T) {
 	mq, err := NewMessageQueue(MSGQUEUE_NEW, O_OPEN_OR_CREATE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = NewMessageQueue(mq.Id(), O_CREATE_ONLY, 0666)
-	assert.Error(t, err)
-}
-
-func TestCreateMQOpenOnly(t *testing.T) {
-	mq, err := NewMessageQueue(MSGQUEUE_NEW, O_OPEN_OR_CREATE, 0666)
-	if !assert.NoError(t, err) {
+	defer mq.Destroy()
+	var message int = 1122
+	go func() {
+		assert.NoError(t, mq.Send(1, 0, message))
+	}()
+	message = 0
+	if !assert.NoError(t, mq.Receive(1, 0, &message)) {
 		return
 	}
-	if !assert.NoError(t, DestroyMessageQueue(mq.Id())) {
-		return
-	}
-	_, err = NewMessageQueue(mq.Id(), O_OPEN_ONLY, 0666)
-	assert.Error(t, err)
+	assert.Equal(t, 1122, message)
 }
-
-func TestCreateMQWrongFlags(t *testing.T) {
-	_, err := NewMessageQueue(MSGQUEUE_NEW, O_OPEN_ONLY, 0666)
-	assert.Error(t, err)
-}
+*/

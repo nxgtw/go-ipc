@@ -138,7 +138,7 @@ func DestroyMemoryObject(name string) error {
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
 	var osMode int
-	osMode, err = modeToOsMode(mode)
+	osMode, err = shmModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +202,38 @@ func shmProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 	return
 }
 
+func shmCreateModeToOsMode(mode int) (int, error) {
+	if mode&O_OPEN_OR_CREATE != 0 {
+		if mode&(O_CREATE_ONLY|O_OPEN_ONLY) != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
+		}
+		return os.O_CREATE | os.O_TRUNC | os.O_RDWR, nil
+	}
+	if mode&O_CREATE_ONLY != 0 {
+		if mode&O_OPEN_ONLY != 0 {
+			return 0, fmt.Errorf("incompatible open flags")
+		}
+		return os.O_CREATE | os.O_EXCL | os.O_RDWR, nil
+	}
+	if mode&O_OPEN_ONLY != 0 {
+		return 0, nil
+	}
+	return 0, fmt.Errorf("no create mode flags")
+}
+
+func shmModeToOsMode(mode int) (int, error) {
+	if createMode, err := shmCreateModeToOsMode(mode); err == nil {
+		if accessMode, err := accessModeToOsMode(mode); err == nil {
+			return createMode | accessMode, nil
+		} else {
+			return 0, err
+		}
+	} else {
+		return 0, err
+	}
+}
+
+// syscalls
 func msync(data []byte, flags int) error {
 	_, _, err := unix.Syscall(unix.SYS_MSYNC, uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), uintptr(flags))
 	if err != syscall.Errno(0) {

@@ -24,10 +24,10 @@ func valueObjectAddress(v interface{}) uintptr {
 
 // returns the address of the given object
 // if a slice is passed, it will returns a pointer to the actual data
-func objectAddress(object interface{}, kind reflect.Kind) uintptr {
+func objectAddress(object reflect.Value) uintptr {
 	var addr uintptr
-	addr = valueObjectAddress(object)
-	if kind == reflect.Slice {
+	addr = valueObjectAddress(object.Interface())
+	if object.Kind() == reflect.Slice {
 		header := *(*reflect.SliceHeader)(unsafe.Pointer(addr))
 		addr = header.Data
 	}
@@ -46,7 +46,7 @@ func objectSize(object reflect.Value) int {
 // copies value's data into a byte slice.
 // if a slice is passed, it will copy data it references to
 func copyObjectData(value reflect.Value, memory []byte) {
-	addr := objectAddress(value.Interface(), value.Kind())
+	addr := objectAddress(value)
 	size := objectSize(value)
 	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
 	copy(memory, objectData[:size])
