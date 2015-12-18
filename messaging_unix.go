@@ -14,17 +14,22 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	DefaultMqMaxLen = 8
+)
+
 type MessageQueue struct {
 	id   int
 	name string
 }
 
-func NewMessageQueue(name string, flags int, perm os.FileMode) (*MessageQueue, error) {
+func NewMessageQueue(name string, flags int, perm os.FileMode, maxMsgSize int) (*MessageQueue, error) {
 	sysflags, err := mqFlagsToOsFlags(flags)
 	if err != nil {
 		return nil, err
 	}
-	id, err := mq_open(name, sysflags, uint32(perm))
+	attrs := &mq_attr{mq_maxmsg: DefaultMqMaxLen, mq_msgsize: maxMsgSize}
+	id, err := mq_open(name, sysflags, uint32(perm), attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +43,8 @@ func (mq *MessageQueue) Send(object interface{}, prio int) error {
 	}
 	objSize := objectSize(value)
 	data := make([]byte, objSize)
-	print(objSize)
-	if err := alloc(data, value); err != nil {
+	// TODO(avd) - optimization: do not alloc a new object if we're sending a byte slice
+	if err := alloc(data, object); err != nil {
 		return err
 	}
 	return mq_timedsend(mq.Id(), data, objSize, prio, nil)
@@ -47,14 +52,23 @@ func (mq *MessageQueue) Send(object interface{}, prio int) error {
 
 func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
 	value := reflect.ValueOf(object)
-	if value.Kind() != reflect.Ptr {
-		return fmt.Errorf("the object must be a pointer")
+	kind := value.Kind()
+	var objSize int
+	if kind == reflect.Ptr {
+		valueElem := value.Elem()
+		if err := checkType(valueElem.Type(), 0); err != nil {
+			return err
+		}
+		objSize = objectSize(valueElem)
+	} else if kind == reflect.Slice {
+		if err := checkType(value.Type(), 0); err != nil {
+			return err
+		}
+		objSize = objectSize(value)
+		print(objSize)
+	} else {
+		return fmt.Errorf("the object must be a pointer or a slice")
 	}
-	valueElem := value.Elem()
-	if err := checkType(valueElem.Type(), 0); err != nil {
-		return err
-	}
-	objSize := objectSize(valueElem)
 	addr := value.Pointer()
 	data := byteSliceFromUntptr(addr, objSize, objSize)
 	return mq_timedreceive(mq.Id(), data, objSize, prio, nil)
@@ -64,8 +78,17 @@ func (mq *MessageQueue) Id() int {
 	return mq.id
 }
 
+func (mq *MessageQueue) Close() error {
+	return unix.Close(mq.Id())
+}
+
 func (mq *MessageQueue) Destroy() error {
+	mq.Close()
 	return DestroyMessageQueue(mq.name)
+}
+
+func DestroyMessageQueue(name string) error {
+	return mq_unlink(name)
 }
 
 func mqFlagsToOsFlags(flags int) (int, error) {
@@ -86,19 +109,31 @@ func mqFlagsToOsFlags(flags int) (int, error) {
 	return sysflags, nil
 }
 
-func DestroyMessageQueue(name string) error {
-	return mq_unlink(name)
+// syscalls
+
+type mq_attr struct {
+	mq_flags   int /* Flags: 0 or O_NONBLOCK */
+	mq_maxmsg  int /* Max. # of messages on queue */
+	mq_msgsize int /* Max. message size (bytes) */
+	mq_curmsgs int /* # of messages currently in queue */
 }
 
-// syscalls
-func mq_open(name string, flags int, mode uint32) (int, error) {
+func mq_open(name string, flags int, mode uint32, attrs *mq_attr) (int, error) {
 	nameBytes, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return -1, err
 	}
 	bytes := unsafe.Pointer(nameBytes)
+	attrsP := unsafe.Pointer(attrs)
 	defer use(bytes)
-	id, _, err := syscall.Syscall(unix.SYS_MQ_OPEN, uintptr(bytes), uintptr(flags), uintptr(mode))
+	defer use(attrsP)
+	id, _, err := syscall.Syscall6(unix.SYS_MQ_OPEN,
+		uintptr(bytes),
+		uintptr(flags),
+		uintptr(mode),
+		uintptr(attrsP),
+		0,
+		0)
 	if err != syscall.Errno(0) {
 		return -1, err
 	}
