@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -47,10 +48,10 @@ func (mq *MessageQueue) Send(object interface{}, prio int) error {
 	if err := alloc(data, object); err != nil {
 		return err
 	}
-	return mq_timedsend(mq.Id(), data, objSize, prio, nil)
+	return mq_timedsend(mq.Id(), data, prio, nil)
 }
 
-func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
+func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
 	value := reflect.ValueOf(object)
 	kind := value.Kind()
 	var objSize int
@@ -65,13 +66,21 @@ func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
 			return err
 		}
 		objSize = objectSize(value)
-		print(objSize)
 	} else {
 		return fmt.Errorf("the object must be a pointer or a slice")
 	}
 	addr := value.Pointer()
 	data := byteSliceFromUntptr(addr, objSize, objSize)
-	return mq_timedreceive(mq.Id(), data, objSize, prio, nil)
+	var ts *unix.Timespec
+	if int64(timeout) >= 0 {
+		sec, nsec := splitUnixTime(time.Now().Add(timeout).UnixNano())
+		ts = &unix.Timespec{Sec: sec, Nsec: nsec}
+	}
+	return mq_timedreceive(mq.Id(), data, prio, ts)
+}
+
+func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
+	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
 }
 
 func (mq *MessageQueue) Id() int {
@@ -140,35 +149,36 @@ func mq_open(name string, flags int, mode uint32, attrs *mq_attr) (int, error) {
 	return int(id), nil
 }
 
-func mq_timedsend(id int, data []byte, lenght int, prio int, timeout *unix.Timespec) error {
+func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 	rawData := byteSliceAddress(data)
-	defer use(unsafe.Pointer(rawData))
-	defer use(unsafe.Pointer(timeout))
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
 		uintptr(id),
 		uintptr(rawData),
-		uintptr(lenght),
+		uintptr(len(data)),
 		uintptr(prio),
 		uintptr(unsafe.Pointer(timeout)),
 		uintptr(0))
+	use(unsafe.Pointer(rawData))
+	use(unsafe.Pointer(timeout))
 	if err != syscall.Errno(0) {
 		return err
 	}
 	return nil
 }
 
-func mq_timedreceive(id int, data []byte, lenght int, prio *int, timeout *unix.Timespec) error {
+func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) error {
 	rawData := byteSliceAddress(data)
-	defer use(unsafe.Pointer(rawData))
-	defer use(unsafe.Pointer(timeout))
-	defer use(unsafe.Pointer(prio))
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
 		uintptr(id),
 		uintptr(rawData),
-		uintptr(lenght),
+		uintptr(len(data)),
 		uintptr(unsafe.Pointer(prio)),
 		uintptr(unsafe.Pointer(timeout)),
 		uintptr(0))
+	use(unsafe.Pointer(rawData))
+	use(unsafe.Pointer(timeout))
+	use(unsafe.Pointer(prio))
+	use(unsafe.Pointer(timeout))
 	if err != syscall.Errno(0) {
 		return err
 	}

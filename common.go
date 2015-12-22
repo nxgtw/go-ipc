@@ -5,6 +5,7 @@ package ipc
 import (
 	"fmt"
 	"os"
+	"time"
 	"unsafe"
 )
 
@@ -25,6 +26,10 @@ func accessModeToOsMode(mode int) (umode int, err error) {
 		return umode | os.O_RDWR, nil
 	}
 	return 0, fmt.Errorf("no access mode flags")
+}
+
+func splitUnixTime(utime int64) (int64, int64) {
+	return utime / int64(time.Second), utime % int64(time.Second)
 }
 
 // from syscall package

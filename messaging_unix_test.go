@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
@@ -33,12 +34,8 @@ func TestCreateMqExcl(t *testing.T) {
 
 func TestCreateMqOpenOnly(t *testing.T) {
 	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, 4)
-	if !assert.NoError(t, err) {
-		return
-	}
-	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
-		return
-	}
+	assert.NoError(t, err)
+	assert.NoError(t, DestroyMessageQueue(testMqName))
 	_, err = NewMessageQueue(testMqName, O_OPEN_ONLY|O_READWRITE, 0666, 4)
 	assert.Error(t, err)
 }
@@ -55,9 +52,7 @@ func TestMqSendIntSameProcess(t *testing.T) {
 	}()
 	var received int
 	var prio int
-	if !assert.NoError(t, mq.Receive(&received, &prio)) {
-		return
-	}
+	assert.NoError(t, mq.Receive(&received, &prio))
 	assert.Equal(t, received, message)
 	assert.Equal(t, 1, prio)
 }
@@ -68,16 +63,15 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 		return
 	}
 	defer mq.Destroy()
-	message := make([]byte, 16)
+	message := make([]byte, 9)
 	for i, _ := range message {
 		message[i] = byte(i)
 	}
 	go func() {
 		assert.NoError(t, mq.Send(message, 1))
 	}()
-	received := make([]byte, 16)
-	if !assert.NoError(t, mq.Receive(received, nil)) {
-		return
-	}
+	received := make([]byte, 9)
+	assert.NoError(t, mq.ReceiveTimeout(received, nil, 300*time.Millisecond))
 	assert.Equal(t, received, message)
+
 }
