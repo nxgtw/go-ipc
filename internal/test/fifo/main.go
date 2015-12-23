@@ -58,7 +58,7 @@ func read() error {
 	}
 	mode := ipc.O_READ_ONLY
 	if *nonBlock {
-		mode |= ipc.O_FIFO_NONBLOCK
+		mode |= ipc.O_NONBLOCK
 	}
 	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
@@ -85,7 +85,7 @@ func test() error {
 	}
 	mode := ipc.O_READ_ONLY
 	if *nonBlock {
-		mode |= ipc.O_FIFO_NONBLOCK
+		mode |= ipc.O_NONBLOCK
 	}
 	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
@@ -113,7 +113,7 @@ func write() error {
 	}
 	mode := ipc.O_WRITE_ONLY
 	if *nonBlock {
-		mode |= ipc.O_FIFO_NONBLOCK
+		mode |= ipc.O_NONBLOCK
 	}
 	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
