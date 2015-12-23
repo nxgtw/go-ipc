@@ -5,7 +5,6 @@ package ipc
 import (
 	"fmt"
 	"os"
-	"time"
 	"unsafe"
 )
 
@@ -28,10 +27,8 @@ func accessModeToOsMode(mode int) (umode int, err error) {
 	return 0, fmt.Errorf("no access mode flags")
 }
 
-func splitUnixTime(utime int64) (int64, int64) {
-	return utime / int64(time.Second), utime % int64(time.Second)
-}
-
-// from syscall package
+// from syscall package:
+// use is a no-op, but the compiler cannot see that it is.
+// Calling use(p) ensures that p is kept live until that point.
 //go:noescape
 func use(p unsafe.Pointer)

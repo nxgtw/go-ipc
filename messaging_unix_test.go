@@ -7,6 +7,7 @@ package ipc
 import (
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +42,7 @@ func TestCreateMqOpenOnly(t *testing.T) {
 
 func TestMqSendIntSameProcess(t *testing.T) {
 	var message int = 1122
-	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, 8)
+	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
 	if !assert.NoError(t, err) {
 		return
 	}
