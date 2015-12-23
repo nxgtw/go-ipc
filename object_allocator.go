@@ -48,8 +48,9 @@ func objectSize(object reflect.Value) int {
 func copyObjectData(value reflect.Value, memory []byte) {
 	addr := objectAddress(value)
 	size := objectSize(value)
-	objectData := *((*[maxObjectSize]byte)(unsafe.Pointer(addr)))
-	copy(memory, objectData[:size])
+	objectData := byteSliceFromUintptr(addr, size, size)
+	copy(memory, objectData)
+	use(unsafe.Pointer(addr))
 }
 
 // copies value's data into a byte slice performing soem sanity checks.
@@ -90,7 +91,7 @@ func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
-func byteSliceFromUntptr(memory uintptr, lenght, capacity int) []byte {
+func byteSliceFromUintptr(memory uintptr, lenght, capacity int) []byte {
 	sl := reflect.SliceHeader{
 		Len:  lenght,
 		Cap:  capacity,
