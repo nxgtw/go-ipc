@@ -20,6 +20,10 @@ const (
 	DefaultMqMaxMessageSize = 8192
 )
 
+var (
+	MqNotifySignal = syscall.SIGUSR1
+)
+
 type MessageQueue struct {
 	id   int
 	name string
@@ -131,6 +135,10 @@ func (mq *MessageQueue) Destroy() error {
 	return DestroyMessageQueue(mq.name)
 }
 
+func (mq *MessageQueue) Notify() error {
+	return nil
+}
+
 func DestroyMessageQueue(name string) error {
 	return mq_unlink(name)
 }
@@ -160,6 +168,19 @@ func timeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
 }
 
 // syscalls
+
+type sigval struct { /* Data passed with notification */
+	sigval_int uintptr /* A pointer-sized value to match the union size in syscall */
+}
+
+type sigevent struct {
+	sigev_value             sigval
+	sigev_notify            int
+	sigev_signo             int
+	sigev_notify_function   uintptr
+	sigev_notify_attributes uintptr
+	padding                 [8]int32 // 8 is the maximum padding size
+}
 
 func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 	nameBytes, err := syscall.BytePtrFromString(name)
