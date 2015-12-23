@@ -7,7 +7,6 @@ package ipc
 import (
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,32 +16,32 @@ const (
 )
 
 func TestCreateMq(t *testing.T) {
-	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, 4)
+	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	if assert.NoError(t, err) {
 		assert.NoError(t, DestroyMessageQueue(testMqName))
 	}
 }
 
 func TestCreateMqExcl(t *testing.T) {
-	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, 4)
+	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = NewMessageQueue(testMqName, O_CREATE_ONLY|O_READWRITE, 0666, 4)
+	_, err = CreateMessageQueue(testMqName, true, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	assert.Error(t, err)
 }
 
 func TestCreateMqOpenOnly(t *testing.T) {
-	_, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, 4)
+	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	assert.NoError(t, err)
 	assert.NoError(t, DestroyMessageQueue(testMqName))
-	_, err = NewMessageQueue(testMqName, O_OPEN_ONLY|O_READWRITE, 0666, 4)
+	_, err = OpenMessageQueue(testMqName, O_READ_ONLY)
 	assert.Error(t, err)
 }
 
 func TestMqSendIntSameProcess(t *testing.T) {
 	var message int = 1122
-	mq, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, int(unsafe.Sizeof(message)))
+	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, 8)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -52,26 +51,48 @@ func TestMqSendIntSameProcess(t *testing.T) {
 	}()
 	var received int
 	var prio int
-	assert.NoError(t, mq.Receive(&received, &prio))
-	assert.Equal(t, received, message)
-	assert.Equal(t, 1, prio)
+	mqr, err := OpenMessageQueue(testMqName, O_READ_ONLY)
+	assert.NoError(t, err)
+	assert.NoError(t, mqr.Receive(&received, &prio))
 }
 
 func TestMqSendSliceSameProcess(t *testing.T) {
-	mq, err := NewMessageQueue(testMqName, O_OPEN_OR_CREATE|O_READWRITE, 0666, 1024)
+	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, 32)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer mq.Destroy()
-	message := make([]byte, 9)
+	message := make([]byte, 32)
 	for i, _ := range message {
 		message[i] = byte(i)
 	}
 	go func() {
 		assert.NoError(t, mq.Send(message, 1))
 	}()
-	received := make([]byte, 9)
-	assert.NoError(t, mq.ReceiveTimeout(received, nil, 300*time.Millisecond))
+	received := make([]byte, 32)
+	mqr, err := OpenMessageQueue(testMqName, O_READ_ONLY)
+	assert.NoError(t, err)
+	defer mqr.Destroy()
+	assert.NoError(t, mqr.ReceiveTimeout(received, nil, 300*time.Millisecond))
 	assert.Equal(t, received, message)
+}
 
+func TestMqGetAttrs(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	assert.NoError(t, mq.Send(0, 0))
+	attrs, err := mq.GetAttrs()
+	assert.NoError(t, err)
+	assert.Equal(t, 5, attrs.Maxmsg)
+	assert.Equal(t, 121, attrs.Msgsize)
+	assert.Equal(t, 1, attrs.Curmsgs)
+}
+
+func TestMqSetNonBlock(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 1, 8)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	assert.NoError(t, mq.Send(0, 0))
+	assert.NoError(t, mq.SetNonBlock(true))
+	assert.Error(t, mq.Send(0, 0))
 }
