@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
-
 package ipc
 
 import (
@@ -104,6 +102,19 @@ func TestMqNotify(t *testing.T) {
 	defer mq.Destroy()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
-	mq.Send(0, 0)
-	<-time.After(time.Second)
+	go func() {
+		mq.Send(0, 0)
+	}()
+	assert.Equal(t, mq.Id(), <-ch)
+}
+
+func TestMqNotifyTwice(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	ch := make(chan int)
+	assert.NoError(t, mq.Notify(ch))
+	assert.Error(t, mq.Notify(ch))
+	assert.NoError(t, mq.NotifyCancel())
+	assert.NoError(t, mq.Notify(ch))
 }

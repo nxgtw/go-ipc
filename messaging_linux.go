@@ -1,13 +1,12 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
-
 package ipc
 
 import (
 	"fmt"
 	"os"
 	"reflect"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -20,8 +19,9 @@ const (
 )
 
 type MessageQueue struct {
-	id   int
-	name string
+	id             int
+	name           string
+	notifySocketFd int
 }
 
 type MqAttr struct {
@@ -40,7 +40,7 @@ func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueS
 	if id, err := mq_open(name, sysflags, uint32(perm), attrs); err != nil {
 		return nil, err
 	} else {
-		return &MessageQueue{id: int(id), name: name}, nil
+		return &MessageQueue{id: int(id), name: name, notifySocketFd: -1}, nil
 	}
 }
 
@@ -52,7 +52,7 @@ func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
 	if id, err := mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	} else {
-		return &MessageQueue{id: int(id), name: name}, nil
+		return &MessageQueue{id: int(id), name: name, notifySocketFd: -1}, nil
 	}
 }
 
@@ -106,6 +106,9 @@ func (mq *MessageQueue) Id() int {
 }
 
 func (mq *MessageQueue) Close() error {
+	if mq.notifySocketFd != -1 {
+		mq.NotifyCancel()
+	}
 	return unix.Close(mq.Id())
 }
 
@@ -130,12 +133,12 @@ func (mq *MessageQueue) Destroy() error {
 	return DestroyMessageQueue(mq.name)
 }
 
-func (mq *MessageQueue) Notify(ch chan<- int) error {
+func (mq *MessageQueue) Notify(ch chan int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
 	}
-	notifySocketOnce.Do(initNotifications)
-	if notifySocketFd == -1 {
+	notifySocketFd, err := initMqNotifications(ch)
+	if err != nil {
 		return fmt.Errorf("unable to init notifications subsystem")
 	}
 	ndata := &notify_data{mq_id: mq.Id()}
@@ -143,10 +146,25 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 	defer use(pndata)
 	ev := &sigevent{
 		sigev_notify: cSIGEV_THREAD,
-		sigev_signo:  notifySocketFd,
+		sigev_signo:  int32(notifySocketFd),
 		sigev_value:  sigval{sigval_ptr: uintptr(pndata)},
 	}
-	return mq_notify(mq.Id(), ev)
+	if err = mq_notify(mq.Id(), ev); err != nil {
+		syscall.Close(notifySocketFd)
+	} else {
+		mq.notifySocketFd = notifySocketFd
+	}
+	return err
+}
+
+func (mq *MessageQueue) NotifyCancel() error {
+	if err := mq_notify(mq.Id(), nil); err == nil {
+		syscall.Close(mq.notifySocketFd)
+		mq.notifySocketFd = -1
+		return nil
+	} else {
+		return err
+	}
 }
 
 func DestroyMessageQueue(name string) error {

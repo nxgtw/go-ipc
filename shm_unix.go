@@ -6,5 +6,5 @@ package ipc
 
 // glibc/sysdeps/posix/shm-directory.c
 func locateShmFs() {
-	shmDir = defaultShmPath
+	shmPath = defaultShmPath
 }

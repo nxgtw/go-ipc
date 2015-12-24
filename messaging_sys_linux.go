@@ -1,11 +1,8 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
-
 package ipc
 
 import (
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -19,16 +16,12 @@ const (
 	cNOTIFY_COOKIE_LEN = 32
 )
 
-var (
-	notifySocketFd   int = -1
-	notifySocketOnce sync.Once
-)
-
-func initNotifications() {
-	var err error
-	notifySocketFd, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW|syscall.SOCK_CLOEXEC, 0)
+func initMqNotifications(ch chan<- int) (int, error) {
+	notifySocketFd, err := syscall.Socket(syscall.AF_NETLINK,
+		syscall.SOCK_RAW|syscall.SOCK_CLOEXEC,
+		syscall.NETLINK_ROUTE)
 	if err != nil {
-		return
+		return -1, err
 	}
 	go func() {
 		var data [cNOTIFY_COOKIE_LEN]byte
@@ -36,10 +29,13 @@ func initNotifications() {
 			n, _, err := syscall.Recvfrom(notifySocketFd, data[:], syscall.MSG_NOSIGNAL|syscall.MSG_WAITALL)
 			if n == cNOTIFY_COOKIE_LEN && err == nil {
 				ndata := (*notify_data)(unsafe.Pointer(byteSliceAddress(data[:])))
-				print(ndata.mq_id)
+				ch <- ndata.mq_id
+			} else {
+				return
 			}
 		}
 	}()
+	return notifySocketFd, nil
 }
 
 // syscalls
@@ -55,8 +51,8 @@ type sigval struct { /* Data passed with notification */
 
 type sigevent struct {
 	sigev_value             sigval
-	sigev_signo             int
-	sigev_notify            int
+	sigev_signo             int32
+	sigev_notify            int32
 	sigev_notify_function   uintptr
 	sigev_notify_attributes uintptr
 	padding                 [8]int32 // 8 is the maximum padding size
@@ -121,7 +117,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) err
 }
 
 func mq_notify(id int, event *sigevent) error {
-	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(unsafe.Pointer(event)), uintptr(0), uintptr(0))
+	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(id), uintptr(unsafe.Pointer(event)), uintptr(0))
 	use(unsafe.Pointer(event))
 	if err != syscall.Errno(0) {
 		return err
