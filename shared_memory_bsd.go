@@ -25,12 +25,12 @@ func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error)
 	if err != nil {
 		return nil, err
 	}
-	nameBytes, err := syscall.BytePtrFromString(name)
+	nameBytes, err := syscall.BytePtrFromString(path)
 	if err != nil {
 		return nil, err
 	}
 	bytes := unsafe.Pointer(nameBytes)
-	fd, _, err := syscall.Syscall(SYS_SHM_OPEN, uintptr(bytes), uintptr(osMode), uintptr(perm), uintptr(0))
+	fd, _, err := syscall.Syscall(syscall.SYS_SHM_OPEN, uintptr(bytes), uintptr(osMode), uintptr(perm))
 	use(bytes)
 	if err != syscall.Errno(0) {
 		return nil, err
