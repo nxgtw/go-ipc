@@ -97,3 +97,13 @@ func TestMqSetNonBlock(t *testing.T) {
 	assert.NoError(t, mq.SetNonBlock(true))
 	assert.Error(t, mq.Send(0, 0))
 }
+
+func TestMqNotify(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	ch := make(chan int)
+	assert.NoError(t, mq.Notify(ch))
+	mq.Send(0, 0)
+	<-time.After(time.Second)
+}
