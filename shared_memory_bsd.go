@@ -13,7 +13,13 @@ import (
 )
 
 func destroyMemoryObject(path string) error {
-	return shm_unlink(path)
+	err :=  shm_unlink(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+	}	
+	return err
 }
 
 func shmName(name string) (string, error) {
@@ -21,7 +27,7 @@ func shmName(name string) (string, error) {
 	if runtime.GOOS == "darwin" {
 		name = fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
 	}
-	return name, nil
+	return  "/tmp/" + name, nil
 }
 
 func shmOpen(name string, mode int, perm os.FileMode) (*os.File, error) {
