@@ -23,16 +23,12 @@ var (
 	shmPath     string
 )
 
-func DestroyMemoryObject(name string) error {
-	if path, err := shmName(name); err != nil {
-		return err
-	} else {
-		err := os.Remove(path)
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
+func destroyMemoryObject(path string) error {
+	err := os.Remove(path)
+	if os.IsNotExist(err) {
+		return nil
 	}
+	return err
 }
 
 // glibc/sysdeps/posix/shm_open.c

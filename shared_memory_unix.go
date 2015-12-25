@@ -40,12 +40,13 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 
 func (impl *memoryObjectImpl) Destroy() error {
 	if err := impl.Close(); err == nil {
-		return os.Remove(impl.file.Name())
+		return destroyMemoryObject(impl.file.Name())
 	} else {
 		return err
 	}
 }
 
+// returns the name of the object as it was given to NewMemoryObject()
 func (impl *memoryObjectImpl) Name() string {
 	return filepath.Base(impl.file.Name())
 }
@@ -68,6 +69,14 @@ func (impl *memoryObjectImpl) Size() int64 {
 
 func (impl *memoryObjectImpl) Fd() int {
 	return int(impl.file.Fd())
+}
+
+func DestroyMemoryObject(name string) error {
+	if path, err := shmName(name); err != nil {
+		return err
+	} else {
+		return destroyMemoryObject(path)
+	}
 }
 
 func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
