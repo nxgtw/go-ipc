@@ -24,12 +24,12 @@ func shmName(name string) (string, error) {
 	return name, nil
 }
 
-func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
+func shmOpen(name string, mode int, perm os.FileMode) (*os.File, error) {
 	osMode, err := shmModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
-	if fd, err := shm_open(path, osMode, int(perm)); err != nil {
+	if fd, err := shm_open(name, osMode, int(perm)); err != nil {
 		return nil, err
 	} else {
 		return os.NewFile(fd, path), nil

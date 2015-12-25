@@ -38,8 +38,9 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 func TestCreateMemoryObject(t *testing.T) {
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	assert.NoError(t, err)
-	assert.NotNil(t, obj)
-	assert.NoError(t, obj.Destroy())
+	if assert.NotNil(t, obj) {
+		assert.NoError(t, obj.Destroy())
+	}
 }
 
 func TestOpenMemoryObjectReadonly(t *testing.T) {
@@ -129,7 +130,7 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 }
 
 func TestMemoryObjectCloseOnGc(t *testing.T) {
-	if ! assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
+	if !assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
 		return
 	}
 	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
