@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -33,13 +34,13 @@ func destroyMemoryObject(path string) error {
 
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
-	var osMode int
-	osMode, err = shmModeToOsMode(mode)
-	if err != nil {
-		return nil, err
-	}
 	switch {
 	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
+		var osMode int
+		osMode, err = shmModeToOsMode(mode)
+		if err != nil {
+			return nil, err
+		}
 		file, err = os.OpenFile(path, osMode, perm)
 	case mode&O_OPEN_OR_CREATE != 0:
 		amode, _ := accessModeToOsMode(mode)
@@ -52,6 +53,8 @@ func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error)
 				}
 			}
 		}
+	default:
+		err = fmt.Errorf("unknown open mode")
 	}
 	return
 }

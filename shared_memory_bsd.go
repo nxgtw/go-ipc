@@ -10,15 +10,17 @@ import (
 	"runtime"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 func destroyMemoryObject(path string) error {
-	err :=  shm_unlink(path)
+	err := shm_unlink(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
-	}	
+	}
 	return err
 }
 
@@ -27,18 +29,38 @@ func shmName(name string) (string, error) {
 	if runtime.GOOS == "darwin" {
 		name = fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
 	}
-	return  "/tmp/" + name, nil
+	return "/tmp/" + name, nil
 }
 
-func shmOpen(name string, mode int, perm os.FileMode) (*os.File, error) {
-	osMode, err := shmModeToOsMode(mode)
+func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
+	var fd uintptr
+	var err error
+	switch {
+	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
+		var osMode int
+		osMode, err = shmModeToOsMode(mode)
+		if err != nil {
+			return nil, err
+		}
+		fd, err = shm_open(path, osMode, int(perm))
+	case mode&O_OPEN_OR_CREATE != 0:
+		amode, _ := accessModeToOsMode(mode)
+		for {
+			if fd, err = shm_open(path, amode|unix.O_CREAT|unix.O_EXCL, int(perm)); !os.IsExist(err) {
+				break
+			} else {
+				if fd, err = shm_open(path, amode, int(perm)); !os.IsNotExist(err) {
+					break
+				}
+			}
+		}
+	default:
+		err = fmt.Errorf("unknown open mode")
+	}
 	if err != nil {
 		return nil, err
-	}
-	if fd, err := shm_open(name, osMode, int(perm)); err != nil {
-		return nil, err
 	} else {
-		return os.NewFile(fd, name), nil
+		return os.NewFile(fd, path), nil
 	}
 }
 
