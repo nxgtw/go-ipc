@@ -32,7 +32,7 @@ func shmOpen(name string, mode int, perm os.FileMode) (*os.File, error) {
 	if fd, err := shm_open(name, osMode, int(perm)); err != nil {
 		return nil, err
 	} else {
-		return os.NewFile(fd, path), nil
+		return os.NewFile(fd, name), nil
 	}
 }
 
