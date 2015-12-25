@@ -60,7 +60,7 @@ func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 
 func create() error {
 	if flag.NArg() != 1 {
-		return fmt.Errorf("create: must provide exactly one argument")
+		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	if _, err := createLocker(ipc.O_CREATE_ONLY, false); err != nil {
 		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
@@ -73,7 +73,7 @@ func create() error {
 
 func destroy() error {
 	if flag.NArg() != 1 {
-		return fmt.Errorf("destroy: must provide exactly one argument")
+		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	var err error
 	if *objType == "m" {
@@ -88,7 +88,7 @@ func destroy() error {
 
 func inc64() error {
 	if flag.NArg() != 3 {
-		return fmt.Errorf("test: must provide exactly three arguments")
+		return fmt.Errorf("test: must provide exactly two arguments")
 	}
 	memObject, err := ipc.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READWRITE, 0666)
 	if err != nil {
@@ -129,7 +129,7 @@ func performInc(ptr *int64, locker sync.Locker, n int) error {
 
 func test() error {
 	if flag.NArg() != 4 {
-		return fmt.Errorf("test: must provide exactly four arguments")
+		return fmt.Errorf("test: must provide exactly three arguments")
 	}
 	memObject, err := ipc.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {

@@ -30,7 +30,7 @@ byte array should be passed as a continuous string of 2-symbol hex byte values l
 
 func create() error {
 	if flag.NArg() != 1 {
-		return fmt.Errorf("create: must provide exactly one argument")
+		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	mode := ipc.O_READWRITE
 	if fifo, err := ipc.NewFifo(*objName, mode, 0666); err != nil {
@@ -50,7 +50,7 @@ func destroy() error {
 
 func read() error {
 	if flag.NArg() != 2 {
-		return fmt.Errorf("read: must provide exactly two arguments")
+		return fmt.Errorf("read: must provide exactly one arguments")
 	}
 	length, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
@@ -81,7 +81,7 @@ func read() error {
 
 func test() error {
 	if flag.NArg() != 2 {
-		return fmt.Errorf("test: must provide exactly two arguments")
+		return fmt.Errorf("test: must provide exactly one arguments")
 	}
 	mode := ipc.O_READ_ONLY
 	if *nonBlock {
@@ -109,7 +109,7 @@ func test() error {
 
 func write() error {
 	if flag.NArg() != 2 {
-		return fmt.Errorf("test: must provide exactly two arguments")
+		return fmt.Errorf("test: must provide exactly one arguments")
 	}
 	mode := ipc.O_WRITE_ONLY
 	if *nonBlock {

@@ -51,7 +51,7 @@ func destroy() error {
 
 func read() error {
 	if flag.NArg() != 3 {
-		return fmt.Errorf("read: must provide exactly three arguments")
+		return fmt.Errorf("read: must provide exactly two arguments")
 	}
 	offset, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
@@ -79,7 +79,7 @@ func read() error {
 
 func test() error {
 	if flag.NArg() != 3 {
-		return fmt.Errorf("test: must provide exactly three arguments")
+		return fmt.Errorf("test: must provide exactly two arguments")
 	}
 	offset, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
@@ -109,7 +109,7 @@ func test() error {
 
 func write() error {
 	if flag.NArg() != 3 {
-		return fmt.Errorf("test: must provide exactly three arguments")
+		return fmt.Errorf("test: must provide exactly two arguments")
 	}
 	offset, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {

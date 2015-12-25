@@ -92,7 +92,7 @@ func TestMqSetNonBlock(t *testing.T) {
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	assert.NoError(t, mq.Send(0, 0))
-	assert.NoError(t, mq.SetNonBlock(true))
+	assert.NoError(t, mq.SetBlocking(false))
 	assert.Error(t, mq.Send(0, 0))
 }
 

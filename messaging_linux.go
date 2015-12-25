@@ -120,9 +120,9 @@ func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
 	return attrs, nil
 }
 
-func (mq *MessageQueue) SetNonBlock(nonBlock bool) error {
+func (mq *MessageQueue) SetBlocking(block bool) error {
 	attrs := new(MqAttr)
-	if nonBlock {
+	if !block {
 		attrs.Flags |= unix.O_NONBLOCK
 	}
 	return mq_getsetattr(mq.Id(), attrs, nil)
