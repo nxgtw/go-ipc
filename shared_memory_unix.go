@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -48,7 +50,11 @@ func (impl *memoryObjectImpl) Destroy() error {
 
 // returns the name of the object as it was given to NewMemoryObject()
 func (impl *memoryObjectImpl) Name() string {
-	return filepath.Base(impl.file.Name())
+	result := filepath.Base(impl.file.Name())
+	if runtime.GOOS == "darwin" {
+		result = result[:strings.LastIndex(result, "\t")]
+	}
+	return result
 }
 
 func (impl *memoryObjectImpl) Close() error {
