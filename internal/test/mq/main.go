@@ -31,7 +31,7 @@ byte array should be passed as a continuous string of 2-symbol hex byte values l
 
 func create() error {
 	if flag.NArg() != 3 {
-		return fmt.Errorf("create: must provide exactly two argument")
+		return fmt.Errorf("create: must provide exactly two arguments")
 	}
 	maxSize, err := strconv.Atoi(flag.Arg(1))
 	if err != nil {
@@ -41,8 +41,8 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	mq, err := ipc.CreateMessageQueue(*objName, false, 0666, maxSize, maxMsgLen)
-	if err != nil {
+	mq, err := ipc.CreateMessageQueue(*objName, true, 0666, maxSize, maxMsgLen)
+	if err == nil {
 		mq.Close()
 	}
 	return err
@@ -68,14 +68,25 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	received := make([]byte, len(expected))
+	attrs, err := mq.GetAttrs()
+	if err != nil {
+		return err
+	}
+	if len(expected) > attrs.Msgsize {
+		return fmt.Errorf("data len exceeds max message size for the queue")
+	}
+	received := make([]byte, attrs.Msgsize)
+	var msgPrio int
 	if *timeout >= 0 {
-		err = mq.ReceiveTimeout(received, nil, time.Duration(*timeout)*time.Millisecond)
+		err = mq.ReceiveTimeout(received, &msgPrio, time.Duration(*timeout)*time.Millisecond)
 	} else {
-		err = mq.Receive(received, nil)
+		err = mq.Receive(received, &msgPrio)
 	}
 	if err != nil {
 		return err
+	}
+	if msgPrio != *prio {
+		return fmt.Errorf("expected msg prio %d, got %d", *prio, msgPrio)
 	}
 	for i, expectedValue := range expected {
 		if expectedValue != received[i] {
@@ -110,11 +121,18 @@ func notifywait() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("notifywait: must not provide any arguments")
 	}
-	mq, err := ipc.OpenMessageQueue(*objName, ipc.O_WRITE_ONLY)
+	mq, err := ipc.OpenMessageQueue(*objName, ipc.O_READWRITE)
 	if err != nil {
 		return err
 	}
 	defer mq.Close()
+	attrs, err := mq.GetAttrs()
+	if err != nil {
+		return err
+	}
+	if attrs.Curmsgs != 0 {
+		return fmt.Errorf("there are messages in the queue. notify won't work")
+	}
 	notifyChan := make(chan int, 1)
 	if err = mq.Notify(notifyChan); err != nil {
 		return err
