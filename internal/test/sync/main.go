@@ -41,7 +41,7 @@ func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 	if *objType == "m" {
 		err = fmt.Errorf("unimplemented")
 	} else if *objType == "rwm" {
-		if rwm, errRwm := ipc.NewRwMutex(*objName, mode, 0666); errRwm == nil {
+		/*if rwm, errRwm := ipc.NewRwMutex(*objName, mode, 0666); errRwm == nil {
 			if readonly {
 				locker = rwm.RLocker()
 			} else {
@@ -49,7 +49,8 @@ func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 			}
 		} else {
 			err = errRwm
-		}
+		}*/
+		panic("unimplemented")
 	} else if *objType == "spin" {
 		locker, err = ipc.NewSpinMutex(*objName, mode, 0666)
 	} else {
@@ -79,7 +80,8 @@ func destroy() error {
 	if *objType == "m" {
 		err = fmt.Errorf("unimplemented")
 	} else if *objType == "rwm" {
-		err = ipc.DestroyRwMutex(*objName)
+		//err = ipc.DestroyRwMutex(*objName)
+		panic("unimplemented")
 	} else {
 		return fmt.Errorf("unknown object type %q", *objType)
 	}
