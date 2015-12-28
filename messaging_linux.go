@@ -61,12 +61,11 @@ func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.D
 	if err := checkType(value.Type(), 0); err != nil {
 		return err
 	}
+	var data []byte
 	objSize := objectSize(value)
-	data := make([]byte, objSize)
-	// TODO(avd) - optimization: do not alloc a new object if we're sending a byte slice
-	if err := alloc(data, object); err != nil {
-		return err
-	}
+	addr := objectAddress(value)
+	defer use(unsafe.Pointer(addr))
+	data = byteSliceFromUintptr(addr, objSize, objSize)
 	return mq_timedsend(mq.Id(), data, prio, timeoutToTimeSpec(timeout))
 }
 

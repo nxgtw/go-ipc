@@ -38,6 +38,18 @@ func TestCreateMqOpenOnly(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestMqSendInvalidType(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer mq.Destroy()
+	assert.Error(t, mq.Send("string", 0))
+	structWithString := struct{ a string }{"string"}
+	assert.Error(t, mq.Send(structWithString, 0))
+	var slslByte [][]byte
+	assert.Error(t, mq.Send(slslByte, 0))
+}
 func TestMqSendIntSameProcess(t *testing.T) {
 	var message int = 1122
 	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
@@ -56,23 +68,30 @@ func TestMqSendIntSameProcess(t *testing.T) {
 }
 
 func TestMqSendSliceSameProcess(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, 32)
+	type testStruct struct {
+		arr [16]int
+		c   complex128
+		s   struct {
+			a, b byte
+		}
+		f float64
+	}
+	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
+	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(message)))
 	if !assert.NoError(t, err) {
 		return
-	}
-	message := make([]byte, 32)
-	for i, _ := range message {
-		message[i] = byte(i)
 	}
 	go func() {
 		assert.NoError(t, mq.Send(message, 1))
 	}()
-	received := make([]byte, 32)
+	received := &testStruct{}
 	mqr, err := OpenMessageQueue(testMqName, O_READ_ONLY)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mqr.Destroy()
 	assert.NoError(t, mqr.ReceiveTimeout(received, nil, 300*time.Millisecond))
-	assert.Equal(t, received, message)
+	assert.Equal(t, *received, message)
 }
 
 func TestMqGetAttrs(t *testing.T) {
