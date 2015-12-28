@@ -101,7 +101,7 @@ func inc64() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(memObject, ipc.SHM_READWRITE, 0, int(unsafe.Sizeof(int64(0))))
+	region, err := ipc.NewMemoryRegion(memObject, ipc.MEM_READWRITE, 0, int(unsafe.Sizeof(int64(0))))
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(memObject, ipc.SHM_READ_ONLY, 0, len(expected))
+	region, err := ipc.NewMemoryRegion(memObject, ipc.MEM_READ_ONLY, 0, len(expected))
 	if err != nil {
 		return err
 	}

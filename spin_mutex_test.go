@@ -74,7 +74,7 @@ func TestSpinMutexMemory(t *testing.T) {
 		return
 	}
 	defer mut.Destroy()
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 128, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 128, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -132,7 +132,7 @@ func TestSpinMutexValueInc(t *testing.T) {
 		return
 	}
 	defer mut.Destroy()
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 8, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 8, 0)
 	if !assert.NoError(t, err) {
 		return
 	}

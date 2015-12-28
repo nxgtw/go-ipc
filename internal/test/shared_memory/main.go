@@ -66,7 +66,7 @@ func read() error {
 		return err
 	}
 	defer object.Close()
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), length)
+	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READ_ONLY, int64(offset), length)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READ_ONLY, int64(offset), len(data))
+	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READ_ONLY, int64(offset), len(data))
 	defer region.Close()
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(object, ipc.SHM_READWRITE, int64(offset), len(data))
+	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READWRITE, int64(offset), len(data))
 	if err != nil {
 		return err
 	}

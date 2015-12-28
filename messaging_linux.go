@@ -92,6 +92,7 @@ func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout ti
 		return fmt.Errorf("the object must be a pointer or a slice")
 	}
 	addr := value.Pointer()
+	defer use(unsafe.Pointer(addr))
 	data := byteSliceFromUintptr(addr, objSize, objSize)
 	return mq_timedreceive(mq.Id(), data, prio, timeoutToTimeSpec(timeout))
 }
@@ -136,7 +137,7 @@ func (mq *MessageQueue) Destroy() error {
 // sending id of the queue to the channel.
 // If there are messages in the queue, no notification will be sent
 // until all of them are read.
-func (mq *MessageQueue) Notify(ch chan int) error {
+func (mq *MessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
 	}

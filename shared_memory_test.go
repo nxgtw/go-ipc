@@ -114,7 +114,7 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	region, err := NewMemoryRegion(object, SHM_READWRITE, 0, 1024)
+	region, err := NewMemoryRegion(object, MEM_READWRITE, 0, 1024)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -155,7 +155,7 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 }
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -165,7 +165,7 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	region2, err := createMemoryRegionSimple(O_OPEN_ONLY|O_READ_ONLY, SHM_READ_ONLY, int64(len(shmTestData)), 0)
+	region2, err := createMemoryRegionSimple(O_OPEN_ONLY|O_READ_ONLY, MEM_READ_ONLY, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -176,7 +176,7 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, int64(len(shmTestData)), 128)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, int64(len(shmTestData)), 128)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -203,7 +203,7 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, result.err) {
 		return
 	}
-	region, err := NewMemoryRegion(object, SHM_READ_ONLY, 0, len(shmTestData))
+	region, err := NewMemoryRegion(object, MEM_READ_ONLY, 0, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -212,7 +212,7 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 }
 
 func TestMemoryRegionNorGcedWithUse(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -236,7 +236,7 @@ func TestMemoryRegionNorGcedWithUse(t *testing.T) {
 }
 
 func TestMemoryRegionReader(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READ_ONLY, 1024, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READ_ONLY, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -266,7 +266,7 @@ func TestMemoryRegionReader(t *testing.T) {
 }
 
 func TestMemoryRegionWriter(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -297,7 +297,7 @@ func TestMemoryRegionWriter(t *testing.T) {
 
 func TestMemoryRegionReaderWriter(t *testing.T) {
 	data := []byte{1, 2, 3, 4, 5, 6}
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, SHM_READWRITE, 1024, 0)
+	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}

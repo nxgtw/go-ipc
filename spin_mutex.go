@@ -70,7 +70,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (impl *SpinMutex, res
 	if resultErr = obj.Truncate(int64(size)); resultErr != nil {
 		return
 	}
-	if region, resultErr = NewMemoryRegion(obj, SHM_READWRITE, 0, int(size)); resultErr != nil {
+	if region, resultErr = NewMemoryRegion(obj, MEM_READWRITE, 0, int(size)); resultErr != nil {
 		return
 	}
 	if mode == O_CREATE_ONLY {

@@ -3,10 +3,10 @@
 package ipc
 
 import (
-	"path/filepath"
-	"os"
 	"fmt"
-	
+	"os"
+	"path/filepath"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -14,7 +14,7 @@ type memoryObjectImpl struct {
 	file *os.File
 }
 
-// Shared memory on Windows is emulated via usual files
+// Shared memory on Windows is emulated via regular files
 // like it is done in boost c++ library
 type memoryRegionImpl struct {
 	data       []byte
@@ -23,11 +23,11 @@ type memoryRegionImpl struct {
 }
 
 func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryObjectImpl, err error) {
-	path,  err := shmName(name)
+	path, err := shmName(name)
 	if err != nil {
 		return nil, err
 	}
-	osMode, err := modeToOsMode(mode)
+	osMode, err := shmModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	if err != nil {
 		return nil, err
 	}
-	return &memoryObjectImpl{file},  nil
+	return &memoryObjectImpl{file}, nil
 }
 
 func (impl *memoryObjectImpl) Destroy() error {
@@ -81,25 +81,25 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 	if true {
 		// TODO(avd) - security attrrs
 		var err error
-		if handle, err = windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot , 0, 0, nil); err != nil {
+		if handle, err = windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, 0, 0, nil); err != nil {
 			return nil, err
 		}
-	} else {		
+	} else {
 		// TODO(avd) - finish with it
 	}
 	if size == 0 { // TODO(avd) get current file size
-		
+
 	}
 	defer windows.CloseHandle(handle)
 	pageOffset := calcValidOffset(offset)
 	lowOffset := uint32(pageOffset)
-	highOffset := uint32(pageOffset>> 32)
-	addr, err := windows.MapViewOfFile(handle, flags, lowOffset, highOffset, uintptr(int64(size) + pageOffset))
+	highOffset := uint32(pageOffset >> 32)
+	addr, err := windows.MapViewOfFile(handle, flags, lowOffset, highOffset, uintptr(int64(size)+pageOffset))
 	if err != nil {
 		return nil, err
 	}
 	sz := size + int(pageOffset)
-	return &memoryRegionImpl{byteSliceFromUntptr(addr,sz, sz), size, pageOffset}, nil
+	return &memoryRegionImpl{byteSliceFromUintptr(addr, sz, sz), size, pageOffset}, nil
 }
 
 func (impl *memoryRegionImpl) Close() error {
@@ -132,15 +132,15 @@ func DestroyMemoryObject(name string) error {
 
 func shmProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 	switch mode {
-	case SHM_READ_ONLY:
+	case MEM_READ_ONLY:
 		fallthrough
-	case SHM_READ_PRIVATE:
+	case MEM_READ_PRIVATE:
 		prot = windows.PAGE_READONLY
 		flags = windows.FILE_MAP_READ
-	case SHM_READWRITE:
+	case MEM_READWRITE:
 		prot = windows.PAGE_READWRITE
 		flags = windows.FILE_MAP_WRITE
-	case SHM_COPY_ON_WRITE:
+	case MEM_COPY_ON_WRITE:
 		prot = windows.PAGE_WRITECOPY
 		flags = windows.FILE_MAP_COPY
 	default:
@@ -150,15 +150,15 @@ func shmProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 }
 
 func shmName(name string) (string, error) {
-	if path, err  := sharedDirName(); err != nil {
+	if path, err := sharedDirName(); err != nil {
 		return "", err
 	} else {
 		return path + "/" + name, nil
 	}
 }
 
-func sharedDirName() (string,  error) {
-	rootPath :=  os.TempDir() + "/go-ipc"
+func sharedDirName() (string, error) {
+	rootPath := os.TempDir() + "/go-ipc"
 	if err := os.Mkdir(rootPath, 0644); err == nil || os.IsExist(err) {
 		return rootPath, nil
 	} else {

@@ -50,6 +50,7 @@ func TestMqSendInvalidType(t *testing.T) {
 	var slslByte [][]byte
 	assert.Error(t, mq.Send(slslByte, 0))
 }
+
 func TestMqSendIntSameProcess(t *testing.T) {
 	var message int = 1122
 	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
@@ -152,7 +153,7 @@ func TestMqSendToAnotherProcess(t *testing.T) {
 	}()
 	result := runTestApp(args, nil)
 	if !assert.NoError(t, result.err) {
-		t.Logf("ptogram output is %s", result.output)
+		t.Logf("program output is %s", result.output)
 	}
 }
 
@@ -167,7 +168,7 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 	args := argsForMqSendCommand(testMqName, 2000, 3, data)
 	result := runTestApp(args, nil)
 	if !assert.NoError(t, result.err) {
-		t.Logf("ptogram output is %s", result.output)
+		t.Logf("program output is %s", result.output)
 	}
 	received := make([]byte, 16)
 	var prio int
@@ -194,6 +195,6 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	assert.NoError(t, mq.SendTimeout(data, 0, time.Millisecond*2000))
 	result := <-resultChan
 	if !assert.NoError(t, result.err) {
-		t.Logf("ptogram output is %q", result.output)
+		t.Logf("program output is %q", result.output)
 	}
 }
