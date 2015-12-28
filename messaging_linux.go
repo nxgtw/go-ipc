@@ -133,6 +133,10 @@ func (mq *MessageQueue) Destroy() error {
 	return DestroyMessageQueue(mq.name)
 }
 
+// Notifies about new messages in the queue by
+// sending id of the queue to the channel.
+// If there are messages in the queue, no notification will be sent
+// until all of them are read.
 func (mq *MessageQueue) Notify(ch chan int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
@@ -168,7 +172,12 @@ func (mq *MessageQueue) NotifyCancel() error {
 }
 
 func DestroyMessageQueue(name string) error {
-	return mq_unlink(name)
+	if err := mq_unlink(name); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+	}
+	return nil
 }
 
 func mqFlagsToOsFlags(flags int) (int, error) {
