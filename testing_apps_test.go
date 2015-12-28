@@ -17,6 +17,7 @@ const (
 	shmProgName  = "./internal/test/shared_memory/main.go"
 	fifoProgName = "./internal/test/fifo/main.go"
 	syncProgName = "./internal/test/sync/main.go"
+	mqProgName   = "./internal/test/mq/main.go"
 )
 
 type testAppResult struct {
@@ -25,6 +26,7 @@ type testAppResult struct {
 }
 
 // Shared memory test program
+
 func argsForShmCreateCommand(name string, size int64) []string {
 	return []string{shmProgName, "-object=" + name, "create", fmt.Sprintf("%d", size)}
 }
@@ -48,6 +50,7 @@ func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
 }
 
 // FIFO memory test program
+
 func argsForFifoCreateCommand(name string) []string {
 	return []string{fifoProgName, "-object=" + name, "create"}
 }
@@ -105,6 +108,49 @@ func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, da
 		ipc_test.BytesToString(data),
 	}
 }
+
+// Mq test program
+
+func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
+	return []string{mqProgName, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
+}
+
+func argsForMqDestroyCommand(name string) []string {
+	return []string{mqProgName, "-object=" + name, "destroy"}
+}
+
+func argsForMqSendCommand(name string, timeout, prio int, data []byte) []string {
+	return []string{
+		mqProgName,
+		"-object=" + name,
+		"-prio=" + strconv.Itoa(prio),
+		"-timeout=" + strconv.Itoa(timeout),
+		"send",
+		ipc_test.BytesToString(data),
+	}
+}
+
+func argsForMqTestCommand(name string, timeout, prio int, data []byte) []string {
+	return []string{
+		mqProgName,
+		"-object=" + name,
+		"-prio=" + strconv.Itoa(prio),
+		"-timeout=" + strconv.Itoa(timeout),
+		"test",
+		ipc_test.BytesToString(data),
+	}
+}
+
+func argsForMqNotifyWaitCommand(name string, timeout int) []string {
+	return []string{
+		mqProgName,
+		"-object=" + name,
+		"-timeout=" + strconv.Itoa(timeout),
+		"notifywait",
+	}
+}
+
+// launch helpers
 
 func boolStr(value bool) string {
 	if value {

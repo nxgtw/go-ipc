@@ -118,3 +118,63 @@ func TestMqNotifyTwice(t *testing.T) {
 	assert.NoError(t, mq.NotifyCancel())
 	assert.NoError(t, mq.Notify(ch))
 }
+
+func TestMqSendToAnotherProcess(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	data := make([]byte, 16)
+	for i, _ := range data {
+		data[i] = byte(i)
+	}
+	args := argsForMqTestCommand(testMqName, 1000, 1, data)
+	go func() {
+		assert.NoError(t, mq.SendTimeout(data, 1, time.Millisecond*2000))
+	}()
+	result := runTestApp(args, nil)
+	if !assert.NoError(t, result.err) {
+		t.Logf("ptogram output is %s", result.output)
+	}
+}
+
+func TestMqReceiveFromAnotherProcess(t *testing.T) {
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	data := make([]byte, 16)
+	for i, _ := range data {
+		data[i] = byte(i)
+	}
+	args := argsForMqSendCommand(testMqName, 2000, 3, data)
+	result := runTestApp(args, nil)
+	if !assert.NoError(t, result.err) {
+		t.Logf("ptogram output is %s", result.output)
+	}
+	received := make([]byte, 16)
+	var prio int
+	assert.NoError(t, mq.ReceiveTimeout(received, &prio, time.Millisecond*2000))
+	assert.Equal(t, prio, 3)
+	assert.Equal(t, data, received)
+}
+
+func TestMqNotifyAnotherProcess(t *testing.T) {
+	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
+		return
+	}
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	data := make([]byte, 16)
+	for i, _ := range data {
+		data[i] = byte(i)
+	}
+	args := argsForMqNotifyWaitCommand(testMqName, 2000)
+	resultChan := runTestAppAsync(args, nil)
+	// give the program time to startup
+	<-time.After(time.Millisecond * 500)
+	assert.NoError(t, mq.SendTimeout(data, 0, time.Millisecond*2000))
+	result := <-resultChan
+	if !assert.NoError(t, result.err) {
+		t.Logf("ptogram output is %q", result.output)
+	}
+}
