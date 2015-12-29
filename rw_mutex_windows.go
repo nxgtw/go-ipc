@@ -7,7 +7,6 @@ import (
 )
 
 type rwMutexImpl struct {
-	
 }
 
 func newRwMutexImpl(name string, mode int, perm os.FileMode) (impl *rwMutexImpl, resultErr error) {

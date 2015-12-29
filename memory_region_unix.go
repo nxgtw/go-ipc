@@ -19,7 +19,7 @@ type memoryRegionImpl struct {
 }
 
 func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
-	prot, flags, err := shmProtAndFlagsFromMode(mode)
+	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (impl *memoryRegionImpl) Size() int {
 	return impl.size
 }
 
-func shmProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
+func memProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 	switch mode {
 	case MEM_READ_ONLY:
 		prot = unix.PROT_READ
@@ -73,7 +73,7 @@ func shmProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 		prot = unix.PROT_READ | unix.PROT_WRITE
 		flags = unix.MAP_PRIVATE
 	default:
-		err = fmt.Errorf("invalid shm region flags")
+		err = fmt.Errorf("invalid mem region flags")
 	}
 	return
 }
