@@ -62,8 +62,8 @@ func (impl *memoryObjectImpl) Size() int64 {
 	}
 }
 
-func (impl *memoryObjectImpl) Fd() int {
-	return int(impl.file.Fd())
+func (impl *memoryObjectImpl) Fd() uintptr {
+	return impl.file.Fd()
 }
 
 func DestroyMemoryObject(name string) error {

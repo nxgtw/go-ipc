@@ -33,7 +33,7 @@ type MemoryRegion struct {
 // MappableHandle is an object, which can return a handle,
 // that can be used as a file descriptor for mmap
 type MappableHandle interface {
-	Fd() int
+	Fd() uintptr
 }
 
 // This is a reader for safe operations over a shared memory region.
