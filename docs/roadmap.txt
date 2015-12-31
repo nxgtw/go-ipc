@@ -35,8 +35,9 @@ Other:
 	1) NO cgo, syscalls only!
 	2) random names generator
 	
-Roadmap:
-	sm nix --> sm windows
-	semaphores linux --> semaphores win --> semaphores osx
-	pipes linux --> pipes win --> pipes osx
-	...
+Alpha version:
+	shared memory: +linux, +bsd, -osx -win
+	fifo: +*nix
+	message queues: +linux
+	mutexes: +linux, +bsd, +osx, -win
+	
