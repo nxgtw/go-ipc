@@ -136,8 +136,8 @@ func notifywait() error {
 	}
 	select {
 	case id := <-notifyChan:
-		if id != mq.Id() {
-			return fmt.Errorf("expected mq with id %q, got with %q", mq.Id(), id)
+		if id != mq.ID() {
+			return fmt.Errorf("expected mq with id %q, got with %q", mq.ID(), id)
 		}
 	case <-timeChan:
 		return fmt.Errorf("operation timeout")

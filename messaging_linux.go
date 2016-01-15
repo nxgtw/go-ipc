@@ -37,11 +37,12 @@ func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueS
 		sysflags |= unix.O_EXCL
 	}
 	attrs := &MqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
-	if id, err := mq_open(name, sysflags, uint32(perm), attrs); err != nil {
+	var id int
+	var err error
+	if id, err = mq_open(name, sysflags, uint32(perm), attrs); err != nil {
 		return nil, err
-	} else {
-		return &MessageQueue{id: int(id), name: name, notifySocketFd: -1}, nil
 	}
+	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
 func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
@@ -49,11 +50,11 @@ func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
 	if err != nil {
 		return nil, err
 	}
-	if id, err := mq_open(name, sysflags, uint32(0), nil); err != nil {
+	var id int
+	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
-	} else {
-		return &MessageQueue{id: int(id), name: name, notifySocketFd: -1}, nil
 	}
+	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
 func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
@@ -66,7 +67,7 @@ func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.D
 	addr := objectAddress(value)
 	defer use(unsafe.Pointer(addr))
 	data = byteSliceFromUintptr(addr, objSize, objSize)
-	return mq_timedsend(mq.Id(), data, prio, timeoutToTimeSpec(timeout))
+	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
 func (mq *MessageQueue) Send(object interface{}, prio int) error {
@@ -94,14 +95,14 @@ func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout ti
 	addr := unsafe.Pointer(value.Pointer())
 	defer use(unsafe.Pointer(addr))
 	data := byteSliceFromUintptr(addr, objSize, objSize)
-	return mq_timedreceive(mq.Id(), data, prio, timeoutToTimeSpec(timeout))
+	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
 func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
 	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
 }
 
-func (mq *MessageQueue) Id() int {
+func (mq *MessageQueue) ID() int {
 	return mq.id
 }
 
@@ -109,12 +110,12 @@ func (mq *MessageQueue) Close() error {
 	if mq.notifySocketFd != -1 {
 		mq.NotifyCancel()
 	}
-	return unix.Close(mq.Id())
+	return unix.Close(mq.ID())
 }
 
 func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
 	attrs := new(MqAttr)
-	if err := mq_getsetattr(mq.Id(), nil, attrs); err != nil {
+	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
 		return nil, err
 	}
 	return attrs, nil
@@ -125,7 +126,7 @@ func (mq *MessageQueue) SetBlocking(block bool) error {
 	if !block {
 		attrs.Flags |= unix.O_NONBLOCK
 	}
-	return mq_getsetattr(mq.Id(), attrs, nil)
+	return mq_getsetattr(mq.ID(), attrs, nil)
 }
 
 func (mq *MessageQueue) Destroy() error {
@@ -145,7 +146,7 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 	if err != nil {
 		return fmt.Errorf("unable to init notifications subsystem")
 	}
-	ndata := &notify_data{mq_id: mq.Id()}
+	ndata := &notify_data{mq_id: mq.ID()}
 	pndata := unsafe.Pointer(ndata)
 	defer use(pndata)
 	ev := &sigevent{
@@ -153,7 +154,7 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 		sigev_signo:  int32(notifySocketFd),
 		sigev_value:  sigval{sigval_ptr: uintptr(pndata)},
 	}
-	if err = mq_notify(mq.Id(), ev); err != nil {
+	if err = mq_notify(mq.ID(), ev); err != nil {
 		syscall.Close(notifySocketFd)
 	} else {
 		mq.notifySocketFd = notifySocketFd
@@ -162,13 +163,13 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 }
 
 func (mq *MessageQueue) NotifyCancel() error {
-	if err := mq_notify(mq.Id(), nil); err == nil {
+	var err error
+	if err := mq_notify(mq.ID(), nil); err == nil {
 		syscall.Close(mq.notifySocketFd)
 		mq.notifySocketFd = -1
 		return nil
-	} else {
-		return err
 	}
+	return err
 }
 
 func DestroyMessageQueue(name string) error {

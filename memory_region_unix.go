@@ -24,11 +24,11 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 		return nil, err
 	}
 	pageOffset := calcValidOffset(offset)
-	if data, err := unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
+	var data []byte
+	if data, err = unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
 		return nil, err
-	} else {
-		return &memoryRegionImpl{data: data, size: size, pageOffset: pageOffset}, nil
 	}
+	return &memoryRegionImpl{data: data, size: size, pageOffset: pageOffset}, nil
 }
 
 func (impl *memoryRegionImpl) Close() error {

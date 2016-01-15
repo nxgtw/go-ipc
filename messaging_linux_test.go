@@ -125,7 +125,7 @@ func TestMqNotify(t *testing.T) {
 	go func() {
 		mq.Send(0, 0)
 	}()
-	assert.Equal(t, mq.Id(), <-ch)
+	assert.Equal(t, mq.ID(), <-ch)
 }
 
 func TestMqNotifyTwice(t *testing.T) {

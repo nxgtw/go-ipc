@@ -62,11 +62,11 @@ func (f *Fifo) Close() error {
 // destroys the object, closing it at first
 // if the fifo has already been removed, it returns an error
 func (f *Fifo) Destroy() error {
-	if err := f.file.Close(); err == nil {
+	var err error
+	if err = f.file.Close(); err == nil {
 		return os.Remove(f.file.Name())
-	} else {
-		return err
 	}
+	return err
 }
 
 // destroys fifo with a given name

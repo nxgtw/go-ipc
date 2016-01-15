@@ -5,5 +5,6 @@
 package ipc
 
 const (
+	// O_NONBLOCK flag makes some ipc operations non-blocking
 	O_NONBLOCK = 0x00000040
 )
