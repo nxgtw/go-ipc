@@ -91,7 +91,7 @@ func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout ti
 	} else {
 		return fmt.Errorf("the object must be a pointer or a slice")
 	}
-	addr := value.Pointer()
+	addr := unsafe.Pointer(value.Pointer())
 	defer use(unsafe.Pointer(addr))
 	data := byteSliceFromUintptr(addr, objSize, objSize)
 	return mq_timedreceive(mq.Id(), data, prio, timeoutToTimeSpec(timeout))

@@ -126,13 +126,6 @@ func notifywait() error {
 		return err
 	}
 	defer mq.Close()
-	attrs, err := mq.GetAttrs()
-	if err != nil {
-		return err
-	}
-	if attrs.Curmsgs != 0 {
-		return fmt.Errorf("there are messages in the queue. notify won't work")
-	}
 	notifyChan := make(chan int, 1)
 	if err = mq.Notify(notifyChan); err != nil {
 		return err
@@ -168,7 +161,6 @@ func runCommand() error {
 	default:
 		return fmt.Errorf("unknown command")
 	}
-	return nil
 }
 
 func main() {

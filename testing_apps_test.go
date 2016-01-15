@@ -199,11 +199,10 @@ func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result testAppResult) {
 }
 
 func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
-	if cmd, buff, err := startTestApp(args, killChan); err != nil {
-		result.err = err
-		return
-	} else {
+	if cmd, buff, err := startTestApp(args, killChan); err == nil {
 		return waitForCommand(cmd, buff)
+	} else {
+		result.err = err
 	}
 	return
 }

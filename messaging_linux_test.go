@@ -92,7 +92,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 	}
 	defer mqr.Destroy()
 	assert.NoError(t, mqr.ReceiveTimeout(received, nil, 300*time.Millisecond))
-	assert.Equal(t, *received, message)
+	assert.Equal(t, message, *received)
 }
 
 func TestMqGetAttrs(t *testing.T) {
@@ -181,8 +181,10 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
-	assert.NoError(t, err)
+	mq, err := CreateMessageQueue(testMqName, false, 0666, 4, 16)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	data := make([]byte, 16)
 	for i, _ := range data {
@@ -190,10 +192,26 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	}
 	args := argsForMqNotifyWaitCommand(testMqName, 2000)
 	resultChan := runTestAppAsync(args, nil)
-	// give the program time to startup
-	<-time.After(time.Millisecond * 500)
-	assert.NoError(t, mq.SendTimeout(data, 0, time.Millisecond*2000))
+	endChan := make(chan struct{})
+	go func() {
+		// as the app needs some time for startup,
+		// we can't just send 1 message, because if the app calls notify()
+		// after the message is sent, notify() won't work
+		// this is to ensure, that the test app will start and receive the notification.
+		// it guaranteed has 300ms between send() and receive()
+		for {
+			assert.NoError(t, mq.SendTimeout(data, 0, time.Millisecond*1000))
+			<-time.After(time.Millisecond * 300)
+			assert.NoError(t, mq.Receive(data, nil))
+			select {
+			case <-endChan:
+				return
+			default:
+			}
+		}
+	}()
 	result := <-resultChan
+	endChan <- struct{}{}
 	if !assert.NoError(t, result.err) {
 		t.Logf("program output is %q", result.output)
 	}

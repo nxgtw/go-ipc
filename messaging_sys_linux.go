@@ -28,7 +28,7 @@ func initMqNotifications(ch chan<- int) (int, error) {
 		for {
 			n, _, err := syscall.Recvfrom(notifySocketFd, data[:], syscall.MSG_NOSIGNAL|syscall.MSG_WAITALL)
 			if n == cNOTIFY_COOKIE_LEN && err == nil {
-				ndata := (*notify_data)(unsafe.Pointer(byteSliceAddress(data[:])))
+				ndata := (*notify_data)(unsafe.Pointer(&data[0]))
 				ch <- ndata.mq_id
 			} else {
 				return
@@ -81,7 +81,7 @@ func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 }
 
 func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
-	rawData := byteSliceAddress(data)
+	rawData := unsafe.Pointer(&data[0])
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
 		uintptr(id),
 		uintptr(rawData),
@@ -89,7 +89,7 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 		uintptr(prio),
 		uintptr(unsafe.Pointer(timeout)),
 		uintptr(0))
-	use(unsafe.Pointer(rawData))
+	use(rawData)
 	use(unsafe.Pointer(timeout))
 	if err != syscall.Errno(0) {
 		return err
@@ -98,7 +98,7 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 }
 
 func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) error {
-	rawData := byteSliceAddress(data)
+	rawData := unsafe.Pointer(&data[0])
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
 		uintptr(id),
 		uintptr(rawData),
@@ -106,7 +106,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) err
 		uintptr(unsafe.Pointer(prio)),
 		uintptr(unsafe.Pointer(timeout)),
 		uintptr(0))
-	use(unsafe.Pointer(rawData))
+	use(rawData)
 	use(unsafe.Pointer(timeout))
 	use(unsafe.Pointer(prio))
 	use(unsafe.Pointer(timeout))

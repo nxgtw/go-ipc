@@ -12,24 +12,23 @@ const maxObjectSize = 128 * 1024 * 1024
 
 // returns an address of the object stored continuously in the memory
 // the object must not contain any references
-func valueObjectAddress(v interface{}) uintptr {
+func valueObjectAddress(v interface{}) unsafe.Pointer {
 	const (
 		interfaceSize = unsafe.Sizeof(v)
 		pointerSize   = unsafe.Sizeof(uintptr(0))
 	)
 	interfaceBytes := *((*[interfaceSize]byte)(unsafe.Pointer(&v)))
-	objRawPointer := *(*uintptr)(unsafe.Pointer(&(interfaceBytes[interfaceSize-pointerSize])))
+	objRawPointer := *(*unsafe.Pointer)(unsafe.Pointer(&(interfaceBytes[interfaceSize-pointerSize])))
 	return objRawPointer
 }
 
 // returns the address of the given object
 // if a slice is passed, it will returns a pointer to the actual data
-func objectAddress(object reflect.Value) uintptr {
-	var addr uintptr
-	addr = valueObjectAddress(object.Interface())
+func objectAddress(object reflect.Value) unsafe.Pointer {
+	addr := valueObjectAddress(object.Interface())
 	if object.Kind() == reflect.Slice {
-		header := *(*reflect.SliceHeader)(unsafe.Pointer(addr))
-		addr = header.Data
+		header := *(*reflect.SliceHeader)(addr)
+		addr = unsafe.Pointer(header.Data)
 	}
 	return addr
 }
@@ -78,24 +77,20 @@ func alloc(memory []byte, object interface{}) error {
 	return nil
 }
 
-func byteSliceAddress(memory []byte) uintptr {
-	return uintptr(unsafe.Pointer(&(memory[0])))
-}
-
 func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
 	sl := reflect.SliceHeader{
 		Len:  lenght,
 		Cap:  capacity,
-		Data: byteSliceAddress(memory),
+		Data: uintptr(unsafe.Pointer(&memory[0])),
 	}
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
-func byteSliceFromUintptr(memory uintptr, lenght, capacity int) []byte {
+func byteSliceFromUintptr(memory unsafe.Pointer, lenght, capacity int) []byte {
 	sl := reflect.SliceHeader{
 		Len:  lenght,
 		Cap:  capacity,
-		Data: memory,
+		Data: uintptr(memory),
 	}
 	return *(*[]byte)(unsafe.Pointer(&sl))
 }

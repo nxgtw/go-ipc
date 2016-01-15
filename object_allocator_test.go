@@ -56,7 +56,7 @@ func TestAllocInt(t *testing.T) {
 	if !assert.NoError(t, alloc(data, i)) {
 		return
 	}
-	ptr := (*int)(unsafe.Pointer(byteSliceAddress(data)))
+	ptr := (*int)(unsafe.Pointer(&data[0]))
 	assert.Equal(t, i, *ptr)
 }
 
@@ -66,7 +66,7 @@ func TestAllocIntArray(t *testing.T) {
 	if !assert.NoError(t, alloc(data, i)) {
 		return
 	}
-	ptr := (*[3]int)(unsafe.Pointer(byteSliceAddress(data)))
+	ptr := (*[3]int)(unsafe.Pointer(&data[0]))
 	assert.Equal(t, i, *ptr)
 }
 
@@ -84,7 +84,7 @@ func TestAllocStruct(t *testing.T) {
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*s)(unsafe.Pointer(byteSliceAddress(data)))
+	ptr := (*s)(unsafe.Pointer(&data[0]))
 	assert.Equal(t, obj, *ptr)
 }
 
@@ -94,7 +94,7 @@ func TestAllocMutex(t *testing.T) {
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*sync.Mutex)(unsafe.Pointer(byteSliceAddress(data)))
+	ptr := (*sync.Mutex)(unsafe.Pointer(&data[0]))
 	assert.Equal(t, obj, *ptr)
 }
 
@@ -120,7 +120,7 @@ func TestAllocSliceReadAsArray(t *testing.T) {
 	if !assert.NoError(t, alloc(data, obj)) {
 		return
 	}
-	ptr := (*[10]int)(unsafe.Pointer(byteSliceAddress(data)))
+	ptr := (*[10]int)(unsafe.Pointer(&data[0]))
 	assert.Equal(t, obj, (*ptr)[:])
 }
 
