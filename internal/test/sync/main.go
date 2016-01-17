@@ -66,10 +66,9 @@ func create() error {
 	if _, err := createLocker(ipc.O_CREATE_ONLY, false); err != nil {
 		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
 		return err
-	} else {
-		writeLog(fmt.Sprintf("%q has been created successfully", *objName))
-		return nil
 	}
+	writeLog(fmt.Sprintf("%q has been created successfully", *objName))
+	return nil
 }
 
 func destroy() error {

@@ -34,12 +34,12 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	if obj, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666); err != nil {
+	obj, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
+	if err != nil {
 		return err
-	} else {
-		defer obj.Close()
-		return obj.Truncate(int64(size))
 	}
+	defer obj.Close()
+	return obj.Truncate(int64(size))
 }
 
 func destroy() error {

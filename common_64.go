@@ -6,7 +6,7 @@ package ipc
 
 import "time"
 
-// splits unix time given in nanoseconds into secs and nsecs parts
+// splitUnixTime splits unix time given in nanoseconds into secs and nsecs parts
 func splitUnixTime(utime int64) (int64, int64) {
 	return utime / int64(time.Second), utime % int64(time.Second)
 }

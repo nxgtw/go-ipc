@@ -52,7 +52,7 @@ func TestMqSendInvalidType(t *testing.T) {
 }
 
 func TestMqSendIntSameProcess(t *testing.T) {
-	var message int = 1122
+	var message = 1122
 	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
 	if !assert.NoError(t, err) {
 		return
@@ -144,7 +144,7 @@ func TestMqSendToAnotherProcess(t *testing.T) {
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	data := make([]byte, 16)
-	for i, _ := range data {
+	for i := range data {
 		data[i] = byte(i)
 	}
 	args := argsForMqTestCommand(testMqName, 1000, 1, data)
@@ -162,7 +162,7 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	data := make([]byte, 16)
-	for i, _ := range data {
+	for i := range data {
 		data[i] = byte(i)
 	}
 	args := argsForMqSendCommand(testMqName, 2000, 3, data)
@@ -187,7 +187,7 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	}
 	defer mq.Destroy()
 	data := make([]byte, 16)
-	for i, _ := range data {
+	for i := range data {
 		data[i] = byte(i)
 	}
 	args := argsForMqNotifyWaitCommand(testMqName, 2000)

@@ -14,16 +14,20 @@ import (
 )
 
 const (
-	DefaultMqMaxSize        = 8
+	// DefaultMqMaxSize is the default queue size on linux
+	DefaultMqMaxSize = 8
+	// DefaultMqMaxMessageSize is the maximum queue size on linux
 	DefaultMqMaxMessageSize = 8192
 )
 
+// MessageQueue is a linux-specific ipc mechanizm based on mesage passing
 type MessageQueue struct {
 	id             int
 	name           string
 	notifySocketFd int
 }
 
+// MqAttr contains attributes of the queue
 type MqAttr struct {
 	Flags   int /* Flags: 0 or O_NONBLOCK */
 	Maxmsg  int /* Max. # of messages on queue */
@@ -31,6 +35,8 @@ type MqAttr struct {
 	Curmsgs int /* # of messages currently in queue */
 }
 
+// CreateMessageQueue creates a new named message queue.
+// TODO(avd)) - remove exclusive?
 func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueSize, maxMsgSize int) (*MessageQueue, error) {
 	sysflags := unix.O_CREAT | unix.O_RDWR
 	if exclusive {

@@ -12,11 +12,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Fifo represents a unix FIFO object
 type Fifo struct {
 	file *os.File
 }
 
-// Creates or opens new FIFO object
+// NewFifo creates or opens new FIFO object
 // name - object name. if it does not contain '/', then '/tmp/' prefix will be added
 // mode - access mode. can be one of the following:
 //	O_READ_ONLY

@@ -33,11 +33,11 @@ func create() error {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	mode := ipc.O_READWRITE
-	if fifo, err := ipc.NewFifo(*objName, mode, 0666); err != nil {
+	fifo, err := ipc.NewFifo(*objName, mode, 0666)
+	if err != nil {
 		return err
-	} else {
-		fifo.Close()
 	}
+	fifo.Close()
 	return nil
 }
 
