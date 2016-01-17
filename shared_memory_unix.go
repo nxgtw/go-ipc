@@ -30,11 +30,11 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 }
 
 func (impl *memoryObjectImpl) Destroy() error {
-	if err := impl.Close(); err == nil {
-		return destroyMemoryObject(impl.file.Name())
-	} else {
-		return err
+	var err error
+	if err = impl.Close(); err == nil {
+		err = destroyMemoryObject(impl.file.Name())
 	}
+	return err
 }
 
 // returns the name of the object as it was given to NewMemoryObject()
@@ -55,11 +55,11 @@ func (impl *memoryObjectImpl) Truncate(size int64) error {
 }
 
 func (impl *memoryObjectImpl) Size() int64 {
-	if fileInfo, err := impl.file.Stat(); err != nil {
+	fileInfo, err := impl.file.Stat()
+	if err != nil {
 		return 0
-	} else {
-		return fileInfo.Size()
 	}
+	return fileInfo.Size()
 }
 
 func (impl *memoryObjectImpl) Fd() uintptr {
@@ -67,9 +67,9 @@ func (impl *memoryObjectImpl) Fd() uintptr {
 }
 
 func DestroyMemoryObject(name string) error {
-	if path, err := shmName(name); err != nil {
+	path, err := shmName(name)
+	if err != nil {
 		return err
-	} else {
-		return destroyMemoryObject(path)
 	}
+	return destroyMemoryObject(path)
 }

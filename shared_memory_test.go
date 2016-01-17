@@ -28,11 +28,11 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 			return nil, err
 		}
 	}
-	if region, err := NewMemoryRegion(object, regionMode, offset, int(size)); err != nil {
+	region, err := NewMemoryRegion(object, regionMode, offset, int(size))
+	if err != nil {
 		return nil, err
-	} else {
-		return region, nil
 	}
+	return region, nil
 }
 
 func TestCreateMemoryObject(t *testing.T) {
@@ -123,7 +123,7 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	}
 	assert.NotPanics(t, func() {
 		data := region.Data()
-		for i, _ := range data {
+		for i := range data {
 			data[i] = byte(i)
 		}
 	})
@@ -229,7 +229,7 @@ func TestMemoryRegionNorGcedWithUse(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		<-time.After(time.Millisecond * 20)
 		runtime.GC()
-		for j, _ := range data {
+		for j := range data {
 			data[i] = byte(j)
 		}
 	}

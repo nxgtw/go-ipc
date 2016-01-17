@@ -83,19 +83,19 @@ func argsForSyncDestroyCommand(name string) []string {
 	return []string{syncProgName, "-object=" + name, "destroy"}
 }
 
-func argsForSyncInc64Command(name, t string, jobs int, shm_name string, n int) []string {
+func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int) []string {
 	return []string{
 		syncProgName,
 		"-object=" + name,
 		"-type=" + t,
 		"-jobs=" + strconv.Itoa(jobs),
 		"inc64",
-		shm_name,
+		shmName,
 		strconv.Itoa(n),
 	}
 }
 
-func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, data []byte, log string) []string {
+func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, data []byte, log string) []string {
 	return []string{
 		syncProgName,
 		"-object=" + name,
@@ -103,7 +103,7 @@ func argsForSyncTestCommand(name, t string, jobs int, shm_name string, n int, da
 		"-jobs=" + strconv.Itoa(jobs),
 		"-log=" + log,
 		"test",
-		shm_name,
+		shmName,
 		strconv.Itoa(n),
 		ipc_test.BytesToString(data),
 	}
@@ -167,19 +167,18 @@ func startTestApp(args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer
 	cmd.Stdout = buff
 	if err := cmd.Start(); err != nil {
 		return nil, nil, err
-	} else {
-		if killChan != nil {
-			go func() {
-				if kill, ok := <-killChan; kill && ok {
-					if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
-						cmd.Process.Kill()
-					}
-				}
-			}()
-		}
-		fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
-		return cmd, buff, err
 	}
+	if killChan != nil {
+		go func() {
+			if kill, ok := <-killChan; kill && ok {
+				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+					cmd.Process.Kill()
+				}
+			}
+		}()
+	}
+	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
+	return cmd, buff, nil
 }
 
 func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result testAppResult) {
@@ -200,7 +199,7 @@ func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result testAppResult) {
 
 func runTestApp(args []string, killChan <-chan bool) (result testAppResult) {
 	if cmd, buff, err := startTestApp(args, killChan); err == nil {
-		return waitForCommand(cmd, buff)
+		result = waitForCommand(cmd, buff)
 	} else {
 		result.err = err
 	}

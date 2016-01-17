@@ -66,11 +66,12 @@ func shmName(name string) (string, error) {
 	if nameLen == 0 || nameLen >= maxNameLen || strings.Contains(name, "/") {
 		return "", errors.New("invalid shm name")
 	}
-	if dir, err := shmDirectory(); err != nil {
+	var dir string
+	var err error
+	if dir, err = shmDirectory(); err != nil {
 		return "", err
-	} else {
-		return dir + name, nil
 	}
+	return dir + name, nil
 }
 
 func shmDirectory() (string, error) {

@@ -13,7 +13,7 @@ type RwMutex struct {
 	*rwMutexImpl
 }
 
-// creates a new rwmutex
+// NewRwMutex creates a new readwrite mutex
 // name - object name
 // mode - object creation mode. must be one of the following:
 //	O_OPEN_OR_CREATE

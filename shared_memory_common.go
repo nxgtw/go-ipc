@@ -55,13 +55,13 @@ func shmCreateModeToOsMode(mode int) (int, error) {
 }
 
 func shmModeToOsMode(mode int) (int, error) {
-	if createMode, err := shmCreateModeToOsMode(mode); err == nil {
-		if accessMode, err := accessModeToOsMode(mode); err == nil {
-			return createMode | accessMode, nil
-		} else {
-			return 0, err
-		}
-	} else {
+	var err error
+	var createMode, accessMode int
+	if createMode, err = shmCreateModeToOsMode(mode); err != nil {
 		return 0, err
 	}
+	if accessMode, err = accessModeToOsMode(mode); err != nil {
+		return 0, err
+	}
+	return createMode | accessMode, nil
 }

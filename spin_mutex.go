@@ -34,7 +34,7 @@ type SpinMutex struct {
 	name   string
 }
 
-// creates a new rwmutex
+// NewSpinMutex creates a new spinmutex
 // name - object name
 // mode - object creation mode. must be one of the following:
 //	O_CREATE_ONLY

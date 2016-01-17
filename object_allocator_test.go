@@ -51,7 +51,7 @@ func TestCheckObjectType(t *testing.T) {
 }
 
 func TestAllocInt(t *testing.T) {
-	var i int = 0x01027FFF
+	var i = 0x01027FFF
 	data := make([]byte, unsafe.Sizeof(i))
 	if !assert.NoError(t, alloc(data, i)) {
 		return
@@ -100,7 +100,7 @@ func TestAllocMutex(t *testing.T) {
 
 func TestAllocSlice(t *testing.T) {
 	obj := make([]int, 10)
-	for i, _ := range obj {
+	for i := range obj {
 		obj[i] = int(i)
 	}
 	data := make([]byte, unsafe.Sizeof(int(0))*10)
@@ -113,7 +113,7 @@ func TestAllocSlice(t *testing.T) {
 
 func TestAllocSliceReadAsArray(t *testing.T) {
 	obj := make([]int, 10)
-	for i, _ := range obj {
+	for i := range obj {
 		obj[i] = int(i)
 	}
 	data := make([]byte, unsafe.Sizeof(int(0))*10)

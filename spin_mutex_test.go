@@ -83,7 +83,7 @@ func TestSpinMutexMemory(t *testing.T) {
 		DestroyMemoryObject(defaultObjectName)
 	}()
 	data := region.Data()
-	for i, _ := range data { // fill the data with correct values
+	for i := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
 	args := argsForSyncTestCommand(testSpinMutexName, "spin", 128, defaultObjectName, 512, data, "")
@@ -98,10 +98,10 @@ func TestSpinMutexMemory(t *testing.T) {
 				// corrupt the data and then restore it.
 				// as the entire operation is under mutex protection,
 				// no one should see these changes.
-				for i, _ := range data {
+				for i := range data {
 					data[i] = byte(0)
 				}
-				for i, _ := range data {
+				for i := range data {
 					data[i] = byte(i)
 				}
 				mut.Unlock()

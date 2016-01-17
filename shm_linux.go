@@ -107,20 +107,17 @@ func scanMountRecord(record string) (result *mntent) {
 	} else {
 		return
 	}
+	var err error
 	if wordScanner.Scan() {
-		if freq, err := strconv.Atoi(wordScanner.Text()); err != nil {
+		if result.freq, err = strconv.Atoi(wordScanner.Text()); err != nil {
 			return
-		} else {
-			result.freq = freq
 		}
 	} else {
 		return
 	}
 	if wordScanner.Scan() {
-		if passno, err := strconv.Atoi(wordScanner.Text()); err != nil {
+		if result.passno, err = strconv.Atoi(wordScanner.Text()); err != nil {
 			return
-		} else {
-			result.passno = passno
 		}
 	} else {
 		return

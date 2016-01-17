@@ -36,7 +36,7 @@ type MappableHandle interface {
 	Fd() uintptr
 }
 
-// This is a reader for safe operations over a shared memory region.
+// MemoryRegionReader is a reader for safe operations over a shared memory region.
 // It holds a reference to the region, so the former can't be gc'ed
 type MemoryRegionReader struct {
 	region *MemoryRegion
@@ -50,7 +50,7 @@ func NewMemoryRegionReader(region *MemoryRegion) *MemoryRegionReader {
 	}
 }
 
-// This is a writer for safe operations over a shared memory region.
+// MemoryRegionWriter is a writer for safe operations over a shared memory region.
 // It holds a reference to the region, so the former can't be gc'ed
 type MemoryRegionWriter struct {
 	region *MemoryRegion
@@ -60,7 +60,7 @@ func NewMemoryRegionWriter(region *MemoryRegion) *MemoryRegionWriter {
 	return &MemoryRegionWriter{region: region}
 }
 
-// to implement io.WriterAt
+// WriteAt is to implement io.WriterAt
 func (w *MemoryRegionWriter) WriteAt(p []byte, off int64) (n int, err error) {
 	data := w.region.Data()
 	n = len(data) - int(off)
@@ -76,7 +76,7 @@ func (w *MemoryRegionWriter) WriteAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
-// Returns a new shared memory object.
+// NewMemoryObject creates a new shared memory object.
 // name - a name of the object. should not contain '/' and exceed 255 symbols
 // size - object size
 // mode - open mode. see O_* constants
@@ -93,7 +93,7 @@ func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, er
 	return result, nil
 }
 
-// Returns a new shared memory region.
+// NewMemoryRegion creates a new shared memory region.
 // object - an object containing a descriptor of the file, which can be mmaped
 // size - object size
 // mode - open mode. see SHM_* constants
@@ -111,7 +111,7 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 	return result, nil
 }
 
-// This ensures, that the object is still alive at the moment of the call.
+// UseMemoryRegion ensures, that the object is still alive at the moment of the call.
 // The usecase is when you use memory region's Data() and don't use the
 // region itself anymore. In this case the region can be gc'ed, the memory mapping
 // destroyed and you can get segfault.
