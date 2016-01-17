@@ -23,6 +23,7 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 	if err != nil {
 		return nil, err
 	}
+	defer object.Close()
 	if objMode&O_OPEN_ONLY == 0 {
 		if err := object.Truncate(size); err != nil {
 			return nil, err
@@ -118,6 +119,7 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+	defer region.Close()
 	if !assert.NoError(t, object.Close()) {
 		return
 	}
@@ -137,7 +139,9 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer DestroyMemoryObject(defaultObjectName)
+	defer func() {
+		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
+	}()
 	file := object.file
 	object = nil
 	// this is to assure, that the finalized was called and that the
@@ -160,8 +164,8 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 		return
 	}
 	defer func() {
-		region.Close()
-		DestroyMemoryObject(defaultObjectName)
+		assert.NoError(t, region.Close())
+		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
@@ -169,10 +173,8 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		region2.Close()
-	}()
 	assert.Equal(t, shmTestData, region2.Data())
+	assert.NoError(t, region2.Close())
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
@@ -181,8 +183,8 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 		return
 	}
 	defer func() {
-		region.Close()
-		DestroyMemoryObject(defaultObjectName)
+		assert.NoError(t, region.Close())
+		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))

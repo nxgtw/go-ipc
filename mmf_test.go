@@ -17,7 +17,8 @@ func TestMmfOpenReadonly(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	region, err := NewMemoryRegion(file, MEM_READ_ONLY, offset, 1024*1024)
+	defer file.Close()
+	region, err := NewMemoryRegion(file, MEM_READ_ONLY, offset, 1024)
 	if !assert.NoError(t, err) {
 		return
 	}
