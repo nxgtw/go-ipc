@@ -6,7 +6,6 @@ package ipc
 
 import (
 	"fmt"
-	"os"
 	"syscall"
 	"unsafe"
 
@@ -24,15 +23,10 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 	if err != nil {
 		return nil, err
 	}
-	if size == 0 {
-		file := os.NewFile(obj.Fd(), "tempfile")
-		fi, err := file.Stat()
-		if err != nil {
-			return nil, err
-		}
-		size = int(fi.Size())
+	if size, err = checkMmapSize(obj.Fd(), size); err != nil {
+		return nil, err
 	}
-	pageOffset := calcValidMmapOffset(offset)
+	pageOffset := calcMmapOffsetFixup(offset)
 	var data []byte
 	if data, err = unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
 		return nil, err

@@ -4,6 +4,7 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"runtime"
@@ -122,4 +123,26 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 //	{ work with data }
 func UseMemoryRegion(region *MemoryRegion) {
 	use(unsafe.Pointer(region))
+}
+
+// calcMmapOffsetFixup returns a value X,
+// so that  offset - X is a multiplier of a system page size
+func calcMmapOffsetFixup(offset int64) int64 {
+	pageSize := int64(os.Getpagesize())
+	return (offset - (offset/pageSize)*pageSize)
+}
+
+func checkMmapSize(fd uintptr, size int) (int, error) {
+	if size == 0 {
+		if fd == ^uintptr(0) {
+			return 0, errors.New("must provide a valid file size")
+		}
+		file := os.NewFile(fd, "tempfile")
+		fi, err := file.Stat()
+		if err != nil {
+			return 0, err
+		}
+		size = int(fi.Size())
+	}
+	return size, nil
 }

@@ -22,5 +22,11 @@ func TestMmfOpenReadonly(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	_ = region
+	assert.Equal(t, 1024, region.Size())
+	for i := 0; i < 1024; i++ {
+		if !assert.Equal(t, byte(i+offset), region.Data()[i]) {
+			break
+		}
+	}
+	region.Close()
 }

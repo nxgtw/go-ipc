@@ -30,13 +30,6 @@ type iSharedMemoryRegion interface {
 	Close() error
 }
 
-// calcValidMmapOffset rounds given offset to the nearest value
-// less, than the offset wich is a multiplier of a system page's size
-func calcValidMmapOffset(offset int64) int64 {
-	pageSize := int64(os.Getpagesize())
-	return (offset - (offset/pageSize)*pageSize)
-}
-
 func shmCreateModeToOsMode(mode int) (int, error) {
 	if mode&O_OPEN_OR_CREATE != 0 {
 		if mode&(O_CREATE_ONLY|O_OPEN_ONLY) != 0 {
