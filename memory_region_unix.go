@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 	"unsafe"
 
@@ -79,6 +80,10 @@ func memProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 		err = fmt.Errorf("invalid mem region flags")
 	}
 	return
+}
+
+func mmapOffsetMultiple() int64 {
+	return int64(os.Getpagesize())
 }
 
 // syscalls

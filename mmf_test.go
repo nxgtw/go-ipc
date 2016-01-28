@@ -9,9 +9,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMmfOpen(t *testing.T) {
+	a := assert.New(t)
+	file, err := os.Open("internal/test/files/test.bin")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer file.Close()
+	stat, err := file.Stat()
+	if !a.NoError(err) {
+		return
+	}
+	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, int(stat.Size()))
+	a.NoError(err)
+	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, 0)
+	a.NoError(err)
+	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 67746, int(stat.Size())-67746)
+	a.NoError(err)
+	_, err = NewMemoryRegion(file, MEM_READ_ONLY, stat.Size()-1024, 1024)
+	a.NoError(err)
+	_, err = NewMemoryRegion(file, MEM_READ_ONLY, stat.Size()-1024, 1025)
+	a.Error(err)
+}
+
 func TestMmfOpenReadonly(t *testing.T) {
 	const (
-		offset = 67845
+		offset = 67746
 	)
 	file, err := os.Open("internal/test/files/test.bin")
 	if !assert.NoError(t, err) {

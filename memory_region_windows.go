@@ -21,25 +21,23 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 	if err != nil {
 		return nil, err
 	}
-	//file:///home/avd/dev/boost_1_59_0/boost/interprocess/mapped_region.hpp:441
 	if size, err = checkMmapSize(obj.Fd(), size); err != nil {
 		return nil, err
 	}
-	var handle windows.Handle
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
-	if handle, err = windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, nil); err != nil {
-		return nil, err
+	handle, err := windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, nil)
+	if err != nil {
+		return nil, os.NewSyscallError("CreateFileMapping", err)
 	}
 	defer windows.CloseHandle(handle)
 	pageOffset := calcMmapOffsetFixup(offset)
 	offset -= pageOffset
 	lowOffset := uint32(offset & 0xFFFFFFFF)
 	highOffset := uint32(offset >> 32)
-	addr, err := windows.MapViewOfFile(handle, flags, lowOffset, highOffset, uintptr(int64(size)+pageOffset))
+	addr, err := windows.MapViewOfFile(handle, flags, highOffset, lowOffset, uintptr(int64(size)+pageOffset))
 	if err != nil {
-		fmt.Printf("%d %d %d \n", lowOffset, highOffset, os.Getpagesize())
-		return nil, err
+		return nil, os.NewSyscallError("MapViewOfFile", err)
 	}
 	sz := size + int(pageOffset)
 	return &memoryRegionImpl{byteSliceFromUintptr(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
@@ -78,4 +76,12 @@ func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 		err = fmt.Errorf("invalid mem region flags")
 	}
 	return
+}
+
+func mmapOffsetMultiple() int64 {
+	g, p := getAllocGranularity(), os.Getpagesize()
+	if g >= p {
+		return int64(g)
+	}
+	return int64(p)
 }
