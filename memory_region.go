@@ -112,17 +112,28 @@ func calcMmapOffsetFixup(offset int64) int64 {
 	return (offset - (offset/pageSize)*pageSize)
 }
 
+func fileSizeFromFd(fd uintptr) (int64, error) {
+	if fd == ^uintptr(0) {
+		return 0, nil
+	}
+	file := os.NewFile(fd, "tempfile")
+	fi, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return fi.Size(), nil
+}
+
 func checkMmapSize(fd uintptr, size int) (int, error) {
 	if size == 0 {
 		if fd == ^uintptr(0) {
 			return 0, errors.New("must provide a valid file size")
 		}
-		file := os.NewFile(fd, "tempfile")
-		fi, err := file.Stat()
-		if err != nil {
+		if sz, err := fileSizeFromFd(fd); err == nil {
+			size = int(sz)
+		} else {
 			return 0, err
 		}
-		size = int(fi.Size())
 	}
 	return size, nil
 }

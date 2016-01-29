@@ -25,7 +25,7 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 	}
 	defer object.Close()
 	if objMode&O_OPEN_ONLY == 0 {
-		if err := object.Truncate(size); err != nil {
+		if err := object.Truncate(size + offset); err != nil {
 			return nil, err
 		}
 	}

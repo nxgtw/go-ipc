@@ -51,5 +51,8 @@ func TestMmfOpenReadonly(t *testing.T) {
 			break
 		}
 	}
+	b := make([]byte, 5)
+	file.Read(b)
+	_ = b
 	region.Close()
 }
