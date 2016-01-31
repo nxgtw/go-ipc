@@ -7,9 +7,7 @@ package ipc
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -21,29 +19,22 @@ type memoryRegionImpl struct {
 	pageOffset int64
 }
 
-var f *os.File
-
 func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err
 	}
-	if size, err = checkMmapSize(obj.Fd(), size); err != nil {
+	if size, err = checkMmapSize(obj, size); err != nil {
 		return nil, err
 	}
-	calculatedSize, err := fileSizeFromFd(obj.Fd())
+	calculatedSize, err := fileSizeFromFd(obj)
 	if err != nil {
 		return nil, err
 	}
 	if calculatedSize > 0 && int64(size)+offset > calculatedSize {
 		return nil, fmt.Errorf("invalid mapping length")
 	}
-	f = obj.(*os.File)
 	pageOffset := calcMmapOffsetFixup(offset)
-	for i := 0; i < 5; i++ {
-		<-time.After(time.Millisecond * 20)
-		runtime.GC()
-	}
 	var data []byte
 	if data, err = unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
 		return nil, err
