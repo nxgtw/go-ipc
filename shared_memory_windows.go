@@ -5,6 +5,7 @@ package ipc
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // Shared memory on Windows is emulated via regular files
@@ -42,6 +43,7 @@ func (impl *memoryObjectImpl) Name() string {
 }
 
 func (impl *memoryObjectImpl) Close() error {
+	runtime.SetFinalizer(impl, nil)
 	return impl.file.Close()
 }
 

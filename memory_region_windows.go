@@ -5,6 +5,7 @@ package ipc
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -21,7 +22,7 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 	if err != nil {
 		return nil, err
 	}
-	if size, err = checkMmapSize(obj.Fd(), size); err != nil {
+	if size, err = checkMmapSize(obj, size); err != nil {
 		return nil, err
 	}
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
@@ -44,6 +45,7 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 }
 
 func (impl *memoryRegionImpl) Close() error {
+	runtime.SetFinalizer(impl, nil)
 	return windows.UnmapViewOfFile(uintptr(unsafe.Pointer(&impl.data[0])))
 }
 

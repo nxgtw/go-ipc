@@ -197,7 +197,9 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer object.Destroy()
+	defer func() {
+		assert.NoError(t, object.Destroy())
+	}()
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
@@ -214,13 +216,21 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 }
 
 func TestMemoryRegionNorGcedWithUse(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
-	if !assert.NoError(t, err) {
+	a := assert.New(t)
+	if !a.NoError(DestroyMemoryObject("gc-test")) {
 		return
 	}
-	defer func() {
-		DestroyMemoryObject(defaultObjectName)
-	}()
+	obj, err := NewMemoryObject("gc-test", O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	if !a.NoError(obj.Truncate(1024)) {
+		return
+	}
+	region, err := NewMemoryRegion(obj, MEM_READWRITE, 0, 1024)
+	if !a.NoError(err) {
+		return
+	}
 	defer UseMemoryRegion(region)
 	data := region.data
 	region = nil
@@ -298,13 +308,15 @@ func TestMemoryRegionWriter(t *testing.T) {
 }
 
 func TestMemoryRegionReaderWriter(t *testing.T) {
+	a := assert.New(t)
 	data := []byte{1, 2, 3, 4, 5, 6}
 	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		DestroyMemoryObject(defaultObjectName)
+		a.NoError(region.Close())
+		a.NoError(DestroyMemoryObject(defaultObjectName))
 	}()
 	writer := NewMemoryRegionWriter(region)
 	reader := NewMemoryRegionReader(region)
