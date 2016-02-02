@@ -37,6 +37,7 @@ type SpinMutex struct {
 // NewSpinMutex creates a new spinmutex
 // name - object name
 // mode - object creation mode. must be one of the following:
+//	TODO(avd) - O_OPEN_OR_CREATE
 //	O_CREATE_ONLY
 //	O_OPEN_ONLY
 func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
@@ -52,6 +53,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (impl *SpinMutex, res
 	if obj, resultErr = NewMemoryObject(name, mode|O_READWRITE, perm); resultErr != nil {
 		return
 	}
+	defer obj.Close()
 	var region *MemoryRegion
 	defer func() {
 		if resultErr == nil {
@@ -79,11 +81,20 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (impl *SpinMutex, res
 		}
 	}
 	m := (*spinMutexImpl)(unsafe.Pointer(&region.data[0]))
-	return &SpinMutex{m, region, name}, nil
+	impl = &SpinMutex{m, region, name}
+	return
+}
+
+// Finish indicates, that the object is no longer in use,
+// and that the underlying resources can be freed
+func (rw *SpinMutex) Finish() error {
+	return rw.region.Close()
 }
 
 func (rw *SpinMutex) Destroy() error {
-	rw.region.Close()
+	if err := rw.Finish(); err != nil {
+		return err
+	}
 	rw.region = nil
 	name := rw.name
 	rw.name = ""

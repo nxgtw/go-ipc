@@ -29,11 +29,12 @@ func TestSpinMutexOpenMode(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer mut.Destroy()
+	defer assert.NoError(t, mut.Destroy())
 	mut, err = NewSpinMutex(testSpinMutexName, O_OPEN_ONLY, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
+	assert.NoError(t, mut.Finish())
 }
 
 func TestSpinMutexOpenMode2(t *testing.T) {
