@@ -112,23 +112,21 @@ func spinName(name string) string {
 
 func createMemoryObject(name string, mode int, perm os.FileMode) (obj *MemoryObject, created bool, err error) {
 	switch {
-	case (mode&O_OPEN_ONLY | O_CREATE_ONLY) != 0:
+	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
 		obj, err = NewMemoryObject(name, mode, perm)
 		if err == nil && (mode&O_CREATE_ONLY) != 0 {
 			created = true
 		}
-	case (mode & O_OPEN_OR_CREATE) != 0:
-		for {
-			const attempts = 16
-			mode = mode & ^(O_OPEN_OR_CREATE)
-			for attempt := 0; attempt < attempts; attempt++ {
-				if obj, err = NewMemoryObject(name, mode|O_CREATE_ONLY, perm); !os.IsExist(err) {
-					created = true
+	case mode&O_OPEN_OR_CREATE != 0:
+		const attempts = 16
+		mode = mode & ^(O_OPEN_OR_CREATE)
+		for attempt := 0; attempt < attempts; attempt++ {
+			if obj, err = NewMemoryObject(name, mode|O_CREATE_ONLY, perm); !os.IsExist(err) {
+				created = true
+				break
+			} else {
+				if obj, err = NewMemoryObject(name, mode|O_OPEN_ONLY, perm); !os.IsNotExist(err) {
 					break
-				} else {
-					if obj, err = NewMemoryObject(name, mode|O_OPEN_ONLY, perm); !os.IsNotExist(err) {
-						break
-					}
 				}
 			}
 		}

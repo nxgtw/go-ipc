@@ -47,11 +47,14 @@ func TestSpinMutexOpenMode2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer mut.Destroy()
+	defer func(m *SpinMutex) {
+		assert.NoError(t, m.Destroy())
+	}(mut)
 	mut, err = NewSpinMutex(testSpinMutexName, O_OPEN_ONLY, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
+	assert.NoError(t, mut.Finish())
 	mut, err = NewSpinMutex(testSpinMutexName, O_CREATE_ONLY, 0666)
 	if !assert.Error(t, err) {
 		return
@@ -66,7 +69,9 @@ func TestSpinMutexOpenMode3(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer mut.Destroy()
+	defer func(m *SpinMutex) {
+		assert.NoError(t, m.Destroy())
+	}(mut)
 	mut, err = NewSpinMutex(testSpinMutexName, O_OPEN_OR_CREATE, 0666)
 	if !assert.NoError(t, err) {
 		return
