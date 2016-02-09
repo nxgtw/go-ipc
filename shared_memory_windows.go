@@ -19,7 +19,7 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	if err != nil {
 		return nil, err
 	}
-	osMode, err := shmModeToOsMode(mode)
+	osMode, err := openModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
