@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"syscall"
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 func destroyMemoryObject(path string) error {
@@ -33,35 +31,17 @@ func shmName(name string) (string, error) {
 }
 
 func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
-	var fd uintptr
-	var err error
-	switch {
-	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
-		var osMode int
-		osMode, err = shmModeToOsMode(mode)
+	var f *os.File
+	opener := func(mode int) error {
+		fd, err := shm_open(path, mode, int(perm))
 		if err != nil {
-			return nil, err
+			return err
 		}
-		fd, err = shm_open(path, osMode, int(perm))
-	case mode&O_OPEN_OR_CREATE != 0:
-		amode, _ := accessModeToOsMode(mode)
-		for {
-			if fd, err = shm_open(path, amode|unix.O_CREAT|unix.O_EXCL, int(perm)); !os.IsExist(err) {
-				break
-			} else {
-				if fd, err = shm_open(path, amode, int(perm)); !os.IsNotExist(err) {
-					break
-				}
-			}
-		}
-	default:
-		err = fmt.Errorf("unknown open mode")
+		f = os.NewFile(fd, path)
+		return nil
 	}
-	if err != nil {
-		return nil, err
-	} else {
-		return os.NewFile(fd, path), nil
-	}
+	_, err := openOrCreateFile(opener, mode)
+	return f, err
 }
 
 // syscalls

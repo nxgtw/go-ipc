@@ -6,12 +6,9 @@ package ipc
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -33,30 +30,15 @@ func destroyMemoryObject(path string) error {
 }
 
 // glibc/sysdeps/posix/shm_open.c
-func shmOpen(path string, mode int, perm os.FileMode) (file *os.File, err error) {
-	switch {
-	case mode&(O_OPEN_ONLY|O_CREATE_ONLY) != 0:
-		var osMode int
-		osMode, err = shmModeToOsMode(mode)
-		if err != nil {
-			return nil, err
-		}
-		file, err = os.OpenFile(path, osMode, perm)
-	case mode&O_OPEN_OR_CREATE != 0:
-		amode, _ := accessModeToOsMode(mode)
-		for {
-			if file, err = os.OpenFile(path, amode|unix.O_CREAT|unix.O_EXCL, perm); !os.IsExist(err) {
-				break
-			} else {
-				if file, err = os.OpenFile(path, amode, perm); !os.IsNotExist(err) {
-					break
-				}
-			}
-		}
-	default:
-		err = fmt.Errorf("unknown open mode")
+func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
+	var file *os.File
+	opener := func(mode int) error {
+		var err error
+		file, err = os.OpenFile(path, mode, perm)
+		return err
 	}
-	return
+	_, err := openOrCreateFile(opener, mode)
+	return file, err
 }
 
 // glibc/sysdeps/posix/shm-directory.h

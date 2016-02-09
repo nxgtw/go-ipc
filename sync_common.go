@@ -3,5 +3,5 @@
 package ipc
 
 func checkMutexOpenMode(mode int) bool {
-	return /*mode == O_OPEN_OR_CREATE ||*/ mode == O_CREATE_ONLY || mode == O_OPEN_ONLY
+	return mode == O_OPEN_OR_CREATE || mode == O_CREATE_ONLY || mode == O_OPEN_ONLY
 }

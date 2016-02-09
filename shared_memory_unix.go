@@ -66,6 +66,7 @@ func (impl *memoryObjectImpl) Fd() uintptr {
 	return impl.file.Fd()
 }
 
+// DestroyMemoryObject removes an object with a given name
 func DestroyMemoryObject(name string) error {
 	path, err := shmName(name)
 	if err != nil {

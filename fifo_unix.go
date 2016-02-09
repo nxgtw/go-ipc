@@ -22,7 +22,7 @@ type Fifo struct {
 // mode - access mode. can be one of the following:
 //	O_READ_ONLY
 //	O_WRITE_ONLY
-//	O_FIFO_NONBLOCK can be used with O_READ_ONLY and O_READWRITE
+//	O_FIFO_NONBLOCK can be used with O_READ_ONLY
 // perm - file permissions
 func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	path := fifoPath(name)
