@@ -47,6 +47,9 @@ func (impl *memoryObjectImpl) Name() string {
 }
 
 func (impl *memoryObjectImpl) Close() error {
+	if runtime.GOOS == "darwin" {
+		return nil
+	}
 	return impl.file.Close()
 }
 

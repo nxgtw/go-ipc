@@ -33,7 +33,7 @@ func shmName(name string) (string, error) {
 func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
 	var f *os.File
 	opener := func(mode int) error {
-		fd, err := shm_open(path, mode, int(perm))
+		fd, err := shm_open(path, mode|syscall.O_CLOEXEC, int(perm))
 		if err != nil {
 			return err
 		}

@@ -89,10 +89,14 @@ func TestCreateMemoryRegionExclusive(t *testing.T) {
 }
 
 func TestMemoryObjectSize(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	if !assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
+		return
+	}
+	obj, err := NewMemoryObject(defaultObjectName, O_CREATE_ONLY|O_READWRITE, 0666)
 	if assert.NoError(t, err) {
-		if assert.NoError(t, obj.Truncate(1024)) {
-			assert.Equal(t, int64(1024), obj.Size())
+		// TODO(avd) - page size mult on osx
+		if assert.NoError(t, obj.Truncate(9000)) {
+			assert.Equal(t, int64(9000), obj.Size())
 			obj.Destroy()
 		}
 	}
@@ -155,6 +159,7 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond * 20)
 	}
+	// TODO(avd) - close() on darwin
 	assert.Fail(t, "the memory object was not finalized during the gc cycle")
 }
 

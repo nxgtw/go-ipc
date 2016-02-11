@@ -49,6 +49,7 @@ func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 }
 
 func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
+	const spinImplSize = int64(unsafe.Sizeof(spinMutexImpl{}))
 	name = spinName(name)
 	obj, created, resultErr := createMemoryObject(name, mode|O_READWRITE, perm)
 	if resultErr != nil {
@@ -67,11 +68,16 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 			obj.Destroy()
 		}
 	}()
-	size := unsafe.Sizeof(spinMutexImpl{})
-	if resultErr = obj.Truncate(int64(size)); resultErr != nil {
-		return nil, resultErr
+	if created {
+		if resultErr = obj.Truncate(int64(spinImplSize)); resultErr != nil {
+			return nil, resultErr
+		}
+	} else {
+		if obj.Size() < spinImplSize {
+			return nil, fmt.Errorf("existing object has invalid size %d", obj.Size())
+		}
 	}
-	if region, resultErr = NewMemoryRegion(obj, MEM_READWRITE, 0, int(size)); resultErr != nil {
+	if region, resultErr = NewMemoryRegion(obj, MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
 		return nil, resultErr
 	}
 	if created {
