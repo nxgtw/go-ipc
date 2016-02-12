@@ -29,6 +29,7 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	return
 }
 
+// Destroy closes the object and removes it permanently
 func (impl *memoryObjectImpl) Destroy() error {
 	var err error
 	if err = impl.Close(); err == nil {
@@ -37,7 +38,7 @@ func (impl *memoryObjectImpl) Destroy() error {
 	return err
 }
 
-// returns the name of the object as it was given to NewMemoryObject()
+// Name returns the name of the object as it was given to NewMemoryObject()
 func (impl *memoryObjectImpl) Name() string {
 	result := filepath.Base(impl.file.Name())
 	if runtime.GOOS == "darwin" {
@@ -46,6 +47,7 @@ func (impl *memoryObjectImpl) Name() string {
 	return result
 }
 
+// Close closes object's underlying file object
 func (impl *memoryObjectImpl) Close() error {
 	if runtime.GOOS == "darwin" {
 		return nil
@@ -53,10 +55,16 @@ func (impl *memoryObjectImpl) Close() error {
 	return impl.file.Close()
 }
 
+// Truncate resizes the shared memory object.
+// Darwin: it is possible to truncate an object only once after it was created.
+// Darwin: the size should be divisible by system page size,
+// otherwise the size is set to the nearest page size devider greater, then the given size.
 func (impl *memoryObjectImpl) Truncate(size int64) error {
 	return impl.file.Truncate(size)
 }
 
+// Size returns the current object size.
+// Darwin: it may differ from the passed passed to Truncate
 func (impl *memoryObjectImpl) Size() int64 {
 	fileInfo, err := impl.file.Stat()
 	if err != nil {
@@ -65,6 +73,7 @@ func (impl *memoryObjectImpl) Size() int64 {
 	return fileInfo.Size()
 }
 
+// Fd returns a descriptor of the object's underlying file object
 func (impl *memoryObjectImpl) Fd() uintptr {
 	return impl.file.Fd()
 }

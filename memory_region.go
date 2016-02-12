@@ -38,6 +38,7 @@ type MemoryRegionReader struct {
 	*bytes.Reader
 }
 
+// NewMemoryRegionReader creates a new reader for the given region
 func NewMemoryRegionReader(region *MemoryRegion) *MemoryRegionReader {
 	return &MemoryRegionReader{
 		region: region,
@@ -51,6 +52,7 @@ type MemoryRegionWriter struct {
 	region *MemoryRegion
 }
 
+// NewMemoryRegionWriter creates a new writer for the given region
 func NewMemoryRegionWriter(region *MemoryRegion) *MemoryRegionWriter {
 	return &MemoryRegionWriter{region: region}
 }
@@ -112,7 +114,8 @@ func calcMmapOffsetFixup(offset int64) int64 {
 	return (offset - (offset/pageSize)*pageSize)
 }
 
-type FileInfoGetter interface {
+// fileInfoGetter is used to obtain size of the object
+type fileInfoGetter interface {
 	Stat() (os.FileInfo, error)
 }
 
@@ -120,7 +123,7 @@ func fileSizeFromFd(f MappableHandle) (int64, error) {
 	if f.Fd() == ^uintptr(0) {
 		return 0, nil
 	}
-	if ig, ok := f.(FileInfoGetter); ok {
+	if ig, ok := f.(fileInfoGetter); ok {
 		fi, err := ig.Stat()
 		if err != nil {
 			return 0, err

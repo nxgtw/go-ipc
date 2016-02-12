@@ -3,6 +3,7 @@
 package ipc
 
 import (
+	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -89,16 +90,25 @@ func TestCreateMemoryRegionExclusive(t *testing.T) {
 }
 
 func TestMemoryObjectSize(t *testing.T) {
+	pageSize := int64(os.Getpagesize())
 	if !assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
 		return
 	}
 	obj, err := NewMemoryObject(defaultObjectName, O_CREATE_ONLY|O_READWRITE, 0666)
-	if assert.NoError(t, err) {
-		// TODO(avd) - page size mult on osx
-		if assert.NoError(t, obj.Truncate(9000)) {
-			assert.Equal(t, int64(9000), obj.Size())
-			obj.Destroy()
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.NoError(t, obj.Truncate(pageSize-512)) {
+		return
+	}
+	if runtime.GOOS == "darwin" {
+		assert.Equal(t, pageSize, obj.Size())
+	} else {
+		assert.Equal(t, pageSize-512, obj.Size())
+		if !assert.NoError(t, obj.Truncate(1000)) {
+			return
 		}
+		assert.Equal(t, int64(1000), obj.Size())
 	}
 }
 

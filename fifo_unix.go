@@ -56,12 +56,13 @@ func (f *Fifo) Write(b []byte) (n int, err error) {
 	return f.file.Write(b)
 }
 
+// Close closes the object
 func (f *Fifo) Close() error {
 	return f.file.Close()
 }
 
-// destroys the object, closing it at first
-// if the fifo has already been removed, it returns an error
+// Destroy permanently removes the object, closing it at first.
+// If the fifo has already been removed, it returns an error.
 func (f *Fifo) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
@@ -70,8 +71,8 @@ func (f *Fifo) Destroy() error {
 	return err
 }
 
-// destroys fifo with a given name
-// if the fifo does not exists, the error is nil
+// DestroyFifo permanently removes the object.
+// If the fifo has already been removed, it returns an error.
 func DestroyFifo(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {
@@ -80,7 +81,7 @@ func DestroyFifo(name string) error {
 	return err
 }
 
-// returns full path for the fifo
+// fifoPath returns full path for the fifo
 // if its name contains '/' ('/tmp/fifo', './fifo') - use it
 // if only filename was passed, assume it is in /tmp
 func fifoPath(name string) string {

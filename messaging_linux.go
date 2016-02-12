@@ -51,6 +51,8 @@ func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueS
 	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
+// OpenMessageQueue opens an existing message queue.
+// Returns error, if it does not exist.
 func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
 	sysflags, err := mqFlagsToOsFlags(flags)
 	if err != nil {
@@ -63,6 +65,8 @@ func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
 	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
+// SendTimeout sends a message with a given priority.
+// It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
 	value := reflect.ValueOf(object)
 	if err := checkType(value.Type(), 0); err != nil {
@@ -76,10 +80,14 @@ func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.D
 	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
+// Send sends a message with a given priority.
+// It blocks if the queue is full.
 func (mq *MessageQueue) Send(object interface{}, prio int) error {
 	return mq.SendTimeout(object, prio, time.Duration(-1))
 }
 
+// ReceiveTimeout receives a message.
+// It blocks if the queue is empty, waiting for a message unless timeout is passed.
 func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
 	value := reflect.ValueOf(object)
 	kind := value.Kind()
@@ -104,14 +112,18 @@ func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout ti
 	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
+// Receive receives a message.
+// It blocks if the queue is empty.
 func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
 	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
 }
 
+// ID return unique id of the queue.
 func (mq *MessageQueue) ID() int {
 	return mq.id
 }
 
+// Close closes the queue.
 func (mq *MessageQueue) Close() error {
 	if mq.notifySocketFd != -1 {
 		mq.NotifyCancel()
@@ -119,6 +131,7 @@ func (mq *MessageQueue) Close() error {
 	return unix.Close(mq.ID())
 }
 
+// GetAttrs returns attributes of the queue
 func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
 	attrs := new(MqAttr)
 	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
@@ -127,6 +140,7 @@ func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
 	return attrs, nil
 }
 
+// SetBlocking sets whether the operations on the queue block.
 func (mq *MessageQueue) SetBlocking(block bool) error {
 	attrs := new(MqAttr)
 	if !block {
@@ -135,15 +149,15 @@ func (mq *MessageQueue) SetBlocking(block bool) error {
 	return mq_getsetattr(mq.ID(), attrs, nil)
 }
 
+// Destroy closes the queue and removes it permanently
 func (mq *MessageQueue) Destroy() error {
 	mq.Close()
 	return DestroyMessageQueue(mq.name)
 }
 
-// Notifies about new messages in the queue by
-// sending id of the queue to the channel.
+// Notify notifies about new messages in the queue by sending id of the queue to the channel.
 // If there are messages in the queue, no notification will be sent
-// until all of them are read.
+// unless all of them are read.
 func (mq *MessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
@@ -168,6 +182,7 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 	return err
 }
 
+// NotifyCancel cancels notification subscribtion
 func (mq *MessageQueue) NotifyCancel() error {
 	var err error
 	if err := mq_notify(mq.ID(), nil); err == nil {
@@ -178,6 +193,7 @@ func (mq *MessageQueue) NotifyCancel() error {
 	return err
 }
 
+// DestroyMessageQueue removes the queue permanently
 func DestroyMessageQueue(name string) error {
 	if err := mq_unlink(name); err != nil {
 		if os.IsNotExist(err) {
