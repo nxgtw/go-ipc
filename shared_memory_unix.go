@@ -41,18 +41,30 @@ func (impl *memoryObjectImpl) Destroy() error {
 // Name returns the name of the object as it was given to NewMemoryObject()
 func (impl *memoryObjectImpl) Name() string {
 	result := filepath.Base(impl.file.Name())
+	// on darwin we do this trick due to
+	// http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	if runtime.GOOS == "darwin" {
 		result = result[:strings.LastIndex(result, "\t")]
 	}
 	return result
 }
 
-// Close closes object's underlying file object
+// Close closes object's underlying file object.
+// Darwin: a call to Close() causes invalid argument error,
+// if the object was not truncated. So, in this case we do not
+// close it and return nil as an error.
 func (impl *memoryObjectImpl) Close() error {
-	if runtime.GOOS == "darwin" {
+	err := impl.file.Close()
+	if err == nil {
 		return nil
 	}
-	return impl.file.Close()
+	if runtime.GOOS == "darwin" {
+		// we haven't truncated the file and it hasn't been closed
+		if impl.Size() == 0 && impl.Fd() >= uintptr(0) {
+			return nil
+		}
+	}
+	return err
 }
 
 // Truncate resizes the shared memory object.
