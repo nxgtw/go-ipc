@@ -46,6 +46,8 @@ func TestCreateMemoryObject(t *testing.T) {
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
 	assert.NoError(t, err)
 	if assert.NotNil(t, obj) {
+		assert.NoError(t, obj.Close())
+		assert.Error(t, obj.Close())
 		assert.NoError(t, obj.Destroy())
 	}
 }

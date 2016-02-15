@@ -31,11 +31,12 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 
 // Destroy closes the object and removes it permanently
 func (impl *memoryObjectImpl) Destroy() error {
-	var err error
-	if err = impl.Close(); err == nil {
-		err = destroyMemoryObject(impl.file.Name())
+	if int(impl.Fd()) >= 0 {
+		if err := impl.Close(); err != nil {
+			return err
+		}
 	}
-	return err
+	return destroyMemoryObject(impl.file.Name())
 }
 
 // Name returns the name of the object as it was given to NewMemoryObject()
@@ -54,13 +55,15 @@ func (impl *memoryObjectImpl) Name() string {
 // if the object was not truncated. So, in this case we do not
 // close it and return nil as an error.
 func (impl *memoryObjectImpl) Close() error {
+	fdBeforeClose := impl.Fd()
 	err := impl.file.Close()
 	if err == nil {
 		return nil
 	}
 	if runtime.GOOS == "darwin" {
+		// we're closing the file for the first time, and
 		// we haven't truncated the file and it hasn't been closed
-		if impl.Size() == 0 && impl.Fd() >= uintptr(0) {
+		if impl.Size() == 0 && int(fdBeforeClose) >= 0 {
 			return nil
 		}
 	}
