@@ -7,7 +7,6 @@ import (
 	"unsafe"
 )
 
-// TODO: From the SYSTEM_INFO struct, we wish to extract `wProcessorArchitecture`
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms724958(v=vs.85).aspx
 type SYSTEM_INFO struct {
 	// This is the first member of the union
