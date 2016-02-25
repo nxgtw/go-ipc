@@ -31,11 +31,11 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 }
 
 func (impl *memoryObjectImpl) Destroy() error {
-	if err := impl.Close(); err == nil {
-		return os.Remove(impl.file.Name())
-	} else {
-		return err
+	err := impl.Close()
+	if err == nil {
+		err = os.Remove(impl.file.Name())
 	}
+	return err
 }
 
 func (impl *memoryObjectImpl) Name() string {
@@ -52,42 +52,42 @@ func (impl *memoryObjectImpl) Truncate(size int64) error {
 }
 
 func (impl *memoryObjectImpl) Size() int64 {
-	if fileInfo, err := impl.file.Stat(); err != nil {
+	fileInfo, err := impl.file.Stat()
+	if err != nil {
 		return 0
-	} else {
-		return fileInfo.Size()
 	}
+	return fileInfo.Size()
 }
 
 func (impl *memoryObjectImpl) Fd() uintptr {
 	return impl.file.Fd()
 }
 
+// DestroyMemoryObject permanently removes given memory object
 func DestroyMemoryObject(name string) error {
-	if path, err := shmName(name); err != nil {
-		return err
-	} else {
-		err := os.Remove(path)
-		if os.IsNotExist(err) {
-			return nil
-		}
+	path, err := shmName(name)
+	if err != nil {
 		return err
 	}
+	err = os.Remove(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func shmName(name string) (string, error) {
-	if path, err := sharedDirName(); err != nil {
+	path, err := sharedDirName()
+	if err != nil {
 		return "", err
-	} else {
-		return path + "/" + name, nil
 	}
+	return path + "/" + name, nil
 }
 
 func sharedDirName() (string, error) {
 	rootPath := os.TempDir() + "/go-ipc"
 	if err := os.Mkdir(rootPath, 0644); err == nil || os.IsExist(err) {
 		return rootPath, nil
-	} else {
-		return "", err
 	}
+	return "", err
 }

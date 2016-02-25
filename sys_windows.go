@@ -7,10 +7,11 @@ import (
 	"unsafe"
 )
 
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ms724958(v=vs.85).aspx
+// SYSTEM_INFO is used for GetSystemInfo WinApi call
+// see https://msdn.microsoft.com/en-us/library/windows/desktop/ms724958(v=vs.85).aspx
 type SYSTEM_INFO struct {
 	// This is the first member of the union
-	OemId uint32
+	OemID uint32
 	// These are the second member of the union
 	//      ProcessorArchitecture uint16;
 	//      Reserved uint16;

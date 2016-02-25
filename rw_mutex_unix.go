@@ -93,6 +93,7 @@ func (rw *rwMutexImpl) Destroy() error {
 	return DestroyMemoryObject(name)
 }
 
+// DestroyRwMutex permanently removes the mutex
 func DestroyRwMutex(name string) error {
 	return DestroyMemoryObject(rwmName(name))
 }

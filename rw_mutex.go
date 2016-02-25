@@ -9,6 +9,7 @@ import (
 	"os"
 )
 
+// RwMutex is an interprocess readwrite lock object
 type RwMutex struct {
 	*rwMutexImpl
 }
