@@ -20,7 +20,7 @@ type Mutex struct {
 //	O_OPEN_OR_CREATE
 //	O_CREATE_ONLY
 //	O_OPEN_ONLY
-func NewMutex(name string, mode int, perm os.FileMode) (*NewMutex, error) {
+func NewMutex(name string, mode int, perm os.FileMode) (*Mutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
