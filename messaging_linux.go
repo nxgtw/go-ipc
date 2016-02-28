@@ -36,7 +36,7 @@ type MqAttr struct {
 }
 
 // CreateMessageQueue creates a new named message queue.
-// TODO(avd)) - remove exclusive?
+// TODO(avd) - remove exclusive?
 func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueSize, maxMsgSize int) (*MessageQueue, error) {
 	sysflags := unix.O_CREAT | unix.O_RDWR
 	if exclusive {

@@ -9,25 +9,25 @@ import (
 	"os"
 )
 
-// RwMutex is an interprocess readwrite lock object
-type RwMutex struct {
-	*rwMutexImpl
+// Mutex is an interprocess readwrite lock object
+type Mutex struct {
+	*mutexImpl
 }
 
-// NewRwMutex creates a new readwrite mutex
+// NewMutex creates a new readwrite mutex
 // name - object name
 // mode - object creation mode. must be one of the following:
 //	O_OPEN_OR_CREATE
 //	O_CREATE_ONLY
 //	O_OPEN_ONLY
-func NewRwMutex(name string, mode int, perm os.FileMode) (*RwMutex, error) {
+func NewMutex(name string, mode int, perm os.FileMode) (*NewMutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
-	impl, err := newRwMutexImpl(name, mode, perm)
+	impl, err := newMutexImpl(name, mode, perm)
 	if err != nil {
 		return nil, err
 	}
-	result := &RwMutex{impl}
+	result := &Mutex{impl}
 	return result, nil
 }
