@@ -15,31 +15,40 @@ const (
 )
 
 func TestCreateMq(t *testing.T) {
-	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	_, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	if assert.NoError(t, err) {
 		assert.NoError(t, DestroyMessageQueue(testMqName))
 	}
 }
 
 func TestCreateMqExcl(t *testing.T) {
-	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	_, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = CreateMessageQueue(testMqName, true, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	_, err = CreateLinuxMessageQueue(testMqName, true, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	assert.Error(t, err)
+}
+
+func TestCreateMqExcl2(t *testing.T) {
+	_, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	if !assert.NoError(t, err) {
+		return
+	}
+	_, err = CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	assert.Error(t, err)
 }
 
 func TestCreateMqOpenOnly(t *testing.T) {
-	_, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	_, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 	assert.NoError(t, err)
 	assert.NoError(t, DestroyMessageQueue(testMqName))
-	_, err = OpenMessageQueue(testMqName, O_READ_ONLY)
+	_, err = OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
 	assert.Error(t, err)
 }
 
 func TestMqSendInvalidType(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -53,7 +62,7 @@ func TestMqSendInvalidType(t *testing.T) {
 
 func TestMqSendIntSameProcess(t *testing.T) {
 	var message = 1122
-	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -63,7 +72,7 @@ func TestMqSendIntSameProcess(t *testing.T) {
 	}()
 	var received int
 	var prio int
-	mqr, err := OpenMessageQueue(testMqName, O_READ_ONLY)
+	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
 	assert.NoError(t, err)
 	assert.NoError(t, mqr.Receive(&received, &prio))
 }
@@ -78,7 +87,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 		f float64
 	}
 	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
-	mq, err := CreateMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(message)))
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(message)))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -86,7 +95,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 		assert.NoError(t, mq.Send(message, 1))
 	}()
 	received := &testStruct{}
-	mqr, err := OpenMessageQueue(testMqName, O_READ_ONLY)
+	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -96,7 +105,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 }
 
 func TestMqGetAttrs(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 5, 121)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	assert.NoError(t, mq.Send(0, 0))
@@ -108,7 +117,7 @@ func TestMqGetAttrs(t *testing.T) {
 }
 
 func TestMqSetNonBlock(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 1, 8)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 1, 8)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	assert.NoError(t, mq.Send(0, 0))
@@ -117,7 +126,7 @@ func TestMqSetNonBlock(t *testing.T) {
 }
 
 func TestMqNotify(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 5, 121)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	ch := make(chan int)
@@ -129,7 +138,7 @@ func TestMqNotify(t *testing.T) {
 }
 
 func TestMqNotifyTwice(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 5, 121)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	ch := make(chan int)
@@ -140,7 +149,7 @@ func TestMqNotifyTwice(t *testing.T) {
 }
 
 func TestMqSendToAnotherProcess(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 5, 16)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	data := make([]byte, 16)
@@ -158,7 +167,7 @@ func TestMqSendToAnotherProcess(t *testing.T) {
 }
 
 func TestMqReceiveFromAnotherProcess(t *testing.T) {
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 5, 16)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 5, 16)
 	assert.NoError(t, err)
 	defer mq.Destroy()
 	data := make([]byte, 16)
@@ -181,7 +190,7 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateMessageQueue(testMqName, false, 0666, 4, 16)
+	mq, err := CreateLinuxMessageQueue(testMqName, false, 0666, 4, 16)
 	if !assert.NoError(t, err) {
 		return
 	}

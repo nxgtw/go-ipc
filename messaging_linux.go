@@ -20,8 +20,8 @@ const (
 	DefaultMqMaxMessageSize = 8192
 )
 
-// MessageQueue is a linux-specific ipc mechanizm based on mesage passing
-type MessageQueue struct {
+// LinuxMessageQueue is a linux-specific ipc mechanism based on message passing
+type LinuxMessageQueue struct {
 	id             int
 	name           string
 	notifySocketFd int
@@ -35,9 +35,9 @@ type MqAttr struct {
 	Curmsgs int /* # of messages currently in queue */
 }
 
-// CreateMessageQueue creates a new named message queue.
+// CreateLinuxMessageQueue creates a new named message queue.
 // TODO(avd) - remove exclusive?
-func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueSize, maxMsgSize int) (*MessageQueue, error) {
+func CreateLinuxMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
 	sysflags := unix.O_CREAT | unix.O_RDWR
 	if exclusive {
 		sysflags |= unix.O_EXCL
@@ -48,12 +48,12 @@ func CreateMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueS
 	if id, err = mq_open(name, sysflags, uint32(perm), attrs); err != nil {
 		return nil, err
 	}
-	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
+	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
-// OpenMessageQueue opens an existing message queue.
-// Returns error, if it does not exist.
-func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
+// OpenLinuxMessageQueue opens an existing message queue.
+// Returns an error, if it does not exist.
+func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	sysflags, err := mqFlagsToOsFlags(flags)
 	if err != nil {
 		return nil, err
@@ -62,12 +62,12 @@ func OpenMessageQueue(name string, flags int) (*MessageQueue, error) {
 	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	}
-	return &MessageQueue{id: id, name: name, notifySocketFd: -1}, nil
+	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
 // SendTimeout sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
-func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
+func (mq *LinuxMessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
 	value := reflect.ValueOf(object)
 	if err := checkType(value.Type(), 0); err != nil {
 		return err
@@ -82,13 +82,13 @@ func (mq *MessageQueue) SendTimeout(object interface{}, prio int, timeout time.D
 
 // Send sends a message with a given priority.
 // It blocks if the queue is full.
-func (mq *MessageQueue) Send(object interface{}, prio int) error {
+func (mq *LinuxMessageQueue) Send(object interface{}, prio int) error {
 	return mq.SendTimeout(object, prio, time.Duration(-1))
 }
 
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
+func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
 	value := reflect.ValueOf(object)
 	kind := value.Kind()
 	var objSize int
@@ -114,17 +114,17 @@ func (mq *MessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout ti
 
 // Receive receives a message.
 // It blocks if the queue is empty.
-func (mq *MessageQueue) Receive(object interface{}, prio *int) error {
+func (mq *LinuxMessageQueue) Receive(object interface{}, prio *int) error {
 	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
 }
 
 // ID return unique id of the queue.
-func (mq *MessageQueue) ID() int {
+func (mq *LinuxMessageQueue) ID() int {
 	return mq.id
 }
 
 // Close closes the queue.
-func (mq *MessageQueue) Close() error {
+func (mq *LinuxMessageQueue) Close() error {
 	if mq.notifySocketFd != -1 {
 		mq.NotifyCancel()
 	}
@@ -132,7 +132,7 @@ func (mq *MessageQueue) Close() error {
 }
 
 // GetAttrs returns attributes of the queue
-func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
+func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
 	attrs := new(MqAttr)
 	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (mq *MessageQueue) GetAttrs() (*MqAttr, error) {
 }
 
 // SetBlocking sets whether the operations on the queue block.
-func (mq *MessageQueue) SetBlocking(block bool) error {
+func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 	attrs := new(MqAttr)
 	if !block {
 		attrs.Flags |= unix.O_NONBLOCK
@@ -150,7 +150,7 @@ func (mq *MessageQueue) SetBlocking(block bool) error {
 }
 
 // Destroy closes the queue and removes it permanently
-func (mq *MessageQueue) Destroy() error {
+func (mq *LinuxMessageQueue) Destroy() error {
 	mq.Close()
 	return DestroyMessageQueue(mq.name)
 }
@@ -158,7 +158,7 @@ func (mq *MessageQueue) Destroy() error {
 // Notify notifies about new messages in the queue by sending id of the queue to the channel.
 // If there are messages in the queue, no notification will be sent
 // unless all of them are read.
-func (mq *MessageQueue) Notify(ch chan<- int) error {
+func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
 	}
@@ -183,7 +183,7 @@ func (mq *MessageQueue) Notify(ch chan<- int) error {
 }
 
 // NotifyCancel cancels notification subscribtion
-func (mq *MessageQueue) NotifyCancel() error {
+func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err := mq_notify(mq.ID(), nil); err == nil {
 		syscall.Close(mq.notifySocketFd)

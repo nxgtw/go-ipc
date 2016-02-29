@@ -41,7 +41,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	mq, err := ipc.CreateMessageQueue(*objName, true, 0666, maxSize, maxMsgLen)
+	mq, err := ipc.CreateLinuxMessageQueue(*objName, true, 0666, maxSize, maxMsgLen)
 	if err == nil {
 		mq.Close()
 	}
@@ -59,7 +59,7 @@ func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one argument")
 	}
-	mq, err := ipc.OpenMessageQueue(*objName, ipc.O_READ_ONLY)
+	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_READ_ONLY)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func send() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("send: must provide exactly one argument")
 	}
-	mq, err := ipc.OpenMessageQueue(*objName, ipc.O_WRITE_ONLY)
+	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_WRITE_ONLY)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func notifywait() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("notifywait: must not provide any arguments")
 	}
-	mq, err := ipc.OpenMessageQueue(*objName, ipc.O_READWRITE)
+	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_READWRITE)
 	if err != nil {
 		return err
 	}
