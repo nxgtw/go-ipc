@@ -17,10 +17,14 @@ func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
 	var err error
 	switch mode {
 	case O_OPEN_ONLY:
-
+		handle, err = openMutex(name)
 	case O_CREATE_ONLY:
 		handle, err = createMutex(name)
 	case O_OPEN_OR_CREATE:
+		handle, err = createMutex(name)
+		if handle != windows.Handle(0) && os.IsExist(err) {
+			err = nil
+		}
 	}
 	if err != nil {
 		return nil, err

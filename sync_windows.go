@@ -24,7 +24,9 @@ func createMutex(name string) (windows.Handle, error) {
 	}
 	h, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(namep)))
 	if h == 0 {
-		return windows.InvalidHandle, os.NewSyscallError("CreateMutex", err)
+		// do not wrap this error into a os.SyscallError, as
+		// it can be check later for ERROR_ALREADY_EXISTS
+		return windows.InvalidHandle, err
 	}
 	return windows.Handle(h), nil
 }
