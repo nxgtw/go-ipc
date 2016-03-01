@@ -7,11 +7,9 @@
 package ipc
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -96,33 +94,6 @@ func TestRwMutexOpenMode3(t *testing.T) {
 	}
 }
 
-func printer() chan int {
-	ch := make(chan int, 100)
-	var cur int32
-	go func() {
-		for value := range ch {
-			atomic.StoreInt32(&cur, int32(value))
-			/*if value > 0 {
-				fmt.Printf("%d got the lock\n", value)
-			} else {
-				fmt.Printf("%d released the lock\n", -value)
-			}*/
-		}
-	}()
-	go func() {
-		for {
-			<-time.After(time.Millisecond * 250)
-			value := atomic.LoadInt32(&cur)
-			if value > 0 {
-				fmt.Printf("%d got the lock\n", value)
-			} else {
-				fmt.Printf("%d released the lock\n", -value)
-			}
-		}
-	}()
-	return ch
-}
-
 func NoTestRwMutexMemory(t *testing.T) {
 	if !assert.NoError(t, DestroyRwMutex(testRwMutexName)) {
 		return
@@ -149,12 +120,10 @@ func NoTestRwMutexMemory(t *testing.T) {
 	var flag int32 = 1
 	const jobs = 4
 	wg.Add(jobs)
-	ch := printer()
 	for i := 0; i < jobs; i++ {
 		go func(i int) {
-			for j := 0; atomic.LoadInt32(&flag) != 0 && j < 162100; j++ {
+			for j := 0; atomic.LoadInt32(&flag) != 0; j++ {
 				mut.Lock()
-				ch <- i
 				// corrupt the data and then restore it.
 				// as the entire operation is under mutex protection,
 				// no one should see these changes.
