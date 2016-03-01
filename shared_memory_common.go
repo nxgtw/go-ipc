@@ -5,9 +5,9 @@ package ipc
 // this is to ensure, that all implementations of shm-related structs
 // satisfy the same minimal interface
 var (
-	_ iSharedMemoryObject = &MemoryObject{}
-	_ iSharedMemoryRegion = &MemoryRegion{}
-	_ MappableHandle      = &MemoryObject{}
+	_ iSharedMemoryObject = (*MemoryObject)(nil)
+	_ iSharedMemoryRegion = (*MemoryRegion)(nil)
+	_ MappableHandle      = (*MemoryObject)(nil)
 )
 
 type iSharedMemoryObject interface {
