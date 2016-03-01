@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build windows
-
 package ipc
 
 import (
