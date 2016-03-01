@@ -41,7 +41,7 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 		return nil, os.NewSyscallError("MapViewOfFile", err)
 	}
 	sz := size + int(pageOffset)
-	return &memoryRegionImpl{byteSliceFromUintptr(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
+	return &memoryRegionImpl{byteSliceFromUnsafePointer(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
 }
 
 func (impl *memoryRegionImpl) Close() error {
