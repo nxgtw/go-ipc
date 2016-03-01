@@ -41,7 +41,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	mq, err := ipc.CreateLinuxMessageQueue(*objName, true, 0666, maxSize, maxMsgLen)
+	mq, err := ipc.CreateLinuxMessageQueue(*objName, 0666, maxSize, maxMsgLen)
 	if err == nil {
 		mq.Close()
 	}

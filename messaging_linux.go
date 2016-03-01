@@ -3,6 +3,7 @@
 package ipc
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -36,12 +37,12 @@ type MqAttr struct {
 }
 
 // CreateLinuxMessageQueue creates a new named message queue.
-// TODO(avd) - remove exclusive?
-func CreateLinuxMessageQueue(name string, exclusive bool, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
-	sysflags := unix.O_CREAT | unix.O_RDWR
-	if exclusive {
-		sysflags |= unix.O_EXCL
+// 'x' permission cannot be used.
+func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
+	if !checkMqPerm(perm) {
+		return nil, errors.New("invalid mq permissions")
 	}
+	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL
 	attrs := &MqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
 	var id int
 	var err error
@@ -68,15 +69,10 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 // SendTimeout sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
-	value := reflect.ValueOf(object)
-	if err := checkType(value.Type(), 0); err != nil {
+	data, err := objectByteSlice(object)
+	if err != nil {
 		return err
 	}
-	var data []byte
-	objSize := objectSize(value)
-	addr := objectAddress(value)
-	defer use(unsafe.Pointer(addr))
-	data = byteSliceFromUintptr(addr, objSize, objSize)
 	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
@@ -107,8 +103,8 @@ func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, prio *int, timeo
 		return fmt.Errorf("the object must be a pointer or a slice")
 	}
 	addr := unsafe.Pointer(value.Pointer())
-	defer use(unsafe.Pointer(addr))
-	data := byteSliceFromUintptr(addr, objSize, objSize)
+	defer use(addr)
+	data := byteSliceFromUnsafePointer(addr, objSize, objSize)
 	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 

@@ -47,7 +47,7 @@ func objectSize(object reflect.Value) int {
 func copyObjectData(value reflect.Value, memory []byte) {
 	addr := objectAddress(value)
 	size := objectSize(value)
-	objectData := byteSliceFromUintptr(addr, size, size)
+	objectData := byteSliceFromUnsafePointer(addr, size, size)
 	copy(memory, objectData)
 	use(unsafe.Pointer(addr))
 }
@@ -86,13 +86,29 @@ func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
-func byteSliceFromUintptr(memory unsafe.Pointer, lenght, capacity int) []byte {
+func byteSliceFromUnsafePointer(memory unsafe.Pointer, lenght, capacity int) []byte {
 	sl := reflect.SliceHeader{
 		Len:  lenght,
 		Cap:  capacity,
 		Data: uintptr(memory),
 	}
 	return *(*[]byte)(unsafe.Pointer(&sl))
+}
+
+// objectByteSlice returns objects underlying byte representation
+// the object must stored continuously in the memory, ie must not contain any references.
+// slices of plain objects are allowed
+func objectByteSlice(object interface{}) ([]byte, error) {
+	value := reflect.ValueOf(object)
+	if err := checkType(value.Type(), 0); err != nil {
+		return nil, err
+	}
+	var data []byte
+	objSize := objectSize(value)
+	addr := objectAddress(value)
+	defer use(unsafe.Pointer(addr))
+	data = byteSliceFromUnsafePointer(addr, objSize, objSize)
+	return data, nil
 }
 
 // checks if an object of type can be safely copied by byte.
