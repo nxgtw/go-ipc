@@ -88,6 +88,24 @@ func TestAllocStruct(t *testing.T) {
 	assert.Equal(t, obj, *ptr)
 }
 
+func TestAllocStructPtr(t *testing.T) {
+	type internal struct {
+		d complex128
+		p uintptr
+	}
+	type s struct {
+		a, b int
+		ss   internal
+	}
+	obj := &s{-1, 11, internal{complex(10, 11), uintptr(0)}}
+	data := make([]byte, unsafe.Sizeof(*obj))
+	if !assert.NoError(t, alloc(data, obj)) {
+		return
+	}
+	ptr := (*s)(unsafe.Pointer(&data[0]))
+	assert.Equal(t, obj, ptr)
+}
+
 func TestAllocMutex(t *testing.T) {
 	var obj sync.Mutex
 	data := make([]byte, unsafe.Sizeof(obj))

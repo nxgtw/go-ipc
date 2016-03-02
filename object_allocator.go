@@ -52,16 +52,21 @@ func copyObjectData(value reflect.Value, memory []byte) {
 	use(unsafe.Pointer(addr))
 }
 
-// copies value's data into a byte slice performing soem sanity checks.
+// copies value's data into a byte slice performing some sanity checks.
 // the object either must be a slice, or should be a sort of an object,
 // which does not contain any references inside, i.e. should be placed
 // in the memory continuously.
+// if the object is a pointer it will be dereferenced. to all a pointer as is,
+// use uintptr or unsafe.Pointer.
 // if the object is a slice, only actual data is stored. the calling site
 // must save object's lenght and capacity
 func alloc(memory []byte, object interface{}) error {
 	value := reflect.ValueOf(object)
 	if !value.IsValid() {
 		return fmt.Errorf("inavlid object")
+	}
+	for value.Kind() == reflect.Ptr {
+		value = value.Elem()
 	}
 	size := objectSize(value)
 	if size > maxObjectSize {
