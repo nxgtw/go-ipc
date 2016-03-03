@@ -92,13 +92,13 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 
 // Finish indicates, that the object is no longer in use,
 // and that the underlying resources can be freed
-func (spin *SpinMutex) Finish() error {
+func (spin *SpinMutex) Close() error {
 	return spin.region.Close()
 }
 
 // Destroy removes the mutex object
 func (spin *SpinMutex) Destroy() error {
-	if err := spin.Finish(); err != nil {
+	if err := spin.Close(); err != nil {
 		return err
 	}
 	spin.region = nil

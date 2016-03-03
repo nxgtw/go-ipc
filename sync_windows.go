@@ -20,25 +20,23 @@ var (
 func createMutex(name string) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
-		return windows.InvalidHandle, err
+		return 0, err
 	}
 	h, _, err := procCreateMutex.Call(0, 0, uintptr(unsafe.Pointer(namep)))
-	if h == 0 {
-		// do not wrap this error into a os.SyscallError, as
-		// it can be check later for ERROR_ALREADY_EXISTS
-		return windows.InvalidHandle, err
+	if h != 0 && uintptr(err.(syscall.Errno)) == 0 {
+		err = nil
 	}
-	return windows.Handle(h), nil
+	return windows.Handle(h), err
 }
 
 func openMutex(name string) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
-		return windows.InvalidHandle, err
+		return 0, err
 	}
 	h, _, err := procOpenMutex.Call(uintptr(windows.SYNCHRONIZE), 0, uintptr(unsafe.Pointer(namep)))
 	if h == 0 {
-		return windows.InvalidHandle, os.NewSyscallError("OpenMutex", err)
+		return 0, os.NewSyscallError("OpenMutex", err)
 	}
 	return windows.Handle(h), nil
 }
