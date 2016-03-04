@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package allocator
 
 import (
 	"fmt"
@@ -35,32 +35,34 @@ func objectAddress(object reflect.Value) unsafe.Pointer {
 
 func objectSize(object reflect.Value) int {
 	t := object.Type()
-	size := t.Size()
+	var size int
 	if object.Kind() == reflect.Slice {
-		size = uintptr(object.Len()) * t.Elem().Size()
+		size = object.Len() * int(t.Elem().Size())
+	} else {
+		size = int(t.Size())
 	}
 	return int(size)
 }
 
-// copies value's data into a byte slice.
-// if a slice is passed, it will copy data it references to
+// copyObjectData copies value's data into a byte slice.
+// If a slice is passed, it will copy the data it references to.
 func copyObjectData(value reflect.Value, memory []byte) {
 	addr := objectAddress(value)
 	size := objectSize(value)
 	objectData := byteSliceFromUnsafePointer(addr, size, size)
 	copy(memory, objectData)
-	use(unsafe.Pointer(addr))
+	use(addr)
 }
 
-// copies value's data into a byte slice performing some sanity checks.
-// the object either must be a slice, or should be a sort of an object,
+// Alloc copies value's data into a byte slice performing some sanity checks.
+// The object either must be a slice, or should be a sort of an object,
 // which does not contain any references inside, i.e. should be placed
 // in the memory continuously.
-// if the object is a pointer it will be dereferenced. to all a pointer as is,
+// If the object is a pointer it will be dereferenced. To alloc a pointer as is,
 // use uintptr or unsafe.Pointer.
-// if the object is a slice, only actual data is stored. the calling site
-// must save object's lenght and capacity
-func alloc(memory []byte, object interface{}) error {
+// If the object is a slice, only actual data is stored. the calling site
+// must save object's lenght and capacity.
+func Alloc(memory []byte, object interface{}) error {
 	value := reflect.ValueOf(object)
 	if !value.IsValid() {
 		return fmt.Errorf("inavlid object")
@@ -102,7 +104,7 @@ func byteSliceFromUnsafePointer(memory unsafe.Pointer, lenght, capacity int) []b
 
 // objectByteSlice returns objects underlying byte representation
 // the object must stored continuously in the memory, ie must not contain any references.
-// slices of plain objects are allowed
+// slices of plain objects are allowed.
 func objectByteSlice(object interface{}) ([]byte, error) {
 	value := reflect.ValueOf(object)
 	if err := checkType(value.Type(), 0); err != nil {
@@ -116,7 +118,7 @@ func objectByteSlice(object interface{}) ([]byte, error) {
 	return data, nil
 }
 
-// checks if an object of type can be safely copied by byte.
+// checkObject checks if an object of type can be safely copied byte by byte.
 // the object must not contain any reference types like
 // maps, strings, pointers and so on.
 // slices can be at the top level only
@@ -156,3 +158,5 @@ func checkNumericType(kind reflect.Kind) error {
 	}
 	return fmt.Errorf("unsupported type %q", kind.String())
 }
+
+func use(unsafe.Pointer)

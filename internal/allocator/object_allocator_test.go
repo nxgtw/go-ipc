@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package allocator
 
 import (
 	"sync"
@@ -53,7 +53,7 @@ func TestCheckObjectType(t *testing.T) {
 func TestAllocInt(t *testing.T) {
 	var i = 0x01027FFF
 	data := make([]byte, unsafe.Sizeof(i))
-	if !assert.NoError(t, alloc(data, i)) {
+	if !assert.NoError(t, Alloc(data, i)) {
 		return
 	}
 	ptr := (*int)(unsafe.Pointer(&data[0]))
@@ -63,7 +63,7 @@ func TestAllocInt(t *testing.T) {
 func TestAllocIntArray(t *testing.T) {
 	i := [3]int{0x01, 0x7F, 0xFF}
 	data := make([]byte, unsafe.Sizeof(i))
-	if !assert.NoError(t, alloc(data, i)) {
+	if !assert.NoError(t, Alloc(data, i)) {
 		return
 	}
 	ptr := (*[3]int)(unsafe.Pointer(&data[0]))
@@ -81,7 +81,7 @@ func TestAllocStruct(t *testing.T) {
 	}
 	obj := s{-1, 11, internal{complex(10, 11), uintptr(0)}}
 	data := make([]byte, unsafe.Sizeof(obj))
-	if !assert.NoError(t, alloc(data, obj)) {
+	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
 	ptr := (*s)(unsafe.Pointer(&data[0]))
@@ -99,7 +99,7 @@ func TestAllocStructPtr(t *testing.T) {
 	}
 	obj := &s{-1, 11, internal{complex(10, 11), uintptr(0)}}
 	data := make([]byte, unsafe.Sizeof(*obj))
-	if !assert.NoError(t, alloc(data, obj)) {
+	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
 	ptr := (*s)(unsafe.Pointer(&data[0]))
@@ -109,7 +109,7 @@ func TestAllocStructPtr(t *testing.T) {
 func TestAllocMutex(t *testing.T) {
 	var obj sync.Mutex
 	data := make([]byte, unsafe.Sizeof(obj))
-	if !assert.NoError(t, alloc(data, obj)) {
+	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
 	ptr := (*sync.Mutex)(unsafe.Pointer(&data[0]))
@@ -122,11 +122,20 @@ func TestAllocSlice(t *testing.T) {
 		obj[i] = int(i)
 	}
 	data := make([]byte, unsafe.Sizeof(int(0))*10)
-	if !assert.NoError(t, alloc(data, obj)) {
+	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
 	sl := intSliceFromMemory(data, 10, 10)
 	assert.Equal(t, obj, sl)
+}
+
+func TestAllocString(t *testing.T) {
+	s := "Hello, world!"
+	data := make([]byte, unsafe.Sizeof(s))
+	if !assert.NoError(t, Alloc(data, s)) {
+		return
+	}
+	//assert.Equal(t, obj, sl)
 }
 
 func TestAllocSliceReadAsArray(t *testing.T) {
@@ -135,7 +144,7 @@ func TestAllocSliceReadAsArray(t *testing.T) {
 		obj[i] = int(i)
 	}
 	data := make([]byte, unsafe.Sizeof(int(0))*10)
-	if !assert.NoError(t, alloc(data, obj)) {
+	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
 	ptr := (*[10]int)(unsafe.Pointer(&data[0]))
@@ -145,7 +154,7 @@ func TestAllocSliceReadAsArray(t *testing.T) {
 func TestAllocArrayReadAsSlice(t *testing.T) {
 	i := [3]int{0x01, 0x7F, 0xFF}
 	data := make([]byte, unsafe.Sizeof(i))
-	if !assert.NoError(t, alloc(data, i)) {
+	if !assert.NoError(t, Alloc(data, i)) {
 		return
 	}
 	sl := intSliceFromMemory(data, 3, 3)

@@ -1,6 +1,6 @@
 // +build windows
 
-package ipc
+package sync
 
 import (
 	"syscall"

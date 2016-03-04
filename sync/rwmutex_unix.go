@@ -2,7 +2,7 @@
 
 // +build ignore
 
-package ipc
+package sync
 
 import (
 	"os"
