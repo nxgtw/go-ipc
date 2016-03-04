@@ -20,6 +20,9 @@ func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
 		handle, err = openMutex(name)
 	case O_CREATE_ONLY:
 		handle, err = createMutex(name)
+		if handle != windows.Handle(0) && os.IsExist(err) {
+			windows.CloseHandle(handle)
+		}
 	case O_OPEN_OR_CREATE:
 		handle, err = createMutex(name)
 		if handle != windows.Handle(0) && os.IsExist(err) {
@@ -40,6 +43,6 @@ func (m *mutexImpl) Unlock() {
 	releaseMutex(m.handle)
 }
 
-func (m *mutexImpl) Finish() error {
+func (m *mutexImpl) Close() error {
 	return windows.CloseHandle(m.handle)
 }

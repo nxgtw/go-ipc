@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"io"
 	"sync"
 
 	"bitbucket.org/avd/go-ipc"
@@ -19,7 +20,7 @@ var (
 // on any platform
 type IPCLocker interface {
 	sync.Locker
-	Finish() error
+	io.Closer
 }
 
 func checkMutexOpenMode(mode int) bool {

@@ -25,10 +25,12 @@ func valueObjectAddress(v interface{}) unsafe.Pointer {
 // returns the address of the given object
 // if a slice is passed, it will returns a pointer to the actual data
 func objectAddress(object reflect.Value) unsafe.Pointer {
-	addr := valueObjectAddress(object.Interface())
-	if object.Kind() == reflect.Slice {
-		header := *(*reflect.SliceHeader)(addr)
-		addr = unsafe.Pointer(header.Data)
+	var addr unsafe.Pointer
+	kind := object.Kind()
+	if kind == reflect.Slice {
+		addr = unsafe.Pointer(object.Pointer())
+	} else {
+		addr = valueObjectAddress(object.Interface())
 	}
 	return addr
 }
@@ -121,7 +123,7 @@ func objectByteSlice(object interface{}) ([]byte, error) {
 // checkObject checks if an object of type can be safely copied byte by byte.
 // the object must not contain any reference types like
 // maps, strings, pointers and so on.
-// slices can be at the top level only
+// slices or pointers can be at the top level only
 func checkObject(object interface{}) error {
 	return checkType(reflect.ValueOf(object).Type(), 0)
 }
@@ -134,6 +136,12 @@ func checkType(t reflect.Type, depth int) error {
 	if kind == reflect.Slice {
 		if depth != 0 {
 			return fmt.Errorf("slices as array elems or struct fields are not supported")
+		}
+		return checkType(t.Elem(), depth+1)
+	}
+	if kind == reflect.Ptr {
+		if depth != 0 {
+			return fmt.Errorf("pointers as array elems or struct fields are not supported")
 		}
 		return checkType(t.Elem(), depth+1)
 	}

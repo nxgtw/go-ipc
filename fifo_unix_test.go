@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,9 +49,9 @@ func TestFifoBlockRead(t *testing.T) {
 	buff := make([]byte, len(testData))
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := runTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
+	ch := ipc_test.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
-	success := waitForFunc(func() {
+	success := ipc_test.WaitForFunc(func() {
 		fifo, err := NewFifo(testFifoName, O_READ_ONLY, 0666)
 		if !assert.NoError(t, err) {
 			return
@@ -63,11 +65,11 @@ func TestFifoBlockRead(t *testing.T) {
 	if !assert.Equal(t, testData, buff) {
 		return
 	}
-	appResult, success := waitForAppResultChan(ch, time.Second)
+	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
 		return
 	}
-	assert.NoError(t, appResult.err)
+	assert.NoError(t, appResult.Err)
 }
 
 // 1) write data into a fifo in blocking mode
@@ -81,7 +83,7 @@ func TestFifoBlockWrite(t *testing.T) {
 	defer DestroyFifo(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := runTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	// TODO(avd) - run it async
 	fifo, err := NewFifo(testFifoName, O_WRITE_ONLY, 0666)
 	if !assert.NoError(t, err) {
@@ -91,11 +93,11 @@ func TestFifoBlockWrite(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	appResult, success := waitForAppResultChan(ch, time.Second)
+	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
 		return
 	}
-	assert.NoError(t, appResult.err)
+	assert.NoError(t, appResult.Err)
 }
 
 // 1) write data into a fifo in non-blocking mode
@@ -109,7 +111,7 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	defer DestroyFifo(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := runTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	fifo, err := NewFifo(testFifoName, O_WRITE_ONLY|O_NONBLOCK, 0666)
 	// wait for app to launch and start reading from the fifo
 	for n := 0; err != nil && n < 10; n++ {
@@ -122,9 +124,9 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	if written, err := fifo.Write(testData); !assert.NoError(t, err) || !assert.Equal(t, written, len(testData)) {
 		return
 	}
-	appResult, success := waitForAppResultChan(ch, time.Second)
+	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
 		return
 	}
-	assert.NoError(t, appResult.err)
+	assert.NoError(t, appResult.Err)
 }

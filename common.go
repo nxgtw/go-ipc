@@ -8,6 +8,11 @@ import (
 	"unsafe"
 )
 
+// Destroyer is an object which can be permanently removed
+type Destroyer interface {
+	Destroy() error
+}
+
 func accessModeToOsMode(mode int) (osMode int, err error) {
 	if mode&O_READ_ONLY != 0 {
 		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {

@@ -15,6 +15,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
 
 var (
@@ -39,7 +40,7 @@ byte array should be passed as a continuous string of 2-symbol hex byte values l
 
 func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 	if *objType == "m" {
-		locker, err = ipc.NewMutex(*objName, mode, 0666)
+		locker, err = ipc_sync.NewMutex(*objName, mode, 0666)
 	} else if *objType == "rwm" {
 		/*if rwm, errRwm := ipc.NewRwMutex(*objName, mode, 0666); errRwm == nil {
 			if readonly {
@@ -52,7 +53,7 @@ func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
 		}*/
 		err = fmt.Errorf("unimplemented")
 	} else if *objType == "spin" {
-		locker, err = ipc.NewSpinMutex(*objName, mode, 0666)
+		locker, err = ipc_sync.NewSpinMutex(*objName, mode, 0666)
 	} else {
 		err = fmt.Errorf("unknown object type %q", *objType)
 	}

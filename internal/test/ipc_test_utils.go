@@ -6,7 +6,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os/exec"
+	"syscall"
+	"time"
 )
+
+type TestAppResult struct {
+	Output string
+	Err    error
+}
 
 // StringToBytes takes an input string in a 2-hex-symbol per byte format
 // and returns corresponding byte array.
@@ -43,4 +51,88 @@ func BytesToString(data []byte) string {
 		buff.WriteString(fmt.Sprintf("%X", value))
 	}
 	return buff.String()
+}
+
+// launch helpers
+
+func startTestApp(args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer, error) {
+	args = append([]string{"run"}, args...)
+	cmd := exec.Command("go", args...)
+	buff := bytes.NewBuffer(nil)
+	cmd.Stderr = buff
+	cmd.Stdout = buff
+	if err := cmd.Start(); err != nil {
+		return nil, nil, err
+	}
+	if killChan != nil {
+		go func() {
+			if kill, ok := <-killChan; kill && ok {
+				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+					cmd.Process.Kill()
+				}
+			}
+		}()
+	}
+	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
+	return cmd, buff, nil
+}
+
+func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result TestAppResult) {
+	if result.Err = cmd.Wait(); result.Err != nil {
+		if exiterr, ok := result.Err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				result.Err = fmt.Errorf("%v, status code = %d", result.Err, status)
+			}
+		}
+	} else {
+		if !cmd.ProcessState.Success() {
+			result.Err = fmt.Errorf("process has exited with an error")
+		}
+	}
+	result.Output = buff.String()
+	return
+}
+
+func RunTestApp(args []string, killChan <-chan bool) (result TestAppResult) {
+	if cmd, buff, err := startTestApp(args, killChan); err == nil {
+		result = waitForCommand(cmd, buff)
+	} else {
+		result.Err = err
+	}
+	return
+}
+
+func RunTestAppAsync(args []string, killChan <-chan bool) <-chan TestAppResult {
+	ch := make(chan TestAppResult, 1)
+	if cmd, buff, err := startTestApp(args, killChan); err != nil {
+		ch <- TestAppResult{Err: err}
+	} else {
+		go func() {
+			ch <- waitForCommand(cmd, buff)
+		}()
+	}
+	return ch
+}
+
+func WaitForFunc(f func(), d time.Duration) bool {
+	ch := make(chan bool, 1)
+	go func() {
+		f()
+		ch <- true
+	}()
+	select {
+	case <-ch:
+		return true
+	case <-time.After(d):
+		return false
+	}
+}
+
+func WaitForAppResultChan(ch <-chan TestAppResult, d time.Duration) (TestAppResult, bool) {
+	select {
+	case value := <-ch:
+		return value, true
+	case <-time.After(d):
+		return TestAppResult{}, false
+	}
 }

@@ -97,7 +97,7 @@ func TestAllocStructPtr(t *testing.T) {
 		a, b int
 		ss   internal
 	}
-	obj := &s{-1, 11, internal{complex(10, 11), uintptr(0)}}
+	obj := &s{-1, 11, internal{complex(10, 11), uintptr(0xDEADBEEF)}}
 	data := make([]byte, unsafe.Sizeof(*obj))
 	if !assert.NoError(t, Alloc(data, obj)) {
 		return
@@ -127,15 +127,6 @@ func TestAllocSlice(t *testing.T) {
 	}
 	sl := intSliceFromMemory(data, 10, 10)
 	assert.Equal(t, obj, sl)
-}
-
-func TestAllocString(t *testing.T) {
-	s := "Hello, world!"
-	data := make([]byte, unsafe.Sizeof(s))
-	if !assert.NoError(t, Alloc(data, s)) {
-		return
-	}
-	//assert.Equal(t, obj, sl)
 }
 
 func TestAllocSliceReadAsArray(t *testing.T) {

@@ -21,7 +21,7 @@ func (m *mutexImpl) Unlock() {
 	panic("unimplemented")
 }
 
-func (m *mutexImpl) Finish() error {
+func (m *mutexImpl) Close() error {
 	panic("unimplemented")
 }
 

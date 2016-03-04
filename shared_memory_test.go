@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -210,8 +212,8 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	result := runTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
-	assert.NoError(t, result.err)
+	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
+	assert.NoError(t, result.Err)
 }
 
 func TestReadMemoryAnotherProcess(t *testing.T) {
@@ -225,8 +227,8 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	result := runTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
-	if !assert.NoError(t, result.err) {
+	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
+	if !assert.NoError(t, result.Err) {
 		return
 	}
 	region, err := NewMemoryRegion(object, MEM_READ_ONLY, 0, len(shmTestData))
