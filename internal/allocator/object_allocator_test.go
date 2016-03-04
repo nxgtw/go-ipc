@@ -34,20 +34,20 @@ func TestCheckObjectType(t *testing.T) {
 	var slsl [][]int
 	var m map[int]int
 
-	assert.NoError(t, checkObject(i))
-	assert.NoError(t, checkObject(c))
-	assert.NoError(t, checkObject(arr))
-	assert.NoError(t, checkObject(arr[:]))
-	assert.NoError(t, checkObject(validStruct{}))
-	assert.NoError(t, checkObject(sync.Mutex{}))
+	assert.NoError(t, CheckObjectReferences(i))
+	assert.NoError(t, CheckObjectReferences(c))
+	assert.NoError(t, CheckObjectReferences(arr))
+	assert.NoError(t, CheckObjectReferences(arr[:]))
+	assert.NoError(t, CheckObjectReferences(validStruct{}))
+	assert.NoError(t, CheckObjectReferences(sync.Mutex{}))
 
-	assert.Error(t, checkObject(invalidStruct1{}))
-	assert.Error(t, checkObject(invalidStruct2{}))
-	assert.Error(t, checkObject(invalidStruct3{}))
-	assert.Error(t, checkObject(arr2))
-	assert.Error(t, checkObject(arr2[:]))
-	assert.Error(t, checkObject(m))
-	assert.Error(t, checkObject(slsl))
+	assert.Error(t, CheckObjectReferences(invalidStruct1{}))
+	assert.Error(t, CheckObjectReferences(invalidStruct2{}))
+	assert.Error(t, CheckObjectReferences(invalidStruct3{}))
+	assert.Error(t, CheckObjectReferences(arr2))
+	assert.Error(t, CheckObjectReferences(arr2[:]))
+	assert.Error(t, CheckObjectReferences(m))
+	assert.Error(t, CheckObjectReferences(slsl))
 }
 
 func TestAllocInt(t *testing.T) {

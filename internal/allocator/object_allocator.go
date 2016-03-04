@@ -22,12 +22,12 @@ func valueObjectAddress(v interface{}) unsafe.Pointer {
 	return objRawPointer
 }
 
-// returns the address of the given object
-// if a slice is passed, it will returns a pointer to the actual data
-func objectAddress(object reflect.Value) unsafe.Pointer {
+// ObjectAddress returns the address of the given object
+// if a slice or a pointer is passed, it will returns a pointer to the actual data
+func ObjectAddress(object reflect.Value) unsafe.Pointer {
 	var addr unsafe.Pointer
 	kind := object.Kind()
-	if kind == reflect.Slice {
+	if kind == reflect.Slice || kind == reflect.Ptr {
 		addr = unsafe.Pointer(object.Pointer())
 	} else {
 		addr = valueObjectAddress(object.Interface())
@@ -35,22 +35,27 @@ func objectAddress(object reflect.Value) unsafe.Pointer {
 	return addr
 }
 
-func objectSize(object reflect.Value) int {
-	t := object.Type()
+// ObjectSize returns the size of the object.
+// If an object is a slice, it returns the size of the entire slice
+// If an object is a pointer, it dereferences the pointer and
+// returns the size of the underlying object.
+func ObjectSize(object reflect.Value) int {
 	var size int
 	if object.Kind() == reflect.Slice {
-		size = object.Len() * int(t.Elem().Size())
+		size = object.Len() * int(object.Type().Elem().Size())
+	} else if object.Kind() == reflect.Ptr {
+		size = int(object.Elem().Type().Size())
 	} else {
-		size = int(t.Size())
+		size = int(object.Type().Size())
 	}
-	return int(size)
+	return size
 }
 
 // copyObjectData copies value's data into a byte slice.
 // If a slice is passed, it will copy the data it references to.
 func copyObjectData(value reflect.Value, memory []byte) {
-	addr := objectAddress(value)
-	size := objectSize(value)
+	addr := ObjectAddress(value)
+	size := ObjectSize(value)
 	objectData := byteSliceFromUnsafePointer(addr, size, size)
 	copy(memory, objectData)
 	use(addr)
@@ -72,7 +77,7 @@ func Alloc(memory []byte, object interface{}) error {
 	for value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
-	size := objectSize(value)
+	size := ObjectSize(value)
 	if size > maxObjectSize {
 		return fmt.Errorf("the object exceeds max object size of %d", maxObjectSize)
 	}
@@ -113,18 +118,18 @@ func objectByteSlice(object interface{}) ([]byte, error) {
 		return nil, err
 	}
 	var data []byte
-	objSize := objectSize(value)
-	addr := objectAddress(value)
+	objSize := ObjectSize(value)
+	addr := ObjectAddress(value)
 	defer use(unsafe.Pointer(addr))
 	data = byteSliceFromUnsafePointer(addr, objSize, objSize)
 	return data, nil
 }
 
-// checkObject checks if an object of type can be safely copied byte by byte.
+// CheckObjectReferences checks if an object of type can be safely copied byte by byte.
 // the object must not contain any reference types like
-// maps, strings, pointers and so on.
+// maps, strings, and so on.
 // slices or pointers can be at the top level only
-func checkObject(object interface{}) error {
+func CheckObjectReferences(object interface{}) error {
 	return checkType(reflect.ValueOf(object).Type(), 0)
 }
 
@@ -135,13 +140,13 @@ func checkType(t reflect.Type, depth int) error {
 	}
 	if kind == reflect.Slice {
 		if depth != 0 {
-			return fmt.Errorf("slices as array elems or struct fields are not supported")
+			return fmt.Errorf("unexpected slice type")
 		}
 		return checkType(t.Elem(), depth+1)
 	}
 	if kind == reflect.Ptr {
 		if depth != 0 {
-			return fmt.Errorf("pointers as array elems or struct fields are not supported")
+			return fmt.Errorf("unexpected pointer type")
 		}
 		return checkType(t.Elem(), depth+1)
 	}

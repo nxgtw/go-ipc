@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build ignore
-
 package ipc
 
 import (

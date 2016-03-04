@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build ignore
-
 package ipc
 
 import (
@@ -12,6 +10,8 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 
 	"golang.org/x/sys/unix"
 )
@@ -87,24 +87,13 @@ func (mq *LinuxMessageQueue) Send(object interface{}, prio int) error {
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
-	value := reflect.ValueOf(object)
-	kind := value.Kind()
-	var objSize int
-	if kind == reflect.Ptr {
-		valueElem := value.Elem()
-		if err := checkType(valueElem.Type(), 0); err != nil {
-			return err
-		}
-		objSize = objectSize(valueElem)
-	} else if kind == reflect.Slice {
-		if err := checkType(value.Type(), 0); err != nil {
-			return err
-		}
-		objSize = objectSize(value)
-	} else {
-		return fmt.Errorf("the object must be a pointer or a slice")
+	err := allocator.CheckObjectReferences(object)
+	if err != nil {
+		return err
 	}
-	addr := unsafe.Pointer(value.Pointer())
+	value := reflect.ValueOf(object)
+	objSize := allocator.ObjectSize(value)
+	addr := allocator.ObjectAddress(value)
 	defer use(addr)
 	data := byteSliceFromUnsafePointer(addr, objSize, objSize)
 	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
