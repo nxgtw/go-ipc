@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -55,7 +57,7 @@ func OpenMessageQueue(name string) (*MessageQueue, error) {
 // Send sends a message.
 // It blocks if the queue is full.
 func (mq *MessageQueue) Send(object interface{}) error {
-	data, err := objectByteSlice(object)
+	data, err := allocator.ObjectData(object)
 	if err != nil {
 		return err
 	}

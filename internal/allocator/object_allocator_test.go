@@ -125,7 +125,7 @@ func TestAllocSlice(t *testing.T) {
 	if !assert.NoError(t, Alloc(data, obj)) {
 		return
 	}
-	sl := intSliceFromMemory(data, 10, 10)
+	sl := ByteSliceTointSlice(data, 10, 10)
 	assert.Equal(t, obj, sl)
 }
 
@@ -148,6 +148,6 @@ func TestAllocArrayReadAsSlice(t *testing.T) {
 	if !assert.NoError(t, Alloc(data, i)) {
 		return
 	}
-	sl := intSliceFromMemory(data, 3, 3)
+	sl := ByteSliceTointSlice(data, 3, 3)
 	assert.Equal(t, i[:], sl)
 }

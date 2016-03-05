@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build ignore
+// +build linux
 
 package ipc
 
@@ -9,6 +9,7 @@ import (
 	"time"
 	"unsafe"
 
+	"bitbucket.org/avd/go-ipc/internal/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,9 +159,9 @@ func TestMqSendToAnotherProcess(t *testing.T) {
 	go func() {
 		assert.NoError(t, mq.SendTimeout(data, 1, time.Millisecond*2000))
 	}()
-	result := runTestApp(args, nil)
-	if !assert.NoError(t, result.err) {
-		t.Logf("program output is %s", result.output)
+	result := ipc_test.RunTestApp(args, nil)
+	if !assert.NoError(t, result.Err) {
+		t.Logf("program output is %s", result.Output)
 	}
 }
 
@@ -173,9 +174,9 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 		data[i] = byte(i)
 	}
 	args := argsForMqSendCommand(testMqName, 2000, 3, data)
-	result := runTestApp(args, nil)
-	if !assert.NoError(t, result.err) {
-		t.Logf("program output is %s", result.output)
+	result := ipc_test.RunTestApp(args, nil)
+	if !assert.NoError(t, result.Err) {
+		t.Logf("program output is %s", result.Output)
 	}
 	received := make([]byte, 16)
 	var prio int
@@ -198,7 +199,7 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 		data[i] = byte(i)
 	}
 	args := argsForMqNotifyWaitCommand(testMqName, 2000)
-	resultChan := runTestAppAsync(args, nil)
+	resultChan := ipc_test.RunTestAppAsync(args, nil)
 	endChan := make(chan struct{})
 	go func() {
 		// as the app needs some time for startup,
@@ -219,7 +220,7 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 	}()
 	result := <-resultChan
 	endChan <- struct{}{}
-	if !assert.NoError(t, result.err) {
-		t.Logf("program output is %q", result.output)
+	if !assert.NoError(t, result.Err) {
+		t.Logf("program output is %q", result.Output)
 	}
 }

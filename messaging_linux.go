@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"syscall"
 	"time"
 	"unsafe"
@@ -71,7 +70,7 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 // SendTimeout sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
-	data, err := objectByteSlice(object)
+	data, err := allocator.ObjectData(object)
 	if err != nil {
 		return err
 	}
@@ -87,15 +86,13 @@ func (mq *LinuxMessageQueue) Send(object interface{}, prio int) error {
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
-	err := allocator.CheckObjectReferences(object)
+	if !allocator.IsReferenceType(object) {
+		return fmt.Errorf("expected a slice, or a pointer")
+	}
+	data, err := allocator.ObjectData(object)
 	if err != nil {
 		return err
 	}
-	value := reflect.ValueOf(object)
-	objSize := allocator.ObjectSize(value)
-	addr := allocator.ObjectAddress(value)
-	defer use(addr)
-	data := byteSliceFromUnsafePointer(addr, objSize, objSize)
 	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 

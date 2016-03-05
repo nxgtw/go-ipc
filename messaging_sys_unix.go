@@ -27,7 +27,7 @@ func msgget(k key, flags int) (int, error) {
 func msgsnd(id int, typ int, data []byte, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
-	intSliceFromMemory(data, 1, 1)[0] = id
+	*(*int)(unsafe.Pointer(&data[0])) = id
 	copy(message[:typeDataSize], data)
 	rawData := unsafe.Pointer(&message[0])
 	_, _, err := syscall.Syscall6(unix.SYS_MSGSND,

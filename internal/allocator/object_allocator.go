@@ -91,11 +91,14 @@ func Alloc(memory []byte, object interface{}) error {
 	return nil
 }
 
-func intSliceFromMemory(memory []byte, lenght, capacity int) []int {
+// ByteSliceTointSlice returns an int slice, which uses the same memory,
+// that the byte slice.
+func ByteSliceTointSlice(memory []byte, lenght, capacity int) []int {
+	data := (*reflect.SliceHeader)((unsafe.Pointer)(&memory)).Data
 	sl := reflect.SliceHeader{
 		Len:  lenght,
 		Cap:  capacity,
-		Data: uintptr(unsafe.Pointer(&memory[0])),
+		Data: data,
 	}
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
@@ -109,10 +112,10 @@ func byteSliceFromUnsafePointer(memory unsafe.Pointer, lenght, capacity int) []b
 	return *(*[]byte)(unsafe.Pointer(&sl))
 }
 
-// objectByteSlice returns objects underlying byte representation
-// the object must stored continuously in the memory, ie must not contain any references.
-// slices of plain objects are allowed.
-func objectByteSlice(object interface{}) ([]byte, error) {
+// ObjectData returns objects underlying byte representation.
+// The object must stored continuously in the memory, ie must not contain any references.
+// Slices of plain objects are allowed.
+func ObjectData(object interface{}) ([]byte, error) {
 	value := reflect.ValueOf(object)
 	if err := checkType(value.Type(), 0); err != nil {
 		return nil, err
@@ -120,9 +123,15 @@ func objectByteSlice(object interface{}) ([]byte, error) {
 	var data []byte
 	objSize := ObjectSize(value)
 	addr := ObjectAddress(value)
-	defer use(unsafe.Pointer(addr))
 	data = byteSliceFromUnsafePointer(addr, objSize, objSize)
 	return data, nil
+}
+
+// IsReferenceType returns true, is the object is a pointer or a slice
+func IsReferenceType(object interface{}) bool {
+	value := reflect.ValueOf(object)
+	kind := value.Kind()
+	return kind == reflect.Slice || kind == reflect.Ptr
 }
 
 // CheckObjectReferences checks if an object of type can be safely copied byte by byte.
