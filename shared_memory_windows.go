@@ -31,11 +31,12 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 }
 
 func (impl *memoryObjectImpl) Destroy() error {
-	err := impl.Close()
-	if err == nil {
-		err = os.Remove(impl.file.Name())
+	if int(impl.Fd()) >= 0 {
+		if err := impl.Close(); err != nil {
+			return err
+		}
 	}
-	return err
+	return DestroyMemoryObject(impl.Name())
 }
 
 func (impl *memoryObjectImpl) Name() string {
