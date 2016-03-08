@@ -56,7 +56,7 @@ func ObjectSize(object reflect.Value) int {
 func copyObjectData(value reflect.Value, memory []byte) {
 	addr := ObjectAddress(value)
 	size := ObjectSize(value)
-	objectData := byteSliceFromUnsafePointer(addr, size, size)
+	objectData := ByteSliceFromUnsafePointer(addr, size, size)
 	copy(memory, objectData)
 	use(addr)
 }
@@ -103,9 +103,11 @@ func ByteSliceTointSlice(memory []byte, lenght, capacity int) []int {
 	return *(*[]int)(unsafe.Pointer(&sl))
 }
 
-func byteSliceFromUnsafePointer(memory unsafe.Pointer, lenght, capacity int) []byte {
+// ByteSliceFromUnsafePointer returns a slice of bytes with given length and caapcity.
+// Memory pointed by the unsafe.Pointer is used for the slice.
+func ByteSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) []byte {
 	sl := reflect.SliceHeader{
-		Len:  lenght,
+		Len:  length,
 		Cap:  capacity,
 		Data: uintptr(memory),
 	}
@@ -123,7 +125,7 @@ func ObjectData(object interface{}) ([]byte, error) {
 	var data []byte
 	objSize := ObjectSize(value)
 	addr := ObjectAddress(value)
-	data = byteSliceFromUnsafePointer(addr, objSize, objSize)
+	data = ByteSliceFromUnsafePointer(addr, objSize, objSize)
 	return data, nil
 }
 
