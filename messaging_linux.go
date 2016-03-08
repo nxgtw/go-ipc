@@ -22,6 +22,12 @@ const (
 	DefaultMqMaxMessageSize = 8192
 )
 
+// this is to ensure, that linux implementation of ipc mq
+// satisfy the minimal queue interface
+var (
+	_ Messenger = (*LinuxMessageQueue)(nil)
+)
+
 // LinuxMessageQueue is a linux-specific ipc mechanism based on message passing
 type LinuxMessageQueue struct {
 	id             int
@@ -67,9 +73,9 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}, nil
 }
 
-// SendTimeout sends a message with a given priority.
+// SendTimeoutPriority sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) SendTimeout(object interface{}, prio int, timeout time.Duration) error {
+func (mq *LinuxMessageQueue) SendTimeoutPriority(object interface{}, prio int, timeout time.Duration) error {
 	data, err := allocator.ObjectData(object)
 	if err != nil {
 		return err
@@ -77,29 +83,56 @@ func (mq *LinuxMessageQueue) SendTimeout(object interface{}, prio int, timeout t
 	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
-// Send sends a message with a given priority.
+// SendPriority sends a message with a given priority.
 // It blocks if the queue is full.
-func (mq *LinuxMessageQueue) Send(object interface{}, prio int) error {
-	return mq.SendTimeout(object, prio, time.Duration(-1))
+func (mq *LinuxMessageQueue) SendPriority(object interface{}, prio int) error {
+	return mq.SendTimeoutPriority(object, prio, time.Duration(-1))
+}
+
+// SendTimeout sends a message with a default (0) priority.
+// It blocks if the queue is full, waiting for a message unless timeout is passed.
+func (mq *LinuxMessageQueue) SendTimeout(object interface{}, timeout time.Duration) error {
+	return mq.SendTimeoutPriority(object, 0, timeout)
+}
+
+// SendPriority sends a message with a default (0) priority.
+// It blocks if the queue is full.
+func (mq *LinuxMessageQueue) Send(object interface{}) error {
+	return mq.SendTimeoutPriority(object, 0, time.Duration(-1))
+}
+
+// ReceiveTimeoutPriority receives a message, returning its priority.
+// It blocks if the queue is empty, waiting for a message unless timeout is passed.
+func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout time.Duration) (int, error) {
+	if !allocator.IsReferenceType(object) {
+		return 0, fmt.Errorf("expected a slice, or a pointer")
+	}
+	data, err := allocator.ObjectData(object)
+	if err != nil {
+		return 0, err
+	}
+	var prio int
+	return prio, mq_timedreceive(mq.ID(), data, &prio, timeoutToTimeSpec(timeout))
+}
+
+// ReceivePriority receives a message, returning its priority.
+// It blocks if the queue is empty.
+func (mq *LinuxMessageQueue) ReceivePriority(object interface{}) (int, error) {
+	return mq.ReceiveTimeoutPriority(object, time.Duration(-1))
 }
 
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, prio *int, timeout time.Duration) error {
-	if !allocator.IsReferenceType(object) {
-		return fmt.Errorf("expected a slice, or a pointer")
-	}
-	data, err := allocator.ObjectData(object)
-	if err != nil {
-		return err
-	}
-	return mq_timedreceive(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
+func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, timeout time.Duration) error {
+	_, err := mq.ReceiveTimeoutPriority(object, timeout)
+	return err
 }
 
 // Receive receives a message.
 // It blocks if the queue is empty.
-func (mq *LinuxMessageQueue) Receive(object interface{}, prio *int) error {
-	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
+func (mq *LinuxMessageQueue) Receive(object interface{}) error {
+	_, err := mq.ReceiveTimeoutPriority(object, time.Duration(-1))
+	return err
 }
 
 // ID return unique id of the queue.

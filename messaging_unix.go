@@ -4,6 +4,7 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -67,8 +68,14 @@ func (mq *MessageQueue) Send(object interface{}) error {
 // Receive receives a message.
 // It blocks if the queue is empty.
 func (mq *MessageQueue) Receive(object interface{}) error {
-	//	return mq.ReceiveTimeout(object, prio, time.Duration(-1))
-	return nil
+	if !allocator.IsReferenceType(object) {
+		return fmt.Errorf("expected a slice, or a pointer")
+	}
+	data, err := allocator.ObjectData(object)
+	if err != nil {
+		return err
+	}
+	return msgrcv(mq.id, data, 0, 0)
 }
 
 func keyForMq(name string) (key, error) {

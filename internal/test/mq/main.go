@@ -78,9 +78,9 @@ func test() error {
 	received := make([]byte, attrs.Msgsize)
 	var msgPrio int
 	if *timeout >= 0 {
-		err = mq.ReceiveTimeout(received, &msgPrio, time.Duration(*timeout)*time.Millisecond)
+		msgPrio, err = mq.ReceiveTimeoutPriority(received, time.Duration(*timeout)*time.Millisecond)
 	} else {
-		err = mq.Receive(received, &msgPrio)
+		msgPrio, err = mq.ReceivePriority(received)
 	}
 	if err != nil {
 		return err
@@ -110,9 +110,9 @@ func send() error {
 		return err
 	}
 	if *timeout >= 0 {
-		err = mq.SendTimeout(toSend, *prio, time.Duration(*timeout)*time.Millisecond)
+		err = mq.SendTimeoutPriority(toSend, *prio, time.Duration(*timeout)*time.Millisecond)
 	} else {
-		err = mq.Send(toSend, *prio)
+		err = mq.SendPriority(toSend, *prio)
 	}
 	return nil
 }

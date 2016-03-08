@@ -52,11 +52,11 @@ func TestMqSendInvalidType(t *testing.T) {
 		return
 	}
 	defer mq.Destroy()
-	assert.Error(t, mq.Send("string", 0))
+	assert.Error(t, mq.SendPriority("string", 0))
 	structWithString := struct{ a string }{"string"}
-	assert.Error(t, mq.Send(structWithString, 0))
+	assert.Error(t, mq.SendPriority(structWithString, 0))
 	var slslByte [][]byte
-	assert.Error(t, mq.Send(slslByte, 0))
+	assert.Error(t, mq.SendPriority(slslByte, 0))
 }
 
 func TestMqSendIntSameProcess(t *testing.T) {
@@ -67,13 +67,13 @@ func TestMqSendIntSameProcess(t *testing.T) {
 	}
 	defer mq.Destroy()
 	go func() {
-		assert.NoError(t, mq.Send(message, 1))
+		assert.NoError(t, mq.SendPriority(message, 1))
 	}()
 	var received int
-	var prio int
 	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
 	assert.NoError(t, err)
-	assert.NoError(t, mqr.Receive(&received, &prio))
+	_, err = mqr.ReceivePriority(&received)
+	assert.NoError(t, err)
 }
 
 func TestMqSendSliceSameProcess(t *testing.T) {
@@ -91,7 +91,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 		return
 	}
 	go func() {
-		assert.NoError(t, mq.Send(message, 1))
+		assert.NoError(t, mq.SendPriority(message, 1))
 	}()
 	received := &testStruct{}
 	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
@@ -99,7 +99,7 @@ func TestMqSendSliceSameProcess(t *testing.T) {
 		return
 	}
 	defer mqr.Destroy()
-	assert.NoError(t, mqr.ReceiveTimeout(received, nil, 300*time.Millisecond))
+	assert.NoError(t, mqr.ReceiveTimeout(received, 300*time.Millisecond))
 	assert.Equal(t, message, *received)
 }
 
@@ -107,7 +107,7 @@ func TestMqGetAttrs(t *testing.T) {
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
 	assert.NoError(t, err)
 	defer mq.Destroy()
-	assert.NoError(t, mq.Send(0, 0))
+	assert.NoError(t, mq.SendPriority(0, 0))
 	attrs, err := mq.GetAttrs()
 	assert.NoError(t, err)
 	assert.Equal(t, 5, attrs.Maxmsg)
@@ -119,9 +119,9 @@ func TestMqSetNonBlock(t *testing.T) {
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 1, 8)
 	assert.NoError(t, err)
 	defer mq.Destroy()
-	assert.NoError(t, mq.Send(0, 0))
+	assert.NoError(t, mq.SendPriority(0, 0))
 	assert.NoError(t, mq.SetBlocking(false))
-	assert.Error(t, mq.Send(0, 0))
+	assert.Error(t, mq.SendPriority(0, 0))
 }
 
 func TestMqNotify(t *testing.T) {
@@ -131,7 +131,7 @@ func TestMqNotify(t *testing.T) {
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
 	go func() {
-		mq.Send(0, 0)
+		mq.SendPriority(0, 0)
 	}()
 	assert.Equal(t, mq.ID(), <-ch)
 }
@@ -157,7 +157,7 @@ func TestMqSendToAnotherProcess(t *testing.T) {
 	}
 	args := argsForMqTestCommand(testMqName, 1000, 1, data)
 	go func() {
-		assert.NoError(t, mq.SendTimeout(data, 1, time.Millisecond*2000))
+		assert.NoError(t, mq.SendTimeoutPriority(data, 1, time.Millisecond*2000))
 	}()
 	result := ipc_test.RunTestApp(args, nil)
 	if !assert.NoError(t, result.Err) {
@@ -179,8 +179,8 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 		t.Logf("program output is %s", result.Output)
 	}
 	received := make([]byte, 16)
-	var prio int
-	assert.NoError(t, mq.ReceiveTimeout(received, &prio, time.Millisecond*2000))
+	prio, err := mq.ReceiveTimeoutPriority(received, time.Millisecond*2000)
+	assert.NoError(t, err)
 	assert.Equal(t, prio, 3)
 	assert.Equal(t, data, received)
 }
@@ -208,9 +208,9 @@ func TestMqNotifyAnotherProcess(t *testing.T) {
 		// this is to ensure, that the test app will start and receive the notification.
 		// it guaranteed has 300ms between send() and receive()
 		for {
-			assert.NoError(t, mq.SendTimeout(data, 0, time.Millisecond*1000))
+			assert.NoError(t, mq.SendTimeoutPriority(data, 0, time.Millisecond*1000))
 			<-time.After(time.Millisecond * 300)
-			assert.NoError(t, mq.Receive(data, nil))
+			assert.NoError(t, mq.Receive(data))
 			select {
 			case <-endChan:
 				return
