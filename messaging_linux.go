@@ -169,7 +169,7 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 // Destroy closes the queue and removes it permanently
 func (mq *LinuxMessageQueue) Destroy() error {
 	mq.Close()
-	return DestroyMessageQueue(mq.name)
+	return DestroyLinuxMessageQueue(mq.name)
 }
 
 // Notify notifies about new messages in the queue by sending id of the queue to the channel.
@@ -211,7 +211,7 @@ func (mq *LinuxMessageQueue) NotifyCancel() error {
 }
 
 // DestroyMessageQueue removes the queue permanently
-func DestroyMessageQueue(name string) error {
+func DestroyLinuxMessageQueue(name string) error {
 	if err := mq_unlink(name); err != nil {
 		if os.IsNotExist(err) {
 			return nil

@@ -16,6 +16,10 @@ const (
 	typeDataSize = int(unsafe.Sizeof(int(0)))
 )
 
+// msqidDs is not currently suppoerted and must not be used
+type msqidDs struct {
+}
+
 func msgget(k key, flags int) (int, error) {
 	id, _, err := syscall.Syscall(unix.SYS_MSGGET, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
@@ -59,6 +63,14 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 	copy(data, message[typeDataSize:])
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGRCV", err)
+	}
+	return nil
+}
+
+func msgctl(id int, cmd int, buf *msqidDs) error {
+	_, _, err := syscall.Syscall(unix.SYS_MSGCTL, uintptr(id), uintptr(cmd), 0)
+	if err != syscall.Errno(0) {
+		return os.NewSyscallError("MSGCTL", err)
 	}
 	return nil
 }

@@ -52,7 +52,7 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	return ipc.DestroyMessageQueue(*objName)
+	return ipc.DestroyLinuxMessageQueue(*objName)
 }
 
 func test() error {

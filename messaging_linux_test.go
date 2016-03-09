@@ -5,6 +5,7 @@
 package ipc
 
 import (
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -13,40 +14,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testMqName = "go-ipc.testmq"
-)
-
-func TestCreateMq(t *testing.T) {
-	assert.NoError(t, DestroyMessageQueue(testMqName))
-	_, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
-	if assert.NoError(t, err) {
-		assert.NoError(t, DestroyMessageQueue(testMqName))
-	}
+func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
+	return CreateLinuxMessageQueue(name, perm, DefaultMqMaxSize, DefaultMqMaxMessageSize)
 }
 
-func TestCreateMqExcl(t *testing.T) {
-	assert.NoError(t, DestroyMessageQueue(testMqName))
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
-	if !assert.NoError(t, err) {
-		return
-	}
-	_, err = CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
-	assert.Error(t, err)
-	assert.NoError(t, mq.Destroy())
+func linuxMqOpener(name string, flags int) (Messenger, error) {
+	return OpenLinuxMessageQueue(name, flags)
 }
 
-func TestCreateMqOpenOnly(t *testing.T) {
-	assert.NoError(t, DestroyMessageQueue(testMqName))
-	_, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, DefaultMqMaxMessageSize)
-	assert.NoError(t, err)
-	assert.NoError(t, DestroyMessageQueue(testMqName))
-	_, err = OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
-	assert.Error(t, err)
+func linuxMqDtor(name string) error {
+	return DestroyLinuxMessageQueue(name)
+}
+
+func TestCreateLinuxMq(t *testing.T) {
+	testCreateMq(t, linuxMqCtor, linuxMqDtor)
+}
+
+func TestCreateLinuxMqExcl(t *testing.T) {
+	testCreateMqExcl(t, linuxMqCtor, linuxMqDtor)
+}
+
+func TestCreateLinuxMqInvalidPerm(t *testing.T) {
+	testCreateMqInvalidPerm(t, linuxMqCtor, linuxMqDtor)
+}
+
+func TestOpenLinuxMq(t *testing.T) {
+	testOpenMq(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
 func TestMqSendInvalidType(t *testing.T) {
-	assert.NoError(t, DestroyMessageQueue(testMqName))
+	assert.NoError(t, DestroyLinuxMessageQueue(testMqName))
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
 	if !assert.NoError(t, err) {
 		return
@@ -186,7 +183,7 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 }
 
 func TestMqNotifyAnotherProcess(t *testing.T) {
-	if !assert.NoError(t, DestroyMessageQueue(testMqName)) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 4, 16)
