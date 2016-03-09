@@ -12,8 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Fifo represents a unix FIFO object
-type Fifo struct {
+type fifoImpl struct {
 	file *os.File
 }
 
@@ -24,7 +23,7 @@ type Fifo struct {
 //	O_WRITE_ONLY
 //	O_FIFO_NONBLOCK can be used with O_READ_ONLY
 // perm - file permissions
-func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
+func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 	path := fifoPath(name)
 	if err := unix.Mkfifo(path, uint32(perm)); err != nil && !os.IsExist(err) {
 		return nil, err
@@ -45,25 +44,24 @@ func NewFifo(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Fifo{file: file}, nil
+	return &fifoImpl{file: file}, nil
 }
 
-func (f *Fifo) Read(b []byte) (n int, err error) {
+func (f *fifoImpl) Read(b []byte) (n int, err error) {
 	return f.file.Read(b)
 }
 
-func (f *Fifo) Write(b []byte) (n int, err error) {
+func (f *fifoImpl) Write(b []byte) (n int, err error) {
 	return f.file.Write(b)
 }
 
 // Close closes the object
-func (f *Fifo) Close() error {
+func (f *fifoImpl) Close() error {
 	return f.file.Close()
 }
 
 // Destroy permanently removes the object, closing it at first.
-// If the fifo has already been removed, it returns an error.
-func (f *Fifo) Destroy() error {
+func (f *fifoImpl) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
 		return os.Remove(f.file.Name())
@@ -72,7 +70,6 @@ func (f *Fifo) Destroy() error {
 }
 
 // DestroyFifo permanently removes the object.
-// If the fifo has already been removed, it returns an error.
 func DestroyFifo(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {
