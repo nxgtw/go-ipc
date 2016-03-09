@@ -32,7 +32,7 @@ func create() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	mode := ipc.O_READWRITE
+	mode := ipc.O_CREATE_ONLY | ipc.O_READWRITE
 	fifo, err := ipc.NewFifo(*objName, mode, 0666)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	mode := ipc.O_READ_ONLY
+	mode := ipc.O_OPEN_OR_CREATE | ipc.O_READ_ONLY
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
@@ -83,7 +83,7 @@ func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one arguments")
 	}
-	mode := ipc.O_READ_ONLY
+	mode := ipc.O_OPEN_OR_CREATE | ipc.O_READ_ONLY
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
@@ -111,7 +111,7 @@ func write() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one arguments")
 	}
-	mode := ipc.O_WRITE_ONLY
+	mode := ipc.O_OPEN_OR_CREATE | ipc.O_WRITE_ONLY
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}

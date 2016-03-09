@@ -16,21 +16,24 @@ type fifoImpl struct {
 	file *os.File
 }
 
-// NewFifo creates or opens new FIFO object
-// name - object name. if it does not contain '/', then '/tmp/' prefix will be added
-// mode - access mode. can be one of the following:
-//	O_READ_ONLY
-//	O_WRITE_ONLY
-//	O_FIFO_NONBLOCK can be used with O_READ_ONLY
-// perm - file permissions
 func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
-	path := fifoPath(name)
-	if err := unix.Mkfifo(path, uint32(perm)); err != nil && !os.IsExist(err) {
+	if _, err := createModeToOsMode(mode); err != nil {
 		return nil, err
 	}
 	osMode, err := accessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
+	}
+	path := fifoPath(name)
+	if mode&(O_OPEN_OR_CREATE|O_CREATE_ONLY) != 0 {
+		err := unix.Mkfifo(path, uint32(perm))
+		if err != nil {
+			if mode&O_OPEN_OR_CREATE != 0 && os.IsExist(err) {
+				err = nil
+			} else {
+				return nil, err
+			}
+		}
 	}
 	if osMode&os.O_RDWR != 0 {
 		// open man says "The result is undefined if this flag is applied to a FIFO."
