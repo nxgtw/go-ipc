@@ -82,15 +82,16 @@ func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 
 func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 	rawData := unsafe.Pointer(&data[0])
+	timeoutPtr := unsafe.Pointer(timeout)
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
 		uintptr(id),
 		uintptr(rawData),
 		uintptr(len(data)),
 		uintptr(prio),
-		uintptr(unsafe.Pointer(timeout)),
+		uintptr(timeoutPtr),
 		uintptr(0))
 	use(rawData)
-	use(unsafe.Pointer(timeout))
+	use(timeoutPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -99,17 +100,18 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 
 func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) error {
 	rawData := unsafe.Pointer(&data[0])
+	timeoutPtr := unsafe.Pointer(timeout)
+	prioPtr := unsafe.Pointer(prio)
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
 		uintptr(id),
 		uintptr(rawData),
 		uintptr(len(data)),
-		uintptr(unsafe.Pointer(prio)),
-		uintptr(unsafe.Pointer(timeout)),
+		uintptr(prioPtr),
+		uintptr(timeoutPtr),
 		uintptr(0))
 	use(rawData)
-	use(unsafe.Pointer(timeout))
-	use(unsafe.Pointer(prio))
-	use(unsafe.Pointer(timeout))
+	use(timeoutPtr)
+	use(prioPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -117,8 +119,9 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) err
 }
 
 func mq_notify(id int, event *sigevent) error {
-	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(id), uintptr(unsafe.Pointer(event)), uintptr(0))
-	use(unsafe.Pointer(event))
+	eventPtr := unsafe.Pointer(event)
+	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(id), uintptr(eventPtr), uintptr(0))
+	use(eventPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -126,12 +129,14 @@ func mq_notify(id int, event *sigevent) error {
 }
 
 func mq_getsetattr(id int, attrs, oldAttrs *MqAttr) error {
+	attrsPtr := unsafe.Pointer(attrs)
+	oldAttrsPtr := unsafe.Pointer(oldAttrs)
 	_, _, err := syscall.Syscall(unix.SYS_MQ_GETSETATTR,
 		uintptr(id),
-		uintptr(unsafe.Pointer(attrs)),
-		uintptr(unsafe.Pointer(oldAttrs)))
-	use(unsafe.Pointer(attrs))
-	use(unsafe.Pointer(oldAttrs))
+		uintptr(attrsPtr),
+		uintptr(oldAttrsPtr))
+	use(attrsPtr)
+	use(oldAttrsPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}

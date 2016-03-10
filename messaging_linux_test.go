@@ -42,35 +42,12 @@ func TestOpenLinuxMq(t *testing.T) {
 	testOpenMq(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestMqSendInvalidType(t *testing.T) {
-	assert.NoError(t, DestroyLinuxMessageQueue(testMqName))
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer mq.Destroy()
-	assert.Error(t, mq.SendPriority("string", 0))
-	structWithString := struct{ a string }{"string"}
-	assert.Error(t, mq.SendPriority(structWithString, 0))
-	var slslByte [][]byte
-	assert.Error(t, mq.SendPriority(slslByte, 0))
+func TestLinuxMqSendInvalidType(t *testing.T) {
+	testMqSendInvalidType(t, linuxMqCtor, linuxMqDtor)
 }
 
-func TestMqSendIntSameProcess(t *testing.T) {
-	var message = 1122
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(int(0))))
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer mq.Destroy()
-	go func() {
-		assert.NoError(t, mq.SendPriority(message, 1))
-	}()
-	var received int
-	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
-	assert.NoError(t, err)
-	_, err = mqr.ReceivePriority(&received)
-	assert.NoError(t, err)
+func TestLinuxMqSendIntSameProcess(t *testing.T) {
+	testMqSendIntSameProcess(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
 func TestMqSendSliceSameProcess(t *testing.T) {

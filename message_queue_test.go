@@ -22,10 +22,12 @@ func testCreateMq(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	_, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0666)
 	if a.NoError(err) {
 		if dtor != nil {
 			a.NoError(dtor(testMqName))
+		} else {
+			a.NoError(mq.Close())
 		}
 	}
 }
@@ -43,6 +45,8 @@ func testCreateMqExcl(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	a.Error(err)
 	if d, ok := mq.(Destroyer); ok {
 		a.NoError(d.Destroy())
+	} else {
+		a.NoError(mq.Close())
 	}
 }
 
@@ -57,10 +61,65 @@ func testCreateMqInvalidPerm(t *testing.T, ctor mqCtor, dtor mqDtor) {
 
 func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	a := assert.New(t)
-	a.NoError(dtor(testMqName))
-	_, err := ctor(testMqName, 0666)
-	a.NoError(err)
-	a.NoError(dtor(testMqName))
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	} else {
+		a.NoError(mq.Close())
+	}
 	_, err = opener(testMqName, O_READ_ONLY)
 	a.Error(err)
+}
+
+func testMqSendInvalidType(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		if dtor != nil {
+			a.NoError(dtor(testMqName))
+		} else {
+			a.NoError(mq.Close())
+		}
+	}()
+	assert.Error(t, mq.Send("string"))
+	structWithString := struct{ a string }{"string"}
+	assert.Error(t, mq.Send(structWithString))
+	var slslByte [][]byte
+	assert.Error(t, mq.Send(slslByte))
+}
+
+func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
+	var message = 0xDEADBEEF
+	a := assert.New(t)
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		if dtor != nil {
+			a.NoError(dtor(testMqName))
+		} else {
+			a.NoError(mq.Close())
+		}
+	}()
+	go func() {
+		a.NoError(mq.Send(message))
+	}()
+	var received int
+	mqr, err := opener(testMqName, O_READ_ONLY)
+	a.NoError(err)
+	err = mqr.Receive(&received)
+	a.NoError(err)
 }

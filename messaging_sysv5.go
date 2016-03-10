@@ -23,13 +23,15 @@ const (
 	cIpcSet  = 1 /* set ipc_perm options */
 	cIpcStat = 2 /* get ipc_perm options */
 	cIpcInfo = 3 /* see ipcs */
+
+	cDefaultMessageType = 1
 )
 
 // SystemVMessageQueue is a System V ipc mechanism based on message passing
 type SystemVMessageQueue struct {
-	nonBlock bool
-	id       int
-	name     string
+	flags int
+	id    int
+	name  string
 }
 
 type key uint64
@@ -67,7 +69,11 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 	if err != nil {
 		return nil, err
 	}
-	return &SystemVMessageQueue{id: id, name: name}, nil
+	result := &SystemVMessageQueue{id: id, name: name}
+	if flags&O_NONBLOCK != 0 {
+		result.flags |= cIpcNoWait
+	}
+	return result, nil
 }
 
 // Send sends a message.
@@ -77,11 +83,7 @@ func (mq *SystemVMessageQueue) Send(object interface{}) error {
 	if err != nil {
 		return err
 	}
-	var flags int
-	if mq.nonBlock {
-		flags = cIpcNoWait
-	}
-	return msgsnd(mq.id, 0, data, flags)
+	return msgsnd(mq.id, cDefaultMessageType, data, mq.flags)
 }
 
 // Receive receives a message.
@@ -94,11 +96,8 @@ func (mq *SystemVMessageQueue) Receive(object interface{}) error {
 	if err != nil {
 		return err
 	}
-	var flags int
-	if mq.nonBlock {
-		flags = cIpcNoWait
-	}
-	return msgrcv(mq.id, data, 0, flags)
+	// 0 - receive any messages
+	return msgrcv(mq.id, data, 0, mq.flags)
 }
 
 // Destroy closes the queue and removes it permanently
@@ -122,7 +121,11 @@ func (mq *SystemVMessageQueue) Close() error {
 
 // SetBlocking sets whether the operations on the queue block.
 func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
-	mq.nonBlock = !block
+	if block {
+		mq.flags |= cIpcNoWait
+	} else {
+		mq.flags &= ^cIpcNoWait
+	}
 	return nil
 }
 
