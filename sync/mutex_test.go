@@ -8,7 +8,6 @@ package sync
 
 import (
 	"os"
-	"runtime"
 	"testing"
 )
 
@@ -17,10 +16,7 @@ func mutexCtor(name string, mode int, perm os.FileMode) (IPCLocker, error) {
 }
 
 func mutexDtor(name string) error {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	return DestroySpinMutex(name)
+	return DestroyMutex(name)
 }
 
 func TestMutexOpenMode(t *testing.T) {
@@ -41,4 +37,12 @@ func TestMutexOpenMode4(t *testing.T) {
 
 func TestMutexLock(t *testing.T) {
 	testLockerLock(t, mutexCtor, mutexDtor)
+}
+
+func TestMutexMemory(t *testing.T) {
+	testLockerMemory(t, "m", mutexCtor, mutexDtor)
+}
+
+func TestMutexValueInc(t *testing.T) {
+	testLockerValueInc(t, "m", mutexCtor, mutexDtor)
 }

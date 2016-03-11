@@ -182,7 +182,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	return true
 }
 
-func testLockerMemory(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
@@ -212,7 +212,7 @@ func testLockerMemory(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	for i := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testSpinMutexName, "spin", 128, testMemObj, 512, data, "")
+	args := argsForSyncTestCommand(testSpinMutexName, typ, 128, testMemObj, 512, data, "")
 	var wg sync.WaitGroup
 	var flag int32 = 1
 	const jobs = 4
@@ -244,7 +244,7 @@ func testLockerMemory(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	return true
 }
 
-func testLockerValueInc(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
 	const (
 		iterations = 50000
 		jobs       = 4
@@ -278,7 +278,7 @@ func testLockerValueInc(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}()
 	data := region.Data()
 	ptr := (*int64)(unsafe.Pointer(&(data[0])))
-	args := argsForSyncInc64Command(testSpinMutexName, "spin", remoteJobs, testMemObj, iterations)
+	args := argsForSyncInc64Command(testSpinMutexName, typ, remoteJobs, testMemObj, iterations)
 	var wg sync.WaitGroup
 	flag := int32(1)
 	wg.Add(jobs)

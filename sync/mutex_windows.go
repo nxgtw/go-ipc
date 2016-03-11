@@ -5,6 +5,8 @@ package sync
 import (
 	"os"
 
+	ipc "bitbucket.org/avd/go-ipc"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -16,14 +18,14 @@ func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
 	var handle windows.Handle
 	var err error
 	switch mode {
-	case O_OPEN_ONLY:
+	case ipc.O_OPEN_ONLY:
 		handle, err = openMutex(name)
-	case O_CREATE_ONLY:
+	case ipc.O_CREATE_ONLY:
 		handle, err = createMutex(name)
 		if handle != windows.Handle(0) && os.IsExist(err) {
 			windows.CloseHandle(handle)
 		}
-	case O_OPEN_OR_CREATE:
+	case ipc.O_OPEN_OR_CREATE:
 		handle, err = createMutex(name)
 		if handle != windows.Handle(0) && os.IsExist(err) {
 			err = nil
@@ -45,4 +47,10 @@ func (m *mutexImpl) Unlock() {
 
 func (m *mutexImpl) Close() error {
 	return windows.CloseHandle(m.handle)
+}
+
+// DestroyMutex is a no-op on windows, as the mutex is destroyed,
+// when its last handle is closed.
+func DestroyMutex(name string) error {
+	return nil
 }
