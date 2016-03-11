@@ -16,7 +16,8 @@ import (
 var (
 	objName = flag.String("object", "", "mq name")
 	timeout = flag.Int("timeout", -1, "timeout for send/receive/notify wait. in ms.")
-	prio    = flag.Int("prio", 0, "message prioroty")
+	prio    = flag.Int("prio", 0, "message priority")
+	typ     = flag.String("type", "default", "message queue type")
 )
 
 const usage = `  test program for message queues.

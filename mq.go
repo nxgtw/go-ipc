@@ -18,3 +18,11 @@ type Messenger interface {
 func checkMqPerm(perm os.FileMode) bool {
 	return uint(perm)&0111 == 0
 }
+
+func CreateMQ(name string, perm os.FileMode) {
+
+}
+
+func OpenMQ(name string, flags int) {
+
+}

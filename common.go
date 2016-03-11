@@ -13,6 +13,11 @@ type Destroyer interface {
 	Destroy() error
 }
 
+// Blocker is an object, whose operations can be blockable or not
+type Blocker interface {
+	SetBlocking(bool) error
+}
+
 func accessModeToOsMode(mode int) (osMode int, err error) {
 	if mode&O_READ_ONLY != 0 {
 		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {

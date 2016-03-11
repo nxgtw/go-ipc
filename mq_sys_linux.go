@@ -98,11 +98,11 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 	return nil
 }
 
-func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) error {
+func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (int, int, error) {
 	rawData := unsafe.Pointer(&data[0])
 	timeoutPtr := unsafe.Pointer(timeout)
 	prioPtr := unsafe.Pointer(prio)
-	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
+	msgSize, maxMsgSize, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
 		uintptr(id),
 		uintptr(rawData),
 		uintptr(len(data)),
@@ -113,9 +113,9 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) err
 	use(timeoutPtr)
 	use(prioPtr)
 	if err != syscall.Errno(0) {
-		return err
+		return 0, 0, err
 	}
-	return nil
+	return int(msgSize), int(maxMsgSize), nil
 }
 
 func mq_notify(id int, event *sigevent) error {

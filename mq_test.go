@@ -4,6 +4,7 @@ package ipc
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,7 +102,7 @@ func testMqSendInvalidType(t *testing.T, ctor mqCtor, dtor mqDtor) {
 }
 
 func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
-	var message = 0xDEADBEEF
+	var message uint64 = 0xDEAFBEEFDEAFBEEF
 	a := assert.New(t)
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
@@ -117,9 +118,88 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 	go func() {
 		a.NoError(mq.Send(message))
 	}()
-	var received int
+	var received uint64
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	a.NoError(err)
 	err = mqr.Receive(&received)
 	a.NoError(err)
+	a.Equal(message, received)
+}
+
+func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
+	type testStruct struct {
+		arr [16]int
+		c   complex128
+		s   struct {
+			a, b byte
+		}
+		f float64
+	}
+	a := assert.New(t)
+	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	go func() {
+		a.NoError(mq.Send(message))
+	}()
+	received := &testStruct{}
+	mqr, err := opener(testMqName, O_READ_ONLY)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(mqr.Close())
+		a.NoError(dtor(testMqName))
+	}()
+	a.NoError(mqr.Receive(received))
+	a.Equal(message, *received)
+	a.NoError(mq.Close())
+}
+
+func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
+	a := assert.New(t)
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	message := make([]int, 512)
+	for i := range message {
+		message[i] = i
+	}
+	go func() {
+		a.NoError(mq.Send(message))
+	}()
+	received := make([]int, 1024)
+	mqr, err := opener(testMqName, O_READ_ONLY)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(mqr.Close())
+		a.NoError(dtor(testMqName))
+	}()
+	a.NoError(mqr.Receive(received))
+	a.Equal(message, received[:512])
+	a.Equal(received[512:], make([]int, 512))
+	a.NoError(mq.Close())
+}
+
+func testMqSetNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	mq, err := ctor(testMqName, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	if blocker, ok := mq.(Blocker); ok {
+		a.NoError(mq.Send(0))
+		a.NoError(blocker.SetBlocking(false))
+		a.Error(mq.Send(0))
+	} else {
+		t.Skipf("current mq impl on %s does not implement Blocker", runtime.GOOS)
+	}
 }

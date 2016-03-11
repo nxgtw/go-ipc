@@ -8,14 +8,13 @@ import (
 	"os"
 	"testing"
 	"time"
-	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateLinuxMessageQueue(name, perm, DefaultMqMaxSize, DefaultMqMaxMessageSize)
+	return CreateLinuxMessageQueue(name, perm, 1, DefaultMqMaxMessageSize)
 }
 
 func linuxMqOpener(name string, flags int) (Messenger, error) {
@@ -50,80 +49,24 @@ func TestLinuxMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestMqSendSliceSameProcess(t *testing.T) {
-	type testStruct struct {
-		arr [16]int
-		c   complex128
-		s   struct {
-			a, b byte
-		}
-		f float64
-	}
-	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, DefaultMqMaxSize, int(unsafe.Sizeof(message)))
-	if !assert.NoError(t, err) {
-		return
-	}
-	go func() {
-		assert.NoError(t, mq.SendPriority(message, 1))
-	}()
-	received := &testStruct{}
-	mqr, err := OpenLinuxMessageQueue(testMqName, O_READ_ONLY)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer mqr.Destroy()
-	assert.NoError(t, mqr.ReceiveTimeout(received, 300*time.Millisecond))
-	assert.Equal(t, message, *received)
+func TestLinuxMqSendStructSameProcess(t *testing.T) {
+	testMqSendStructSameProcess(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestMqGetAttrs(t *testing.T) {
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
-	defer mq.Destroy()
-	assert.NoError(t, mq.SendPriority(0, 0))
-	attrs, err := mq.GetAttrs()
-	assert.NoError(t, err)
-	assert.Equal(t, 5, attrs.Maxmsg)
-	assert.Equal(t, 121, attrs.Msgsize)
-	assert.Equal(t, 1, attrs.Curmsgs)
+func TestLinuxMqSendMessageLessThenBuffer(t *testing.T) {
+	testMqSendMessageLessThenBuffer(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestMqSetNonBlock(t *testing.T) {
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 1, 8)
-	assert.NoError(t, err)
-	defer mq.Destroy()
-	assert.NoError(t, mq.SendPriority(0, 0))
-	assert.NoError(t, mq.SetBlocking(false))
-	assert.Error(t, mq.SendPriority(0, 0))
-}
-
-func TestMqNotify(t *testing.T) {
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
-	defer mq.Destroy()
-	ch := make(chan int)
-	assert.NoError(t, mq.Notify(ch))
-	go func() {
-		mq.SendPriority(0, 0)
-	}()
-	assert.Equal(t, mq.ID(), <-ch)
-}
-
-func TestMqNotifyTwice(t *testing.T) {
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
-	defer mq.Destroy()
-	ch := make(chan int)
-	assert.NoError(t, mq.Notify(ch))
-	assert.Error(t, mq.Notify(ch))
-	assert.NoError(t, mq.NotifyCancel())
-	assert.NoError(t, mq.Notify(ch))
+func TestLinuxMqSetNonBlock(t *testing.T) {
+	testMqSetNonBlock(t, linuxMqCtor, linuxMqDtor)
 }
 
 func TestMqSendToAnotherProcess(t *testing.T) {
+	a := assert.New(t)
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 16)
-	assert.NoError(t, err)
+	if !a.NoError(err) {
+		return
+	}
 	defer mq.Destroy()
 	data := make([]byte, 16)
 	for i := range data {
@@ -159,7 +102,44 @@ func TestMqReceiveFromAnotherProcess(t *testing.T) {
 	assert.Equal(t, data, received)
 }
 
-func TestMqNotifyAnotherProcess(t *testing.T) {
+// linux-mq-specific tests
+
+func TestLinuxMqGetAttrs(t *testing.T) {
+	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	assert.NoError(t, mq.SendPriority(0, 0))
+	attrs, err := mq.GetAttrs()
+	assert.NoError(t, err)
+	assert.Equal(t, 5, attrs.Maxmsg)
+	assert.Equal(t, 121, attrs.Msgsize)
+	assert.Equal(t, 1, attrs.Curmsgs)
+}
+
+func TestLinuxMqNotify(t *testing.T) {
+	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	ch := make(chan int)
+	assert.NoError(t, mq.Notify(ch))
+	go func() {
+		mq.SendPriority(0, 0)
+	}()
+	assert.Equal(t, mq.ID(), <-ch)
+}
+
+func TestLinuxMqNotifyTwice(t *testing.T) {
+	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	assert.NoError(t, err)
+	defer mq.Destroy()
+	ch := make(chan int)
+	assert.NoError(t, mq.Notify(ch))
+	assert.Error(t, mq.Notify(ch))
+	assert.NoError(t, mq.NotifyCancel())
+	assert.NoError(t, mq.Notify(ch))
+}
+
+func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}

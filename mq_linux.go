@@ -33,6 +33,11 @@ type LinuxMessageQueue struct {
 	id             int
 	name           string
 	notifySocketFd int
+	// The following field are needed if the size of the object to where we want
+	// to receive a message is less, then the maximum message size of the queue.
+	// In this case we use inputBuff to receive a message, and if the real size
+	// of the message <= the imput object size, we copy our buffer into that object.
+	inputBuff []byte
 }
 
 // MqAttr contains attributes of the queue
@@ -56,7 +61,7 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 	if id, err = mq_open(name, sysflags, uint32(perm), attrs); err != nil {
 		return nil, err
 	}
-	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}, nil
+	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1, inputBuff: make([]byte, maxMsgSize)}, nil
 }
 
 // OpenLinuxMessageQueue opens an existing message queue.
@@ -70,7 +75,14 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	}
-	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}, nil
+	result := &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}
+	if attrs, err := result.GetAttrs(); err != nil {
+		result.Close()
+		return nil, err
+	} else {
+		result.inputBuff = make([]byte, attrs.Msgsize)
+	}
+	return result, nil
 }
 
 // SendTimeoutPriority sends a message with a given priority.
@@ -95,7 +107,7 @@ func (mq *LinuxMessageQueue) SendTimeout(object interface{}, timeout time.Durati
 	return mq.SendTimeoutPriority(object, 0, timeout)
 }
 
-// SendPriority sends a message with a default (0) priority.
+// Send sends a message with a default (0) priority.
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) Send(object interface{}) error {
 	return mq.SendTimeoutPriority(object, 0, time.Duration(-1))
@@ -107,12 +119,31 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout 
 	if !allocator.IsReferenceType(object) {
 		return 0, fmt.Errorf("expected a slice, or a pointer")
 	}
-	data, err := allocator.ObjectData(object)
+	objData, err := allocator.ObjectData(object)
 	if err != nil {
 		return 0, err
 	}
+	var data []byte
+	curMaxMsgSize := len(mq.inputBuff)
+	if len(objData) < curMaxMsgSize {
+		data = mq.inputBuff
+	} else {
+		data = objData
+	}
 	var prio int
-	return prio, mq_timedreceive(mq.ID(), data, &prio, timeoutToTimeSpec(timeout))
+	msgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), data, &prio, timeoutToTimeSpec(timeout))
+	if maxMsgSize != 0 {
+		if curMaxMsgSize != maxMsgSize {
+			mq.inputBuff = make([]byte, maxMsgSize)
+		}
+	}
+	if err != nil {
+		return 0, err
+	}
+	if len(objData) < curMaxMsgSize {
+		copy(objData, data[:msgSize])
+	}
+	return prio, nil
 }
 
 // ReceivePriority receives a message, returning its priority.
@@ -145,7 +176,9 @@ func (mq *LinuxMessageQueue) Close() error {
 	if mq.notifySocketFd != -1 {
 		mq.NotifyCancel()
 	}
-	return unix.Close(mq.ID())
+	err := unix.Close(mq.ID())
+	*mq = LinuxMessageQueue{notifySocketFd: -1}
+	return err
 }
 
 // GetAttrs returns attributes of the queue
@@ -168,8 +201,9 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 
 // Destroy closes the queue and removes it permanently
 func (mq *LinuxMessageQueue) Destroy() error {
+	name := mq.name
 	mq.Close()
-	return DestroyLinuxMessageQueue(mq.name)
+	return DestroyLinuxMessageQueue(name)
 }
 
 // Notify notifies about new messages in the queue by sending id of the queue to the channel.
@@ -210,14 +244,15 @@ func (mq *LinuxMessageQueue) NotifyCancel() error {
 	return err
 }
 
-// DestroyMessageQueue removes the queue permanently
+// DestroyLinuxMessageQueue removes the queue permanently
 func DestroyLinuxMessageQueue(name string) error {
-	if err := mq_unlink(name); err != nil {
+	err := mq_unlink(name)
+	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			err = nil
 		}
 	}
-	return nil
+	return err
 }
 
 func mqFlagsToOsFlags(flags int) (int, error) {

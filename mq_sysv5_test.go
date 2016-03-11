@@ -5,7 +5,6 @@
 package ipc
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -46,17 +45,10 @@ func TestSysVMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
 }
 
-func TestSysVMqSendIntSameProcess2(t *testing.T) {
-	DestroySystemVMessageQueue(testMqName)
-	var toSend int64 = 0x1234567812345678
-	var toReceive int32
-	m1, err := CreateSystemVMessageQueue(testMqName, 0666)
-	m2, err := OpenSystemVMessageQueue(testMqName, 0)
-	go m1.Send(toSend)
-	err = m2.Receive(&toReceive)
-	if err != nil {
-		t.Error(err)
-	} else {
-		fmt.Printf("0x%x\n", toReceive)
-	}
+func TestSysVMqSendStructSameProcess(t *testing.T) {
+	testMqSendStructSameProcess(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
+}
+
+func TestSysVMqSendMessageLessThenBuffer(t *testing.T) {
+	testMqSendMessageLessThenBuffer(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
 }
