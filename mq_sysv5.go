@@ -119,12 +119,12 @@ func (mq *SystemVMessageQueue) Close() error {
 	return nil
 }
 
-// SetBlocking sets whether the operations on the queue block.
+// SetBlocking sets whether the send/receive operations on the queue block.
 func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
 	if block {
-		mq.flags |= cIpcNoWait
-	} else {
 		mq.flags &= ^cIpcNoWait
+	} else {
+		mq.flags |= cIpcNoWait
 	}
 	return nil
 }

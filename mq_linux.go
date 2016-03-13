@@ -33,6 +33,7 @@ type LinuxMessageQueue struct {
 	id             int
 	name           string
 	notifySocketFd int
+	flags          int
 	// The following field are needed if the size of the object to where we want
 	// to receive a message is less, then the maximum message size of the queue.
 	// In this case we use inputBuff to receive a message, and if the real size
@@ -56,12 +57,16 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 	}
 	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL
 	attrs := &MqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
-	var id int
-	var err error
-	if id, err = mq_open(name, sysflags, uint32(perm), attrs); err != nil {
+	id, err := mq_open(name, sysflags, uint32(perm), attrs)
+	if err != nil {
 		return nil, err
 	}
-	return &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1, inputBuff: make([]byte, maxMsgSize)}, nil
+	return &LinuxMessageQueue{
+		id:             id,
+		name:           name,
+		notifySocketFd: -1,
+		inputBuff:      make([]byte, maxMsgSize),
+	}, nil
 }
 
 // OpenLinuxMessageQueue opens an existing message queue.
@@ -75,7 +80,7 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	}
-	result := &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1}
+	result := &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1, flags: flags}
 	if attrs, err := result.GetAttrs(); err != nil {
 		result.Close()
 		return nil, err
@@ -110,7 +115,11 @@ func (mq *LinuxMessageQueue) SendTimeout(object interface{}, timeout time.Durati
 // Send sends a message with a default (0) priority.
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) Send(object interface{}) error {
-	return mq.SendTimeoutPriority(object, 0, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	return mq.SendTimeoutPriority(object, 0, timeout)
 }
 
 // ReceiveTimeoutPriority receives a message, returning its priority.
@@ -162,7 +171,11 @@ func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, timeout time.Dur
 // Receive receives a message.
 // It blocks if the queue is empty.
 func (mq *LinuxMessageQueue) Receive(object interface{}) error {
-	_, err := mq.ReceiveTimeoutPriority(object, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	_, err := mq.ReceiveTimeoutPriority(object, timeout)
 	return err
 }
 
@@ -190,13 +203,15 @@ func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
 	return attrs, nil
 }
 
-// SetBlocking sets whether the operations on the queue block.
+// SetBlocking sets whether the send/receive operations on the queue block.
+// This appliesa to the current instance only.
 func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
-	attrs := new(MqAttr)
-	if !block {
-		attrs.Flags |= unix.O_NONBLOCK
+	if block {
+		mq.flags &= ^O_NONBLOCK
+	} else {
+		mq.flags |= O_NONBLOCK
 	}
-	return mq_getsetattr(mq.ID(), attrs, nil)
+	return nil
 }
 
 // Destroy closes the queue and removes it permanently
@@ -255,15 +270,31 @@ func DestroyLinuxMessageQueue(name string) error {
 	return err
 }
 
+// SetLinuxMqBlocking sets whether the operations on a linux mq block.
+// This will apply for all send/receive operations on any instance of the
+// linux mq with the given name.
+func SetLinuxMqBlocking(name string, block bool) error {
+	mq, err := OpenLinuxMessageQueue(name, O_READWRITE)
+	if err != nil {
+		return err
+	}
+	attrs := new(MqAttr)
+	if !block {
+		attrs.Flags |= unix.O_NONBLOCK
+	}
+	return mq_getsetattr(mq.ID(), attrs, nil)
+}
+
 func mqFlagsToOsFlags(flags int) (int, error) {
+	// by default, assume we're opening it for readwrite
+	if flags&(O_READWRITE|O_READ_ONLY|O_WRITE_ONLY) == 0 {
+		flags = O_READWRITE
+	}
 	sysflags, err := accessModeToOsMode(flags)
 	if err != nil {
 		return 0, err
 	}
 	sysflags |= unix.O_CLOEXEC
-	if flags&O_NONBLOCK != 0 {
-		sysflags |= unix.O_NONBLOCK
-	}
 	if flags&(O_OPEN_OR_CREATE|O_CREATE_ONLY) != 0 {
 		return 0, fmt.Errorf("to create message queue, use CreateMessageQueue func")
 	}

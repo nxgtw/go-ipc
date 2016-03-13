@@ -52,3 +52,7 @@ func TestSysVMqSendStructSameProcess(t *testing.T) {
 func TestSysVMqSendMessageLessThenBuffer(t *testing.T) {
 	testMqSendMessageLessThenBuffer(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
 }
+
+func TestSysVMqSendNonBlock(t *testing.T) {
+	testMqSendNonBlock(t, sysVMqCtor, sysVMqDtor)
+}

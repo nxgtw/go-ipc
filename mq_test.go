@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -186,8 +187,11 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	a.NoError(mq.Close())
 }
 
-func testMqSetNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
+func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -196,9 +200,20 @@ func testMqSetNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.NoError(dtor(testMqName))
 	}()
 	if blocker, ok := mq.(Blocker); ok {
-		a.NoError(mq.Send(0))
 		a.NoError(blocker.SetBlocking(false))
-		a.Error(mq.Send(0))
+		endChan := make(chan bool, 1)
+		go func() {
+			for i := 0; i < 100; i++ {
+				err := mq.Send(0)
+				_ = err
+			}
+			endChan <- true
+		}()
+		select {
+		case <-endChan:
+		case <-time.After(time.Millisecond * 300):
+			t.Errorf("send on non-blicking mq blocked")
+		}
 	} else {
 		t.Skipf("current mq impl on %s does not implement Blocker", runtime.GOOS)
 	}

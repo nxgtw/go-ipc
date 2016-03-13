@@ -24,6 +24,11 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 	if err != nil {
 		return nil, err
 	}
+	if osMode&os.O_RDWR != 0 {
+		// open man says "The result is undefined if this flag is applied to a FIFO."
+		// so, we don't allow it and return an error
+		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
+	}
 	path := fifoPath(name)
 	if mode&(O_OPEN_OR_CREATE|O_CREATE_ONLY) != 0 {
 		err := unix.Mkfifo(path, uint32(perm))
@@ -34,11 +39,6 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 				return nil, err
 			}
 		}
-	}
-	if osMode&os.O_RDWR != 0 {
-		// open man says "The result is undefined if this flag is applied to a FIFO."
-		// so, we don't allow it and return an error
-		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
 	}
 	if mode&O_NONBLOCK != 0 {
 		osMode |= unix.O_NONBLOCK

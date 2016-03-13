@@ -57,8 +57,8 @@ func TestLinuxMqSendMessageLessThenBuffer(t *testing.T) {
 	testMqSendMessageLessThenBuffer(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestLinuxMqSetNonBlock(t *testing.T) {
-	testMqSetNonBlock(t, linuxMqCtor, linuxMqDtor)
+func TestLinuxMqSendNonBlock(t *testing.T) {
+	testMqSendNonBlock(t, linuxMqCtor, linuxMqDtor)
 }
 
 func TestMqSendToAnotherProcess(t *testing.T) {
