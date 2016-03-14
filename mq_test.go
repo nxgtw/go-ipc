@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc/internal/test"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -247,5 +249,28 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		}
 	} else {
 		t.Skipf("current mq impl on %s does not implement Blocker", runtime.GOOS)
+	}
+}
+
+func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	mq, err := ctor(testMqName, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	data := make([]byte, 2048)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	args := argsForMqTestCommand(testMqName, 1000, 0, data)
+	go func() {
+		a.NoError(mq.Send(data))
+	}()
+	result := ipc_test.RunTestApp(args, nil)
+	if !a.NoError(result.Err) {
+		t.Logf("program output is: %s", result.Output)
 	}
 }

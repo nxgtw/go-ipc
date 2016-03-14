@@ -61,25 +61,8 @@ func TestLinuxMqSendNonBlock(t *testing.T) {
 	testMqSendNonBlock(t, linuxMqCtor, linuxMqDtor)
 }
 
-func TestMqSendToAnotherProcess(t *testing.T) {
-	a := assert.New(t)
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 16)
-	if !a.NoError(err) {
-		return
-	}
-	defer mq.Destroy()
-	data := make([]byte, 16)
-	for i := range data {
-		data[i] = byte(i)
-	}
-	args := argsForMqTestCommand(testMqName, 1000, 1, data)
-	go func() {
-		assert.NoError(t, mq.SendTimeoutPriority(data, 1, time.Millisecond*2000))
-	}()
-	result := ipc_test.RunTestApp(args, nil)
-	if !assert.NoError(t, result.Err) {
-		t.Logf("program output is %s", result.Output)
-	}
+func TestLinuxMqSendToAnotherProcess(t *testing.T) {
+	testMqSendToAnotherProcess(t, linuxMqCtor, linuxMqDtor)
 }
 
 func TestMqReceiveFromAnotherProcess(t *testing.T) {
