@@ -204,15 +204,46 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		endChan := make(chan bool, 1)
 		go func() {
 			for i := 0; i < 100; i++ {
-				err := mq.Send(0)
-				_ = err
+				a.NoError(mq.Send(0x12345678))
 			}
 			endChan <- true
 		}()
 		select {
 		case <-endChan:
 		case <-time.After(time.Millisecond * 300):
-			t.Errorf("send on non-blicking mq blocked")
+			t.Errorf("send on non-blocking mq blocked")
+		}
+	} else {
+		t.Skipf("current mq impl on %s does not implement Blocker", runtime.GOOS)
+	}
+}
+
+func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	if blocker, ok := mq.(Blocker); ok {
+		a.NoError(blocker.SetBlocking(false))
+		endChan := make(chan bool, 1)
+		go func() {
+			var data int
+			for i := 0; i < 32; i++ {
+				a.Error(mq.Receive(&data))
+			}
+			endChan <- true
+		}()
+		select {
+		case <-endChan:
+		case <-time.After(time.Millisecond * 300):
+			t.Errorf("receive on non-blocking mq blocked")
 		}
 	} else {
 		t.Skipf("current mq impl on %s does not implement Blocker", runtime.GOOS)

@@ -56,3 +56,7 @@ func TestSysVMqSendMessageLessThenBuffer(t *testing.T) {
 func TestSysVMqSendNonBlock(t *testing.T) {
 	testMqSendNonBlock(t, sysVMqCtor, sysVMqDtor)
 }
+
+func TestSysVMqReceiveNonBlock(t *testing.T) {
+	testMqReceiveNonBlock(t, sysVMqCtor, sysVMqDtor)
+}

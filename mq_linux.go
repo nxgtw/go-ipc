@@ -119,7 +119,15 @@ func (mq *LinuxMessageQueue) Send(object interface{}) error {
 	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	return mq.SendTimeoutPriority(object, 0, timeout)
+	err := mq.SendTimeoutPriority(object, 0, timeout)
+	if mq.flags&O_NONBLOCK != 0 && err != nil {
+		if sysErr, ok := err.(syscall.Errno); ok {
+			if sysErr.Temporary() {
+				err = nil
+			}
+		}
+	}
+	return err
 }
 
 // ReceiveTimeoutPriority receives a message, returning its priority.
