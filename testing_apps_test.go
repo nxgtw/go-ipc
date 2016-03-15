@@ -12,8 +12,24 @@ import (
 const (
 	shmProgName  = "./internal/test/shared_memory/main.go"
 	fifoProgName = "./internal/test/fifo/main.go"
-	mqProgName   = "./internal/test/mq/main.go"
+	mqProgPath   = "./internal/test/mq/"
 )
+
+var mqProgFiles []string
+
+func init() {
+	var err error
+	mqProgFiles, err = ipc_testing.LocatePackageFiles(mqProgPath)
+	if err != nil {
+		panic(err)
+	}
+	if len(mqProgFiles) == 0 {
+		panic("no files to test mq")
+	}
+	for i, name := range mqProgFiles {
+		mqProgFiles[i] = mqProgPath + name
+	}
+}
 
 // Shared memory test program
 
@@ -30,12 +46,12 @@ func argsForShmReadCommand(name string, offset int64, lenght int) []string {
 }
 
 func argsForShmTestCommand(name string, offset int64, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := ipc_testing.BytesToString(data)
 	return []string{shmProgName, "-object=" + name, "test", fmt.Sprintf("%d", offset), strBytes}
 }
 
 func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := ipc_testing.BytesToString(data)
 	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
 }
 
@@ -54,54 +70,55 @@ func argsForFifoReadCommand(name string, nonblock bool, lenght int) []string {
 }
 
 func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := ipc_testing.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "test", strBytes}
 }
 
 func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := ipc_testing.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
 }
 
 // Mq test program
 
 func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
-	return []string{mqProgName, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
+	return []string{mqProgPath, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
 }
 
 func argsForMqDestroyCommand(name string) []string {
-	return []string{mqProgName, "-object=" + name, "destroy"}
+	return []string{mqProgPath, "-object=" + name, "destroy"}
 }
 
-func argsForMqSendCommand(name string, timeout, prio int, data []byte) []string {
-	return []string{
-		mqProgName,
-		"-object=" + name,
-		"-prio=" + strconv.Itoa(prio),
-		"-timeout=" + strconv.Itoa(timeout),
+func argsForMqSendCommand(name string, timeout int, typ, options string, data []byte) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
 		"send",
-		ipc_test.BytesToString(data),
-	}
+		ipc_testing.BytesToString(data),
+	)
 }
 
-func argsForMqTestCommand(name string, timeout, prio int, data []byte) []string {
-	return []string{
-		mqProgName,
-		"-object=" + name,
-		"-prio=" + strconv.Itoa(prio),
-		"-timeout=" + strconv.Itoa(timeout),
+func argsForMqTestCommand(name string, timeout int, typ, options string, data []byte) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
 		"test",
-		ipc_test.BytesToString(data),
-	}
+		ipc_testing.BytesToString(data),
+	)
 }
 
-func argsForMqNotifyWaitCommand(name string, timeout int) []string {
-	return []string{
-		mqProgName,
-		"-object=" + name,
-		"-timeout=" + strconv.Itoa(timeout),
+func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
 		"notifywait",
-	}
+	)
 }
 
 func boolStr(value bool) string {

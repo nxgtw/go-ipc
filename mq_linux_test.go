@@ -14,7 +14,7 @@ import (
 )
 
 func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateLinuxMessageQueue(name, perm, 1, DefaultMqMaxMessageSize)
+	return CreateLinuxMessageQueue(name, perm, 1, DefaultLinuxMqMaxMessageSize)
 }
 
 func linuxMqOpener(name string, flags int) (Messenger, error) {
@@ -62,27 +62,11 @@ func TestLinuxMqSendNonBlock(t *testing.T) {
 }
 
 func TestLinuxMqSendToAnotherProcess(t *testing.T) {
-	testMqSendToAnotherProcess(t, linuxMqCtor, linuxMqDtor)
+	testMqSendToAnotherProcess(t, linuxMqCtor, linuxMqDtor, "linux")
 }
 
-func TestMqReceiveFromAnotherProcess(t *testing.T) {
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 16)
-	assert.NoError(t, err)
-	defer mq.Destroy()
-	data := make([]byte, 16)
-	for i := range data {
-		data[i] = byte(i)
-	}
-	args := argsForMqSendCommand(testMqName, 2000, 3, data)
-	result := ipc_test.RunTestApp(args, nil)
-	if !assert.NoError(t, result.Err) {
-		t.Logf("program output is %s", result.Output)
-	}
-	received := make([]byte, 16)
-	prio, err := mq.ReceiveTimeoutPriority(received, time.Millisecond*2000)
-	assert.NoError(t, err)
-	assert.Equal(t, prio, 3)
-	assert.Equal(t, data, received)
+func TestLinuxMqReceiveFromAnotherProcess(t *testing.T) {
+	testMqReceiveFromAnotherProcess(t, linuxMqCtor, linuxMqDtor, "linux")
 }
 
 // linux-mq-specific tests
@@ -135,8 +119,8 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 	for i := range data {
 		data[i] = byte(i)
 	}
-	args := argsForMqNotifyWaitCommand(testMqName, 2000)
-	resultChan := ipc_test.RunTestAppAsync(args, nil)
+	args := argsForMqNotifyWaitCommand(testMqName, 2000, "linux", "")
+	resultChan := ipc_testing.RunTestAppAsync(args, nil)
 	endChan := make(chan struct{})
 	go func() {
 		// as the app needs some time for startup,

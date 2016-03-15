@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	ipc "bitbucket.org/avd/go-ipc"
@@ -16,13 +15,13 @@ import (
 var (
 	objName = flag.String("object", "", "mq name")
 	timeout = flag.Int("timeout", -1, "timeout for send/receive/notify wait. in ms.")
-	prio    = flag.Int("prio", 0, "message priority")
 	typ     = flag.String("type", "default", "message queue type")
+	options = flag.String("options", "", "a set of options for a particular mq")
 )
 
 const usage = `  test program for message queues.
 available commands:
-  create {max_size} {max_msg_len}
+  create
   destroy
   test {expected values byte array}
   send {values byte array}
@@ -31,18 +30,10 @@ byte array should be passed as a continuous string of 2-symbol hex byte values l
 `
 
 func create() error {
-	if flag.NArg() != 3 {
-		return fmt.Errorf("create: must provide exactly two arguments")
+	if flag.NArg() != 1 {
+		return fmt.Errorf("create: must provide exactly one argument")
 	}
-	maxSize, err := strconv.Atoi(flag.Arg(1))
-	if err != nil {
-		return err
-	}
-	maxMsgLen, err := strconv.Atoi(flag.Arg(1))
-	if err != nil {
-		return err
-	}
-	mq, err := ipc.CreateLinuxMessageQueue(*objName, 0666, maxSize, maxMsgLen)
+	mq, err := createMqWithType(*objName, 0666, *typ, *options)
 	if err == nil {
 		mq.Close()
 	}
@@ -53,41 +44,34 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	return ipc.DestroyLinuxMessageQueue(*objName)
+	return destroyMqWithType(*objName, *typ)
 }
 
 func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one argument")
 	}
-	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_READ_ONLY)
+	mq, err := openMqWithType(*objName, ipc.O_READ_ONLY, *typ)
 	if err != nil {
 		return err
 	}
 	defer mq.Close()
-	expected, err := ipc_test.StringToBytes(flag.Arg(1))
+	expected, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	attrs, err := mq.GetAttrs()
-	if err != nil {
-		return err
-	}
-	if len(expected) > attrs.Msgsize {
-		return fmt.Errorf("data len exceeds max message size for the queue")
-	}
-	received := make([]byte, attrs.Msgsize)
-	var msgPrio int
+	received := make([]byte, len(expected))
 	if *timeout >= 0 {
-		msgPrio, err = mq.ReceiveTimeoutPriority(received, time.Duration(*timeout)*time.Millisecond)
+		if tm, ok := mq.(ipc.TimedMessenger); ok {
+			err = tm.ReceiveTimeout(received, time.Duration(*timeout)*time.Millisecond)
+		} else {
+			return fmt.Errorf("selected mq implementation does not support timeouts")
+		}
 	} else {
-		msgPrio, err = mq.ReceivePriority(received)
+		err = mq.Receive(received)
 	}
 	if err != nil {
 		return err
-	}
-	if msgPrio != *prio {
-		return fmt.Errorf("expected msg prio %d, got %d", *prio, msgPrio)
 	}
 	for i, expectedValue := range expected {
 		if expectedValue != received[i] {
@@ -101,47 +85,23 @@ func send() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("send: must provide exactly one argument")
 	}
-	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_WRITE_ONLY)
+	mq, err := openMqWithType(*objName, ipc.O_WRITE_ONLY, *typ)
 	if err != nil {
 		return err
 	}
 	defer mq.Close()
-	toSend, err := ipc_test.StringToBytes(flag.Arg(1))
+	toSend, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
 	if *timeout >= 0 {
-		err = mq.SendTimeoutPriority(toSend, *prio, time.Duration(*timeout)*time.Millisecond)
-	} else {
-		err = mq.SendPriority(toSend, *prio)
-	}
-	return nil
-}
-
-func notifywait() error {
-	if flag.NArg() != 1 {
-		return fmt.Errorf("notifywait: must not provide any arguments")
-	}
-	mq, err := ipc.OpenLinuxMessageQueue(*objName, ipc.O_READWRITE)
-	if err != nil {
-		return err
-	}
-	defer mq.Close()
-	notifyChan := make(chan int, 1)
-	if err = mq.Notify(notifyChan); err != nil {
-		return err
-	}
-	var timeChan <-chan time.Time
-	if *timeout > 0 {
-		timeChan = time.After(time.Duration(*timeout) * time.Millisecond)
-	}
-	select {
-	case id := <-notifyChan:
-		if id != mq.ID() {
-			return fmt.Errorf("expected mq with id %q, got with %q", mq.ID(), id)
+		if tm, ok := mq.(ipc.TimedMessenger); ok {
+			err = tm.SendTimeout(toSend, time.Duration(*timeout)*time.Millisecond)
+		} else {
+			return fmt.Errorf("selected mq implementation does not support timeouts")
 		}
-	case <-timeChan:
-		return fmt.Errorf("operation timeout")
+	} else {
+		err = mq.Send(toSend)
 	}
 	return nil
 }
@@ -158,7 +118,10 @@ func runCommand() error {
 	case "send":
 		return send()
 	case "notifywait":
-		return notifywait()
+		if flag.NArg() != 1 {
+			return fmt.Errorf("notifywait: must not provide any arguments")
+		}
+		return notifywait(*objName, *timeout, *typ)
 	default:
 		return fmt.Errorf("unknown command")
 	}

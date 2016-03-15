@@ -5,6 +5,7 @@ package ipc
 import (
 	"io"
 	"os"
+	"time"
 )
 
 // Messenger is an interface which must be satisfied by any
@@ -15,14 +16,31 @@ type Messenger interface {
 	io.Closer
 }
 
+// TimedMessenger is a Messenger, which supports send/receive timeouts.
+type TimedMessenger interface {
+	Messenger
+	SendTimeout(object interface{}, timeout time.Duration) error
+	ReceiveTimeout(object interface{}, timeout time.Duration) error
+}
+
 func checkMqPerm(perm os.FileMode) bool {
 	return uint(perm)&0111 == 0
 }
 
-func CreateMQ(name string, perm os.FileMode) {
-
+// CreateMQ creates a mq with a given name and permissions.
+// It uses the default implementation. If there are several implementations on a platform,
+// you should use explicit create functions.
+func CreateMQ(name string, perm os.FileMode) (Messenger, error) {
+	return createMQ(name, perm)
 }
 
-func OpenMQ(name string, flags int) {
+// OpenMQ opens a mq with a given name and flags.
+// It uses the default implementation. If there are several implementations on a platform,
+// you should use explicit create functions.
+func OpenMQ(name string, flags int) (Messenger, error) {
+	return openMQ(name, flags)
+}
 
+func DestroyMQ(name string) error {
+	return destroyMq(name)
 }

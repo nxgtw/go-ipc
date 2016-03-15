@@ -142,7 +142,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	expected, err := ipc_test.StringToBytes(flag.Arg(3))
+	expected, err := ipc_testing.StringToBytes(flag.Arg(3))
 	if err != nil {
 		return err
 	}

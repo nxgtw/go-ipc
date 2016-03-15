@@ -252,8 +252,11 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	}
 }
 
-func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor) {
+func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ string) {
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -265,12 +268,39 @@ func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	for i := range data {
 		data[i] = byte(i)
 	}
-	args := argsForMqTestCommand(testMqName, 1000, 0, data)
+	args := argsForMqTestCommand(testMqName, -1, typ, "", data)
 	go func() {
 		a.NoError(mq.Send(data))
 	}()
-	result := ipc_test.RunTestApp(args, nil)
+	result := ipc_testing.RunTestApp(args, nil)
 	if !a.NoError(result.Err) {
 		t.Logf("program output is: %s", result.Output)
 	}
+}
+
+func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ string) {
+	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	data := make([]byte, 2048)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	args := argsForMqSendCommand(testMqName, -1, typ, "", data)
+	result := ipc_testing.RunTestApp(args, nil)
+	if !a.NoError(result.Err) {
+		t.Logf("program output is %s", result.Output)
+	}
+	received := make([]byte, 2048)
+	err = mq.Receive(received)
+	a.NoError(err)
+	a.Equal(data, received)
 }

@@ -57,6 +57,14 @@ func TestSysVMqSendNonBlock(t *testing.T) {
 	testMqSendNonBlock(t, sysVMqCtor, sysVMqDtor)
 }
 
+func TestSysVMqSendToAnotherProcess(t *testing.T) {
+	testMqSendToAnotherProcess(t, sysVMqCtor, sysVMqDtor, "sysv")
+}
+
 func TestSysVMqReceiveNonBlock(t *testing.T) {
 	testMqReceiveNonBlock(t, sysVMqCtor, sysVMqDtor)
+}
+
+func TestSysVMqReceiveFromAnotherProcess(t *testing.T) {
+	testMqReceiveFromAnotherProcess(t, sysVMqCtor, sysVMqDtor, "sysv")
 }

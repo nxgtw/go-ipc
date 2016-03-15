@@ -235,7 +235,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 			wg.Done()
 		}()
 	}
-	result := ipc_test.RunTestApp(args, nil)
+	result := ipc_testing.RunTestApp(args, nil)
 	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
 	if !a.NoError(result.Err) {
@@ -282,7 +282,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	var wg sync.WaitGroup
 	flag := int32(1)
 	wg.Add(jobs)
-	resultChan := ipc_test.RunTestAppAsync(args, nil)
+	resultChan := ipc_testing.RunTestAppAsync(args, nil)
 	localIncs := int64(0)
 	for i := 0; i < jobs; i++ {
 		go func() {

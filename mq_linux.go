@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	// DefaultMqMaxSize is the default queue size on linux
-	DefaultMqMaxSize = 8
-	// DefaultMqMaxMessageSize is the maximum queue size on linux
-	DefaultMqMaxMessageSize = 8192
+	// DefaultLinuxMqMaxSize is the default queue size on linux
+	DefaultLinuxMqMaxSize = 8
+	// DefaultLinuxMqMaxMessageSize is the maximum message size on linux
+	DefaultLinuxMqMaxMessageSize = 8192
 )
 
 // this is to ensure, that linux implementation of ipc mq

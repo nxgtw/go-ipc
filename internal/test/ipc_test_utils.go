@@ -1,12 +1,13 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc_test
+package ipc_testing
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -135,4 +136,42 @@ func WaitForAppResultChan(ch <-chan TestAppResult, d time.Duration) (TestAppResu
 	case <-time.After(d):
 		return TestAppResult{}, false
 	}
+}
+
+func LocatePackageFiles(path string) ([]string, error) {
+	args := []string{"list", "-f", "{{.GoFiles}}", path}
+	cmd := exec.Command("go", args...)
+	buff := bytes.NewBuffer(nil)
+	cmd.Stderr = buff
+	cmd.Stdout = buff
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	result := waitForCommand(cmd, buff)
+	if result.Err != nil {
+		return nil, result.Err
+	}
+	return buildFilesFromOutput(result.Output), nil
+}
+
+func buildFilesFromOutput(output string) []string {
+	output = strings.TrimSpace(output)
+	output = strings.Trim(output, "[] ")
+	parts := strings.Split(output, " ")
+	for i := 0; i < len(parts); i++ {
+		if !strings.HasSuffix(parts[i], ".go") {
+			for j := i + 1; j < len(parts); j++ {
+				parts[i] += parts[j]
+				if strings.HasSuffix(parts[j], ".go") {
+					parts[j] = ""
+					break
+				}
+				parts[j] = ""
+			}
+		}
+	}
+	for i := len(parts) - 1; i >= 0 && len(parts[i]) == 0; i-- {
+		parts = parts[:i]
+	}
+	return parts
 }
