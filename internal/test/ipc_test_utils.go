@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// TestAppResult is a result of a 'go run' program launch
 type TestAppResult struct {
 	Output string
 	Err    error
@@ -94,6 +95,8 @@ func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result TestAppResult) {
 	return
 }
 
+// RunTestApp starts a go program via 'go run'.
+// To kill the process, send to killChan
 func RunTestApp(args []string, killChan <-chan bool) (result TestAppResult) {
 	if cmd, buff, err := startTestApp(args, killChan); err == nil {
 		result = waitForCommand(cmd, buff)
@@ -103,6 +106,9 @@ func RunTestApp(args []string, killChan <-chan bool) (result TestAppResult) {
 	return
 }
 
+// RunTestAppAsync starts a go program via 'go run' and returns immediately.
+// To kill the process, send to killChan.
+// To wait for the program to finish, receive on TestAppResult chan.
 func RunTestAppAsync(args []string, killChan <-chan bool) <-chan TestAppResult {
 	ch := make(chan TestAppResult, 1)
 	if cmd, buff, err := startTestApp(args, killChan); err != nil {
@@ -115,6 +121,8 @@ func RunTestAppAsync(args []string, killChan <-chan bool) <-chan TestAppResult {
 	return ch
 }
 
+// WaitForFunc calls f asynchronously leaving it some time to finish.
+// It returns true, if f completed.
 func WaitForFunc(f func(), d time.Duration) bool {
 	ch := make(chan bool, 1)
 	go func() {
@@ -129,6 +137,7 @@ func WaitForFunc(f func(), d time.Duration) bool {
 	}
 }
 
+// WaitForAppResultChan waits for a value from ch with a timeout
 func WaitForAppResultChan(ch <-chan TestAppResult, d time.Duration) (TestAppResult, bool) {
 	select {
 	case value := <-ch:
@@ -138,6 +147,7 @@ func WaitForAppResultChan(ch <-chan TestAppResult, d time.Duration) (TestAppResu
 	}
 }
 
+// LocatePackageFiles returns a slice of all the buildable source files in the given directory
 func LocatePackageFiles(path string) ([]string, error) {
 	args := []string{"list", "-f", "{{.GoFiles}}", path}
 	cmd := exec.Command("go", args...)
