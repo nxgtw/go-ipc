@@ -49,12 +49,13 @@ func argsForSyncDestroyCommand(name string) []string {
 	return []string{syncProgName, "-object=" + name, "destroy"}
 }
 
-func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int) []string {
+func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, logFile string) []string {
 	return []string{
 		syncProgName,
 		"-object=" + name,
 		"-type=" + t,
 		"-jobs=" + strconv.Itoa(jobs),
+		"-log=" + logFile,
 		"inc64",
 		shmName,
 		strconv.Itoa(n),

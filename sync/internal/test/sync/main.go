@@ -155,11 +155,6 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	go func() {
-		for {
-			<-time.After(time.Second)
-		}
-	}()
 	return performTest(expected, region, locker, n)
 }
 

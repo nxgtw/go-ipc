@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-const testSpinMutexName = "spin-test"
-
 func spinCtor(name string, mode int, perm os.FileMode) (IPCLocker, error) {
 	return NewSpinMutex(name, mode, perm)
 }
