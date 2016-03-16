@@ -166,17 +166,17 @@ func LocatePackageFiles(path string) ([]string, error) {
 
 func buildFilesFromOutput(output string) []string {
 	output = strings.TrimSpace(output)
-	output = strings.Trim(output, "[] ")
+	output = strings.Trim(output, "[]")
 	parts := strings.Split(output, " ")
 	for i := 0; i < len(parts); i++ {
 		if !strings.HasSuffix(parts[i], ".go") {
 			for j := i + 1; j < len(parts); j++ {
+				needBrake := strings.HasSuffix(parts[j], ".go")
 				parts[i] += parts[j]
-				if strings.HasSuffix(parts[j], ".go") {
-					parts[j] = ""
+				parts[j] = ""
+				if needBrake {
 					break
 				}
-				parts[j] = ""
 			}
 		}
 	}

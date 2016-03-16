@@ -5,6 +5,7 @@ package ipc
 import (
 	"os"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 	go func() {
 		a.NoError(mq.Send(message))
 	}()
-	var received uint64
+	var received uint64 = 0x0102030405060708
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	a.NoError(err)
 	err = mqr.Receive(&received)
@@ -220,6 +221,74 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	}
 }
 
+func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	if tmq, ok := mq.(TimedMessenger); ok {
+		tm := time.Millisecond * 200
+		if buf, ok := mq.(Buffered); ok {
+			cap, err := buf.Cap()
+			if !a.NoError(err) {
+				return
+			}
+			for i := 0; i < cap; i++ {
+				if !a.NoError(mq.Send(0)) {
+					return
+				}
+			}
+		}
+		now := time.Now()
+		err := tmq.SendTimeout(0, tm)
+		a.Error(err)
+		if sysErr, ok := err.(syscall.Errno); ok {
+			a.True(sysErr.Temporary())
+		}
+		a.Condition(func() bool {
+			return time.Now().Sub(now) >= tm
+		})
+	} else {
+		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)
+	}
+}
+
+func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
+	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
+	mq, err := ctor(testMqName, 0666)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		a.NoError(dtor(testMqName))
+	}()
+	if tmq, ok := mq.(TimedMessenger); ok {
+		var received int
+		tm := time.Millisecond * 200
+		now := time.Now()
+		err := tmq.ReceiveTimeout(&received, tm)
+		a.Error(err)
+		if sysErr, ok := err.(syscall.Errno); ok {
+			a.True(sysErr.Temporary())
+		}
+		a.Condition(func() bool {
+			return time.Now().Sub(now) >= tm
+		})
+	} else {
+		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)
+	}
+}
+
 func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	a := assert.New(t)
 	if dtor != nil {
@@ -303,4 +372,13 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 	err = mq.Receive(received)
 	a.NoError(err)
 	a.Equal(data, received)
+}
+
+func TestMqXXX(t *testing.T) {
+	for i := 0; i < 15; i++ {
+		a := make([]byte, 1024*1024)
+		_ = a
+		runtime.GC()
+		time.Sleep(time.Millisecond * 50)
+	}
 }

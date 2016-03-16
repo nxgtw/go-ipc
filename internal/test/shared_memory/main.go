@@ -72,7 +72,7 @@ func read() error {
 	}
 	defer region.Close()
 	if len(region.Data()) > 0 {
-		fmt.Println(ipc_test.BytesToString(region.Data()))
+		fmt.Println(ipc_testing.BytesToString(region.Data()))
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func test() error {
 		return err
 	}
 	defer object.Close()
-	data, err := ipc_test.StringToBytes(flag.Arg(2))
+	data, err := ipc_testing.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func write() error {
 		return err
 	}
 	defer object.Close()
-	data, err := ipc_test.StringToBytes(flag.Arg(2))
+	data, err := ipc_testing.StringToBytes(flag.Arg(2))
 	if err != nil {
 		return err
 	}

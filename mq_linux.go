@@ -187,15 +187,17 @@ func (mq *LinuxMessageQueue) Receive(object interface{}) error {
 	return err
 }
 
-// ID return unique id of the queue.
+// ID returns unique id of the queue.
 func (mq *LinuxMessageQueue) ID() int {
 	return mq.id
 }
 
 // Close closes the queue.
 func (mq *LinuxMessageQueue) Close() error {
-	if mq.notifySocketFd != -1 {
-		mq.NotifyCancel()
+	if mq.notifySocketFd >= 0 {
+		if err := mq.NotifyCancel(); err != nil {
+			return err
+		}
 	}
 	err := unix.Close(mq.ID())
 	*mq = LinuxMessageQueue{notifySocketFd: -1}
@@ -209,6 +211,14 @@ func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
 		return nil, err
 	}
 	return attrs, nil
+}
+
+func (mq *LinuxMessageQueue) Cap() (int, error) {
+	attrs, err := mq.GetAttrs()
+	if err != nil {
+		return 0, err
+	}
+	return attrs.Maxmsg, nil
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.
@@ -225,7 +235,9 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 // Destroy closes the queue and removes it permanently
 func (mq *LinuxMessageQueue) Destroy() error {
 	name := mq.name
-	mq.Close()
+	if err := mq.Close(); err != nil {
+		return err
+	}
 	return DestroyLinuxMessageQueue(name)
 }
 
@@ -235,6 +247,9 @@ func (mq *LinuxMessageQueue) Destroy() error {
 func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
+	}
+	if mq.notifySocketFd >= 0 {
+		return fmt.Errorf("notify has already been called")
 	}
 	notifySocketFd, err := initMqNotifications(ch)
 	if err != nil {
@@ -260,9 +275,8 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err := mq_notify(mq.ID(), nil); err == nil {
-		syscall.Close(mq.notifySocketFd)
+		err = syscall.Close(mq.notifySocketFd)
 		mq.notifySocketFd = -1
-		return nil
 	}
 	return err
 }
@@ -310,10 +324,9 @@ func mqFlagsToOsFlags(flags int) (int, error) {
 }
 
 func timeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
-	var ts *unix.Timespec
-	if int64(timeout) >= 0 {
-		sec, nsec := splitUnixTime(time.Now().Add(timeout).UnixNano())
-		ts = &unix.Timespec{Sec: sec, Nsec: nsec}
+	if timeout >= 0 {
+		ts := unix.NsecToTimespec(time.Now().Add(timeout).UnixNano())
+		return &ts
 	}
-	return ts
+	return nil
 }

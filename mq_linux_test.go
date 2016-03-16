@@ -14,7 +14,7 @@ import (
 )
 
 func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateLinuxMessageQueue(name, perm, 1, DefaultLinuxMqMaxMessageSize)
+	return CreateLinuxMessageQueue(name, perm, 1, 8)
 }
 
 func linuxMqOpener(name string, flags int) (Messenger, error) {
@@ -69,11 +69,24 @@ func TestLinuxMqReceiveFromAnotherProcess(t *testing.T) {
 	testMqReceiveFromAnotherProcess(t, linuxMqCtor, linuxMqDtor, "linux")
 }
 
+func TestLinuxMqSendTimeout(t *testing.T) {
+	testMqSendTimeout(t, linuxMqCtor, linuxMqDtor)
+}
+
+func TestLinuxMqReceiveTimeout(t *testing.T) {
+	testMqReceiveTimeout(t, linuxMqCtor, linuxMqDtor)
+}
+
 // linux-mq-specific tests
 
 func TestLinuxMqGetAttrs(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	assert.NoError(t, mq.SendPriority(0, 0))
 	attrs, err := mq.GetAttrs()
@@ -84,8 +97,13 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 }
 
 func TestLinuxMqNotify(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
@@ -96,8 +114,13 @@ func TestLinuxMqNotify(t *testing.T) {
 }
 
 func TestLinuxMqNotifyTwice(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
