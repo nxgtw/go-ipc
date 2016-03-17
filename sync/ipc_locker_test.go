@@ -81,7 +81,7 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.Error(err) {
 		return false
 	}
@@ -139,7 +139,7 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.Error(err) {
 		return false
 	}
@@ -205,8 +205,8 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 		return false
 	}
 	defer func() {
-		region.Close()
-		ipc.DestroyMemoryObject(testMemObj)
+		a.NoError(region.Close())
+		a.NoError(ipc.DestroyMemoryObject(testMemObj))
 	}()
 	data := region.Data()
 	for i := range data { // fill the data with correct values
@@ -273,8 +273,8 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		return false
 	}
 	defer func() {
-		region.Close()
-		ipc.DestroyMemoryObject(testMemObj)
+		a.NoError(region.Close())
+		a.NoError(ipc.DestroyMemoryObject(testMemObj))
 	}()
 	data := region.Data()
 	ptr := (*int64)(unsafe.Pointer(&(data[0])))

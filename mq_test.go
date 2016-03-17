@@ -3,11 +3,13 @@
 package ipc
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -107,6 +109,9 @@ func testMqSendInvalidType(t *testing.T, ctor mqCtor, dtor mqDtor) {
 func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	var message uint64 = 0xDEAFBEEFDEAFBEEF
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
 		return
@@ -121,12 +126,21 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 	go func() {
 		a.NoError(mq.Send(message))
 	}()
-	var received uint64
+	var received uint64 = 0x0102030405060708
+	ttt, _ := allocator.ObjectData(&received)
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	a.NoError(err)
 	err = mqr.Receive(&received)
 	a.NoError(err)
 	a.Equal(message, received)
+	fmt.Println(ttt)
+	runtime.SetFinalizer(&ttt, func(t interface{}) {
+		println("CCC")
+	})
+	runtime.SetFinalizer(&received, func(t interface{}) {
+		println("VVV")
+	})
+	//use(unsafe.Pointer(&ttt[0]))
 }
 
 func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
@@ -139,6 +153,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		f float64
 	}
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
@@ -163,6 +180,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 
 func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
 		return

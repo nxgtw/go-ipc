@@ -72,7 +72,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 		}
 	}()
 	if created {
-		if resultErr = obj.Truncate(int64(spinImplSize)); resultErr != nil {
+		if resultErr = obj.Truncate(spinImplSize); resultErr != nil {
 			return nil, resultErr
 		}
 	} else {
@@ -93,7 +93,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 	return impl, nil
 }
 
-// Finish indicates, that the object is no longer in use,
+// Close indicates, that the object is no longer in use,
 // and that the underlying resources can be freed
 func (spin *SpinMutex) Close() error {
 	return spin.region.Close()

@@ -160,6 +160,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout 
 	if len(objData) < curMaxMsgSize {
 		copy(objData, data[:msgSize])
 	}
+	//fmt.Println(data)
 	return prio, nil
 }
 
