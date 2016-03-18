@@ -149,7 +149,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout 
 	}
 	var prio int
 	msgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), data, &prio, timeoutToTimeSpec(timeout))
-	if maxMsgSize != 0 {
+	if maxMsgSize != 0 && msgSize != 0 {
 		if curMaxMsgSize != maxMsgSize {
 			mq.inputBuff = make([]byte, maxMsgSize)
 		}

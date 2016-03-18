@@ -106,8 +106,19 @@ func testMqSendInvalidType(t *testing.T, ctor mqCtor, dtor mqDtor) {
 }
 
 func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
-	var message uint64 = 0xDEAFBEEFDEAFBEEF
+	//var msg float64 // ok
+	//var message unsafe.Pointer = unsafe.Pointer(&msg) // ok
+	//var message uintptr // ok
+	var message complex64 // ok
+	//var message = int64(0) // ok
+	//var message = uint32(0) // ok
+	//var message = [8]byte{} // ok
+	//var message = make([]byte, 8) // ok
+	//var message uint64 = 0xDEAFBEEFDEAFBEEF // fail
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
 		return
@@ -119,15 +130,19 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 			a.NoError(mq.Close())
 		}
 	}()
-	go func() {
-		a.NoError(mq.Send(message))
-	}()
-	var received uint64 = 0x0102030405060708
+	if !a.NoError(mq.Send(message)) {
+		return
+	}
+	runtime.SetFinalizer(&message, func(i interface{}) {
+		println("fin")
+	})
+	var received complex64
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	a.NoError(err)
 	err = mqr.Receive(&received)
 	a.NoError(err)
 	a.Equal(message, received)
+	println(message, " ", received)
 }
 
 func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
@@ -140,6 +155,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		f float64
 	}
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
@@ -164,6 +182,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 
 func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	a := assert.New(t)
+	if dtor != nil {
+		a.NoError(dtor(testMqName))
+	}
 	mq, err := ctor(testMqName, 0666)
 	if !a.NoError(err) {
 		return

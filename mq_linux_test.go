@@ -14,7 +14,7 @@ import (
 )
 
 func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateLinuxMessageQueue(name, perm, 1, 8)
+	return CreateLinuxMessageQueue(name, perm, 1, DefaultLinuxMqMaxMessageSize)
 }
 
 func linuxMqOpener(name string, flags int) (Messenger, error) {

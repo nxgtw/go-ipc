@@ -3,9 +3,11 @@
 package ipc
 
 import (
-	"reflect"
+	"fmt"
 	"syscall"
 	"unsafe"
+
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 
 	"golang.org/x/sys/unix"
 )
@@ -84,7 +86,7 @@ func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 }
 
 func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
-	rawData := unsafe.Pointer(&data[0])
+	rawData := allocator.ByteSliceData(data)
 	timeoutPtr := unsafe.Pointer(timeout)
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
 		uintptr(id),
@@ -101,11 +103,21 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 	return nil
 }
 
+func dump(ptr unsafe.Pointer, off, size int) {
+	s := uintptr(ptr) + uintptr(off)
+	for i := 0; i < size; i++ {
+		l := s + uintptr(i)
+		bPtr := (*byte)(unsafe.Pointer(l))
+		fmt.Printf("%X", *bPtr)
+	}
+	fmt.Println()
+}
+
 func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (int, int, error) {
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&data))
-	rawData := unsafe.Pointer(sh.Data)
+	rawData := allocator.ByteSliceData(data)
 	timeoutPtr := unsafe.Pointer(timeout)
 	prioPtr := unsafe.Pointer(prio)
+	dump(rawData, -16, 32)
 	msgSize, maxMsgSize, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
 		uintptr(id),
 		uintptr(rawData),
@@ -113,6 +125,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (in
 		uintptr(prioPtr),
 		uintptr(timeoutPtr),
 		0)
+	dump(rawData, -16, 32)
 	use(rawData)
 	use(timeoutPtr)
 	use(prioPtr)
