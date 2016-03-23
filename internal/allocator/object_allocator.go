@@ -138,6 +138,16 @@ func ObjectData(object interface{}) ([]byte, error) {
 	return data, nil
 }
 
+// UseValue is an ugly hack used to ensure, that the value is alive at some point.
+// It allows to send messages in mq without encoding into []byte, ex:
+//	data, _ = allocator.ObjectData(&received)
+//	mqr.Receive(data)
+//	... work with data
+//	allocator.UseBytes(data)
+func UseValue(value interface{}) {
+	use(ObjectAddress(reflect.ValueOf(value)))
+}
+
 // IsReferenceType returns true, is the object is a pointer or a slice
 func IsReferenceType(object interface{}) bool {
 	value := reflect.ValueOf(object)

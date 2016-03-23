@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -82,39 +83,8 @@ func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	a.Error(err)
 }
 
-func testMqSendInvalidType(t *testing.T, ctor mqCtor, dtor mqDtor) {
-	a := assert.New(t)
-	if dtor != nil {
-		a.NoError(dtor(testMqName))
-	}
-	mq, err := ctor(testMqName, 0666)
-	if !a.NoError(err) {
-		return
-	}
-	defer func() {
-		if dtor != nil {
-			a.NoError(dtor(testMqName))
-		} else {
-			a.NoError(mq.Close())
-		}
-	}()
-	assert.Error(t, mq.Send("string"))
-	structWithString := struct{ a string }{"string"}
-	assert.Error(t, mq.Send(structWithString))
-	var slslByte [][]byte
-	assert.Error(t, mq.Send(slslByte))
-}
-
 func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
-	//var msg float64 // ok
-	//var message unsafe.Pointer = unsafe.Pointer(&msg) // ok
-	//var message uintptr // ok
-	var message complex64 // ok
-	//var message = int64(0) // ok
-	//var message = uint32(0) // ok
-	//var message = [8]byte{} // ok
-	//var message = make([]byte, 8) // ok
-	//var message uint64 = 0xDEAFBEEFDEAFBEEF // fail
+	var message = uint64(0xDEADBEEFDEADBEEF)
 	a := assert.New(t)
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
@@ -130,19 +100,20 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 			a.NoError(mq.Close())
 		}
 	}()
-	if !a.NoError(mq.Send(message)) {
+	data, _ := allocator.ObjectData(&message)
+	if !a.NoError(mq.Send(data)) {
 		return
 	}
-	runtime.SetFinalizer(&message, func(i interface{}) {
-		println("fin")
-	})
-	var received complex64
+	var received uint64
 	mqr, err := opener(testMqName, O_READ_ONLY)
-	a.NoError(err)
-	err = mqr.Receive(&received)
+	if !a.NoError(err) {
+		return
+	}
+	data, _ = allocator.ObjectData(&received)
+	err = mqr.Receive(data)
 	a.NoError(err)
 	a.Equal(message, received)
-	println(message, " ", received)
+	allocator.UseValue(data)
 }
 
 func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
@@ -164,9 +135,10 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		return
 	}
 	go func() {
-		a.NoError(mq.Send(message))
+		data, _ := allocator.ObjectData(message)
+		a.NoError(mq.Send(data))
 	}()
-	received := &testStruct{}
+	received := testStruct{}
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	if !a.NoError(err) {
 		return
@@ -175,8 +147,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(mqr.Close())
 		a.NoError(dtor(testMqName))
 	}()
-	a.NoError(mqr.Receive(received))
-	a.Equal(message, *received)
+	data, _ := allocator.ObjectData(&received)
+	a.NoError(mqr.Receive(data))
+	a.Equal(message, received)
 	a.NoError(mq.Close())
 }
 
@@ -189,14 +162,14 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	if !a.NoError(err) {
 		return
 	}
-	message := make([]int, 512)
+	message := make([]byte, 512)
 	for i := range message {
-		message[i] = i
+		message[i] = byte(i)
 	}
 	go func() {
 		a.NoError(mq.Send(message))
 	}()
-	received := make([]int, 1024)
+	received := make([]byte, 1024)
 	mqr, err := opener(testMqName, O_READ_ONLY)
 	if !a.NoError(err) {
 		return
@@ -207,7 +180,7 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	}()
 	a.NoError(mqr.Receive(received))
 	a.Equal(message, received[:512])
-	a.Equal(received[512:], make([]int, 512))
+	a.Equal(received[512:], make([]byte, 512))
 	a.NoError(mq.Close())
 }
 
@@ -227,8 +200,9 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
+			data := make([]byte, 8)
 			for i := 0; i < 100; i++ {
-				a.NoError(mq.Send(0x12345678))
+				a.NoError(mq.Send(data))
 			}
 			endChan <- true
 		}()
@@ -255,6 +229,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.NoError(dtor(testMqName))
 	}()
 	if tmq, ok := mq.(TimedMessenger); ok {
+		data := make([]byte, 8)
 		tm := time.Millisecond * 200
 		if buf, ok := mq.(Buffered); ok {
 			cap, err := buf.Cap()
@@ -262,13 +237,13 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 				return
 			}
 			for i := 0; i < cap; i++ {
-				if !a.NoError(mq.Send(0)) {
+				if !a.NoError(mq.Send(data)) {
 					return
 				}
 			}
 		}
 		now := time.Now()
-		err := tmq.SendTimeout(0, tm)
+		err := tmq.SendTimeout(data, tm)
 		a.Error(err)
 		if sysErr, ok := err.(syscall.Errno); ok {
 			a.True(sysErr.Temporary())
@@ -294,10 +269,10 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.NoError(dtor(testMqName))
 	}()
 	if tmq, ok := mq.(TimedMessenger); ok {
-		var received int
+		received := make([]byte, 8)
 		tm := time.Millisecond * 200
 		now := time.Now()
-		err := tmq.ReceiveTimeout(&received, tm)
+		err := tmq.ReceiveTimeout(received, tm)
 		a.Error(err)
 		if sysErr, ok := err.(syscall.Errno); ok {
 			a.True(sysErr.Temporary())
@@ -326,9 +301,9 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
-			var data int
+			data := make([]byte, 8)
 			for i := 0; i < 32; i++ {
-				a.Error(mq.Receive(&data))
+				a.Error(mq.Receive(data))
 			}
 			endChan <- true
 		}()

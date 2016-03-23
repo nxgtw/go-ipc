@@ -6,10 +6,7 @@ package ipc
 
 import (
 	"errors"
-	"fmt"
 	"os"
-
-	"bitbucket.org/avd/go-ipc/internal/allocator"
 
 	"golang.org/x/sys/unix"
 )
@@ -25,6 +22,7 @@ const (
 	cIpcInfo = 3 /* see ipcs */
 
 	cDefaultMessageType = 1
+	cSysVAnyMessage     = 0
 )
 
 // SystemVMessageQueue is a System V ipc mechanism based on message passing
@@ -78,26 +76,14 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 
 // Send sends a message.
 // It blocks if the queue is full.
-func (mq *SystemVMessageQueue) Send(object interface{}) error {
-	data, err := allocator.ObjectData(object)
-	if err != nil {
-		return err
-	}
+func (mq *SystemVMessageQueue) Send(data []byte) error {
 	return msgsnd(mq.id, cDefaultMessageType, data, mq.flags)
 }
 
 // Receive receives a message.
 // It blocks if the queue is empty.
-func (mq *SystemVMessageQueue) Receive(object interface{}) error {
-	if !allocator.IsReferenceType(object) {
-		return fmt.Errorf("expected a slice, or a pointer")
-	}
-	data, err := allocator.ObjectData(object)
-	if err != nil {
-		return err
-	}
-	// 0 - receive any messages
-	return msgrcv(mq.id, data, 0, mq.flags)
+func (mq *SystemVMessageQueue) Receive(data []byte) error {
+	return msgrcv(mq.id, data, cSysVAnyMessage, mq.flags)
 }
 
 // Destroy closes the queue and removes it permanently

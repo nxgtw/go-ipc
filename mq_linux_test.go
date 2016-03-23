@@ -41,10 +41,6 @@ func TestOpenLinuxMq(t *testing.T) {
 	testOpenMq(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestLinuxMqSendInvalidType(t *testing.T) {
-	testMqSendInvalidType(t, linuxMqCtor, linuxMqDtor)
-}
-
 func TestLinuxMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
@@ -88,7 +84,7 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 		return
 	}
 	defer mq.Destroy()
-	assert.NoError(t, mq.SendPriority(0, 0))
+	assert.NoError(t, mq.Send(make([]byte, 1)))
 	attrs, err := mq.GetAttrs()
 	assert.NoError(t, err)
 	assert.Equal(t, 5, attrs.Maxmsg)
@@ -108,7 +104,7 @@ func TestLinuxMqNotify(t *testing.T) {
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
 	go func() {
-		mq.SendPriority(0, 0)
+		mq.Send(make([]byte, 1))
 	}()
 	assert.Equal(t, mq.ID(), <-ch)
 }
