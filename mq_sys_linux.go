@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -28,8 +30,10 @@ func initMqNotifications(ch chan<- int) (int, error) {
 		for {
 			n, _, err := syscall.Recvfrom(notifySocketFd, data[:], syscall.MSG_NOSIGNAL|syscall.MSG_WAITALL)
 			if n == cNOTIFY_COOKIE_LEN && err == nil {
-				ndata := (*notify_data)(unsafe.Pointer(&data[0]))
+				p := unsafe.Pointer(&data[0])
+				ndata := (*notify_data)(p)
 				ch <- ndata.mq_id
+				use(p)
 			} else {
 				return
 			}
@@ -81,7 +85,7 @@ func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 }
 
 func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
-	rawData := unsafe.Pointer(&data[0])
+	rawData := allocator.ByteSliceData(data)
 	timeoutPtr := unsafe.Pointer(timeout)
 	_, _, err := syscall.Syscall6(unix.SYS_MQ_TIMEDSEND,
 		uintptr(id),
@@ -89,7 +93,7 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 		uintptr(len(data)),
 		uintptr(prio),
 		uintptr(timeoutPtr),
-		uintptr(0))
+		0)
 	use(rawData)
 	use(timeoutPtr)
 	if err != syscall.Errno(0) {
@@ -99,7 +103,7 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 }
 
 func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (int, int, error) {
-	rawData := unsafe.Pointer(&data[0])
+	rawData := allocator.ByteSliceData(data)
 	timeoutPtr := unsafe.Pointer(timeout)
 	prioPtr := unsafe.Pointer(prio)
 	msgSize, maxMsgSize, err := syscall.Syscall6(unix.SYS_MQ_TIMEDRECEIVE,
@@ -108,7 +112,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (in
 		uintptr(len(data)),
 		uintptr(prioPtr),
 		uintptr(timeoutPtr),
-		uintptr(0))
+		0)
 	use(rawData)
 	use(timeoutPtr)
 	use(prioPtr)

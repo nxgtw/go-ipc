@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -33,7 +35,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	message := make([]byte, messageLen)
 	*(*int)(unsafe.Pointer(&message[0])) = typ
 	copy(message[typeDataSize:], data)
-	rawData := unsafe.Pointer(&message[0])
+	rawData := allocator.ByteSliceData(message)
 	_, _, err := syscall.Syscall6(unix.SYS_MSGSND,
 		uintptr(id),
 		uintptr(rawData),
@@ -51,7 +53,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 func msgrcv(id int, data []byte, typ int, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
-	rawData := unsafe.Pointer(&message[0])
+	rawData := allocator.ByteSliceData(message)
 	_, _, err := syscall.Syscall6(unix.SYS_MSGRCV,
 		uintptr(id),
 		uintptr(rawData),

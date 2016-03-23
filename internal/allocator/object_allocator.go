@@ -35,6 +35,12 @@ func ObjectAddress(object reflect.Value) unsafe.Pointer {
 	return addr
 }
 
+// ByteSliceData returns a pointer to the data of the given byte slice
+func ByteSliceData(slice []byte) unsafe.Pointer {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	return unsafe.Pointer(header.Data)
+}
+
 // ObjectSize returns the size of the object.
 // If an object is a slice, it returns the size of the entire slice
 // If an object is a pointer, it dereferences the pointer and
@@ -125,8 +131,21 @@ func ObjectData(object interface{}) ([]byte, error) {
 	var data []byte
 	objSize := ObjectSize(value)
 	addr := ObjectAddress(value)
+	if uintptr(addr) == 0 {
+		return nil, fmt.Errorf("nil object")
+	}
 	data = ByteSliceFromUnsafePointer(addr, objSize, objSize)
 	return data, nil
+}
+
+// UseValue is an ugly hack used to ensure, that the value is alive at some point.
+// It allows to send messages in mq without encoding into []byte, ex:
+//	data, _ = allocator.ObjectData(&received)
+//	mqr.Receive(data)
+//	... work with data
+//	allocator.UseBytes(data)
+func UseValue(value interface{}) {
+	use(ObjectAddress(reflect.ValueOf(value)))
 }
 
 // IsReferenceType returns true, is the object is a pointer or a slice

@@ -41,10 +41,6 @@ func TestOpenLinuxMq(t *testing.T) {
 	testOpenMq(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
 
-func TestLinuxMqSendInvalidType(t *testing.T) {
-	testMqSendInvalidType(t, linuxMqCtor, linuxMqDtor)
-}
-
 func TestLinuxMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, linuxMqCtor, linuxMqOpener, linuxMqDtor)
 }
@@ -69,13 +65,26 @@ func TestLinuxMqReceiveFromAnotherProcess(t *testing.T) {
 	testMqReceiveFromAnotherProcess(t, linuxMqCtor, linuxMqDtor, "linux")
 }
 
+func TestLinuxMqSendTimeout(t *testing.T) {
+	testMqSendTimeout(t, linuxMqCtor, linuxMqDtor)
+}
+
+func TestLinuxMqReceiveTimeout(t *testing.T) {
+	testMqReceiveTimeout(t, linuxMqCtor, linuxMqDtor)
+}
+
 // linux-mq-specific tests
 
 func TestLinuxMqGetAttrs(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
-	assert.NoError(t, mq.SendPriority(0, 0))
+	assert.NoError(t, mq.Send(make([]byte, 1)))
 	attrs, err := mq.GetAttrs()
 	assert.NoError(t, err)
 	assert.Equal(t, 5, attrs.Maxmsg)
@@ -84,20 +93,30 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 }
 
 func TestLinuxMqNotify(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
 	go func() {
-		mq.SendPriority(0, 0)
+		mq.Send(make([]byte, 1))
 	}()
 	assert.Equal(t, mq.ID(), <-ch)
 }
 
 func TestLinuxMqNotifyTwice(t *testing.T) {
+	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+		return
+	}
 	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	defer mq.Destroy()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))

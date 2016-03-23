@@ -10,8 +10,6 @@ import (
 	"time"
 	"unsafe"
 
-	"bitbucket.org/avd/go-ipc/internal/allocator"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -92,34 +90,30 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 
 // SendTimeoutPriority sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) SendTimeoutPriority(object interface{}, prio int, timeout time.Duration) error {
-	data, err := allocator.ObjectData(object)
-	if err != nil {
-		return err
-	}
+func (mq *LinuxMessageQueue) SendTimeoutPriority(data []byte, prio int, timeout time.Duration) error {
 	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
 }
 
 // SendPriority sends a message with a given priority.
 // It blocks if the queue is full.
-func (mq *LinuxMessageQueue) SendPriority(object interface{}, prio int) error {
-	return mq.SendTimeoutPriority(object, prio, time.Duration(-1))
+func (mq *LinuxMessageQueue) SendPriority(data []byte, prio int) error {
+	return mq.SendTimeoutPriority(data, prio, time.Duration(-1))
 }
 
 // SendTimeout sends a message with a default (0) priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) SendTimeout(object interface{}, timeout time.Duration) error {
-	return mq.SendTimeoutPriority(object, 0, timeout)
+func (mq *LinuxMessageQueue) SendTimeout(data []byte, timeout time.Duration) error {
+	return mq.SendTimeoutPriority(data, 0, timeout)
 }
 
 // Send sends a message with a default (0) priority.
 // It blocks if the queue is full.
-func (mq *LinuxMessageQueue) Send(object interface{}) error {
+func (mq *LinuxMessageQueue) Send(data []byte) error {
 	timeout := time.Duration(-1)
 	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	err := mq.SendTimeoutPriority(object, 0, timeout)
+	err := mq.SendTimeoutPriority(data, 0, timeout)
 	if mq.flags&O_NONBLOCK != 0 && err != nil {
 		if sysErr, ok := err.(syscall.Errno); ok {
 			if sysErr.Temporary() {
@@ -132,24 +126,17 @@ func (mq *LinuxMessageQueue) Send(object interface{}) error {
 
 // ReceiveTimeoutPriority receives a message, returning its priority.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout time.Duration) (int, error) {
-	if !allocator.IsReferenceType(object) {
-		return 0, fmt.Errorf("expected a slice, or a pointer")
-	}
-	objData, err := allocator.ObjectData(object)
-	if err != nil {
-		return 0, err
-	}
-	var data []byte
+func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Duration) (int, error) {
+	var dataToReceive []byte
 	curMaxMsgSize := len(mq.inputBuff)
-	if len(objData) < curMaxMsgSize {
-		data = mq.inputBuff
+	if len(data) < curMaxMsgSize {
+		dataToReceive = mq.inputBuff
 	} else {
-		data = objData
+		dataToReceive = data
 	}
 	var prio int
-	msgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), data, &prio, timeoutToTimeSpec(timeout))
-	if maxMsgSize != 0 {
+	actualMsgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), dataToReceive, &prio, timeoutToTimeSpec(timeout))
+	if maxMsgSize != 0 && actualMsgSize != 0 {
 		if curMaxMsgSize != maxMsgSize {
 			mq.inputBuff = make([]byte, maxMsgSize)
 		}
@@ -157,8 +144,11 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout 
 	if err != nil {
 		return 0, err
 	}
-	if len(objData) < curMaxMsgSize {
-		copy(objData, data[:msgSize])
+	if len(data) < curMaxMsgSize {
+		if len(data) < actualMsgSize {
+			return 0, fmt.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
+		}
+		copy(data, dataToReceive[:actualMsgSize])
 	}
 	//fmt.Println(data)
 	return prio, nil
@@ -166,37 +156,39 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(object interface{}, timeout 
 
 // ReceivePriority receives a message, returning its priority.
 // It blocks if the queue is empty.
-func (mq *LinuxMessageQueue) ReceivePriority(object interface{}) (int, error) {
-	return mq.ReceiveTimeoutPriority(object, time.Duration(-1))
+func (mq *LinuxMessageQueue) ReceivePriority(data []byte) (int, error) {
+	return mq.ReceiveTimeoutPriority(data, time.Duration(-1))
 }
 
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) ReceiveTimeout(object interface{}, timeout time.Duration) error {
-	_, err := mq.ReceiveTimeoutPriority(object, timeout)
+func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) error {
+	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
 	return err
 }
 
 // Receive receives a message.
 // It blocks if the queue is empty.
-func (mq *LinuxMessageQueue) Receive(object interface{}) error {
+func (mq *LinuxMessageQueue) Receive(data []byte) error {
 	timeout := time.Duration(-1)
 	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	_, err := mq.ReceiveTimeoutPriority(object, timeout)
+	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
 	return err
 }
 
-// ID return unique id of the queue.
+// ID returns unique id of the queue.
 func (mq *LinuxMessageQueue) ID() int {
 	return mq.id
 }
 
 // Close closes the queue.
 func (mq *LinuxMessageQueue) Close() error {
-	if mq.notifySocketFd != -1 {
-		mq.NotifyCancel()
+	if mq.notifySocketFd >= 0 {
+		if err := mq.NotifyCancel(); err != nil {
+			return err
+		}
 	}
 	err := unix.Close(mq.ID())
 	*mq = LinuxMessageQueue{notifySocketFd: -1}
@@ -210,6 +202,14 @@ func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
 		return nil, err
 	}
 	return attrs, nil
+}
+
+func (mq *LinuxMessageQueue) Cap() (int, error) {
+	attrs, err := mq.GetAttrs()
+	if err != nil {
+		return 0, err
+	}
+	return attrs.Maxmsg, nil
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.
@@ -226,7 +226,9 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 // Destroy closes the queue and removes it permanently
 func (mq *LinuxMessageQueue) Destroy() error {
 	name := mq.name
-	mq.Close()
+	if err := mq.Close(); err != nil {
+		return err
+	}
 	return DestroyLinuxMessageQueue(name)
 }
 
@@ -236,6 +238,9 @@ func (mq *LinuxMessageQueue) Destroy() error {
 func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
+	}
+	if mq.notifySocketFd >= 0 {
+		return fmt.Errorf("notify has already been called")
 	}
 	notifySocketFd, err := initMqNotifications(ch)
 	if err != nil {
@@ -261,9 +266,8 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err := mq_notify(mq.ID(), nil); err == nil {
-		syscall.Close(mq.notifySocketFd)
+		err = syscall.Close(mq.notifySocketFd)
 		mq.notifySocketFd = -1
-		return nil
 	}
 	return err
 }
@@ -311,10 +315,9 @@ func mqFlagsToOsFlags(flags int) (int, error) {
 }
 
 func timeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
-	var ts *unix.Timespec
-	if int64(timeout) >= 0 {
-		sec, nsec := splitUnixTime(time.Now().Add(timeout).UnixNano())
-		ts = &unix.Timespec{Sec: sec, Nsec: nsec}
+	if timeout >= 0 {
+		ts := unix.NsecToTimespec(time.Now().Add(timeout).UnixNano())
+		return &ts
 	}
-	return ts
+	return nil
 }

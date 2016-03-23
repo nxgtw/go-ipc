@@ -37,10 +37,6 @@ func TestOpenSysVMq(t *testing.T) {
 	testOpenMq(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
 }
 
-func TestSysVMqSendInvalidType(t *testing.T) {
-	testMqSendInvalidType(t, sysVMqCtor, sysVMqDtor)
-}
-
 func TestSysVMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, sysVMqCtor, sysVMqOpener, sysVMqDtor)
 }

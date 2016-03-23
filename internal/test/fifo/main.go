@@ -70,7 +70,7 @@ func read() error {
 	if n, err = fifo.Read(buffer); err == nil {
 		if n == length {
 			if length > 0 {
-				fmt.Println(ipc_test.BytesToString(buffer))
+				fmt.Println(ipc_testing.BytesToString(buffer))
 			}
 		} else {
 			err = fmt.Errorf("wanted %d bytes, but got %d", length, n)
@@ -92,7 +92,7 @@ func test() error {
 		return err
 	}
 	defer fifo.Close()
-	data, err := ipc_test.StringToBytes(flag.Arg(1))
+	data, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func write() error {
 		return err
 	}
 	defer fifo.Close()
-	data, err := ipc_test.StringToBytes(flag.Arg(1))
+	data, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}

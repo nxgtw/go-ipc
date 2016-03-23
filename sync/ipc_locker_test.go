@@ -246,7 +246,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 
 func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
 	const (
-		iterations = 500
+		iterations = 50000
 		jobs       = 4
 		remoteJobs = 4
 		remoteIncs = int64(iterations * remoteJobs)

@@ -18,6 +18,11 @@ type Blocker interface {
 	SetBlocking(bool) error
 }
 
+// Buffered is an interface for objects with a capacity for storing other objects
+type Buffered interface {
+	Cap() (int, error)
+}
+
 func accessModeToOsMode(mode int) (osMode int, err error) {
 	if mode&O_READ_ONLY != 0 {
 		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {

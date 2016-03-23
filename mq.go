@@ -13,16 +13,16 @@ import (
 // Messenger is an interface which must be satisfied by any
 // message queue implementation on any platform.
 type Messenger interface {
-	Send(object interface{}) error
-	Receive(object interface{}) error
+	Send(data []byte) error
+	Receive(data []byte) error
 	io.Closer
 }
 
 // TimedMessenger is a Messenger, which supports send/receive timeouts.
 type TimedMessenger interface {
 	Messenger
-	SendTimeout(object interface{}, timeout time.Duration) error
-	ReceiveTimeout(object interface{}, timeout time.Duration) error
+	SendTimeout(data []byte, timeout time.Duration) error
+	ReceiveTimeout(data []byte, timeout time.Duration) error
 }
 
 func checkMqPerm(perm os.FileMode) bool {
