@@ -28,10 +28,10 @@ var (
 
 // LinuxMessageQueue is a linux-specific ipc mechanism based on message passing
 type LinuxMessageQueue struct {
-	id             int
-	name           string
-	notifySocketFd int
-	flags          int
+	id           int
+	name         string
+	cancelSocket int
+	flags        int
 	// The following field are needed if the size of the object to where we want
 	// to receive a message is less, then the maximum message size of the queue.
 	// In this case we use inputBuff to receive a message, and if the real size
@@ -60,10 +60,10 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 		return nil, err
 	}
 	return &LinuxMessageQueue{
-		id:             id,
-		name:           name,
-		notifySocketFd: -1,
-		inputBuff:      make([]byte, maxMsgSize),
+		id:           id,
+		name:         name,
+		cancelSocket: -1,
+		inputBuff:    make([]byte, maxMsgSize),
 	}, nil
 }
 
@@ -78,7 +78,7 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	}
-	result := &LinuxMessageQueue{id: id, name: name, notifySocketFd: -1, flags: flags}
+	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
 	if attrs, err := result.GetAttrs(); err != nil {
 		result.Close()
 		return nil, err
@@ -185,13 +185,13 @@ func (mq *LinuxMessageQueue) ID() int {
 
 // Close closes the queue.
 func (mq *LinuxMessageQueue) Close() error {
-	if mq.notifySocketFd >= 0 {
+	if mq.cancelSocket >= 0 {
 		if err := mq.NotifyCancel(); err != nil {
 			return err
 		}
 	}
 	err := unix.Close(mq.ID())
-	*mq = LinuxMessageQueue{notifySocketFd: -1}
+	*mq = LinuxMessageQueue{cancelSocket: -1}
 	return err
 }
 
@@ -239,10 +239,10 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
 		return fmt.Errorf("cannot notify on a nil-chan")
 	}
-	if mq.notifySocketFd >= 0 {
+	if mq.cancelSocket >= 0 {
 		return fmt.Errorf("notify has already been called")
 	}
-	notifySocketFd, err := initMqNotifications(ch)
+	notifySocket, cancelSocket, err := initLinuxMqNotifications(ch)
 	if err != nil {
 		return fmt.Errorf("unable to init notifications subsystem")
 	}
@@ -251,13 +251,13 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	defer use(pndata)
 	ev := &sigevent{
 		sigev_notify: cSIGEV_THREAD,
-		sigev_signo:  int32(notifySocketFd),
+		sigev_signo:  int32(notifySocket),
 		sigev_value:  sigval{sigval_ptr: uintptr(pndata)},
 	}
 	if err = mq_notify(mq.ID(), ev); err != nil {
-		syscall.Close(notifySocketFd)
+		cancelLinuxMqNotifications(mq.cancelSocket)
 	} else {
-		mq.notifySocketFd = notifySocketFd
+		mq.cancelSocket = cancelSocket
 	}
 	return err
 }
@@ -266,8 +266,8 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err := mq_notify(mq.ID(), nil); err == nil {
-		err = syscall.Close(mq.notifySocketFd)
-		mq.notifySocketFd = -1
+		cancelLinuxMqNotifications(mq.cancelSocket)
+		mq.cancelSocket = -1
 	}
 	return err
 }

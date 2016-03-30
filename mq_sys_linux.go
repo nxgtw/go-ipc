@@ -3,6 +3,8 @@
 package ipc
 
 import (
+	"fmt"
+	"os"
 	"syscall"
 	"unsafe"
 
@@ -18,28 +20,95 @@ const (
 	cNOTIFY_COOKIE_LEN = 32
 )
 
-func initMqNotifications(ch chan<- int) (int, error) {
-	notifySocketFd, err := syscall.Socket(syscall.AF_NETLINK,
+func initLinuxMqNotifications(ch chan<- int) (notifySocket int, cancelSocket int, err error) {
+	notifySocket, cancelSocket = -1, -1
+	defer func() {
+		if err != nil {
+			if notifySocket >= 0 {
+				syscall.Close(notifySocket)
+			}
+			if cancelSocket >= 0 {
+				syscall.Close(cancelSocket)
+			}
+			notifySocket, cancelSocket = -1, -1
+		}
+	}()
+	notifySocket, err = syscall.Socket(syscall.AF_NETLINK,
 		syscall.SOCK_RAW|syscall.SOCK_CLOEXEC,
 		syscall.NETLINK_ROUTE)
 	if err != nil {
-		return -1, err
+		return
 	}
-	go func() {
-		var data [cNOTIFY_COOKIE_LEN]byte
-		for {
-			n, _, err := syscall.Recvfrom(notifySocketFd, data[:], syscall.MSG_NOSIGNAL|syscall.MSG_WAITALL)
+	if cancelSocket, err = syscall.Socket(syscall.AF_UNIX, unix.SOCK_STREAM, 0); err != nil {
+		return
+	}
+	sockName := linuxMqNotifySocketAddr(cancelSocket)
+	syscall.Unlink(sockName)
+	if err = syscall.Bind(cancelSocket, &syscall.SockaddrUnix{Name: sockName}); err != nil {
+		return
+	}
+	if err = syscall.Listen(cancelSocket, 1); err == nil {
+		go listenLinuxMqNotifications(ch, notifySocket, cancelSocket)
+	}
+	return
+}
+
+func listenLinuxMqNotifications(ch chan<- int, notifySocket int, cancelSocket int) {
+	var data [cNOTIFY_COOKIE_LEN]byte
+	r := &syscall.FdSet{}
+	defer func() {
+		syscall.Close(notifySocket)
+		syscall.Close(cancelSocket)
+	}()
+	for {
+		fdZero(r)
+		fdSet(r, notifySocket)
+		fdSet(r, cancelSocket)
+		n, err := syscall.Select(cancelSocket+1, r, nil, nil, nil)
+		if err != nil {
+			return
+		}
+		if fdIsSet(r, cancelSocket) {
+			return
+		} else if fdIsSet(r, notifySocket) {
+			n, _, err = syscall.Recvfrom(notifySocket, data[:], syscall.MSG_NOSIGNAL|syscall.MSG_WAITALL)
 			if n == cNOTIFY_COOKIE_LEN && err == nil {
-				p := unsafe.Pointer(&data[0])
-				ndata := (*notify_data)(p)
+				ndata := (*notify_data)(allocator.ByteSliceData(data[:]))
 				ch <- ndata.mq_id
-				use(p)
-			} else {
-				return
 			}
 		}
-	}()
-	return notifySocketFd, nil
+	}
+}
+
+func cancelLinuxMqNotifications(cancelSocket int) error {
+	socket, err := syscall.Socket(syscall.AF_UNIX, unix.SOCK_STREAM, 0)
+	if err != nil {
+		return err
+	}
+	addr := &syscall.SockaddrUnix{Name: linuxMqNotifySocketAddr(cancelSocket)}
+	err = syscall.Connect(socket, addr)
+	syscall.Close(socket)
+	return err
+}
+
+func linuxMqNotifySocketAddr(cancelSocket int) string {
+	return fmt.Sprintf("/tmp/%d.%d.socket", os.Getpid(), cancelSocket)
+}
+
+// https://github.com/mindreframer/golang-stuff/blob/master/github.com/pebbe/zmq2/examples/udpping1.go
+
+func fdSet(p *syscall.FdSet, i int) {
+	p.Bits[i/64] |= 1 << (uint(i) % 64)
+}
+
+func fdIsSet(p *syscall.FdSet, i int) bool {
+	return (p.Bits[i/64] & (1 << (uint(i) % 64))) != 0
+}
+
+func fdZero(p *syscall.FdSet) {
+	for i := range p.Bits {
+		p.Bits[i] = 0
+	}
 }
 
 // syscalls

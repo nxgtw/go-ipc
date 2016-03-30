@@ -6,6 +6,7 @@ package ipc
 
 import (
 	"os"
+	//	"runtime"
 	"testing"
 	"time"
 
@@ -92,7 +93,7 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 	assert.Equal(t, 1, attrs.Curmsgs)
 }
 
-func TestLinuxMqNotify(t *testing.T) {
+func TestLinuxMqNotifyOnce(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
@@ -100,7 +101,9 @@ func TestLinuxMqNotify(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer mq.Destroy()
+	defer func() {
+		assert.NoError(t, mq.Destroy())
+	}()
 	ch := make(chan int)
 	assert.NoError(t, mq.Notify(ch))
 	go func() {

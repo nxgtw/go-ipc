@@ -71,7 +71,7 @@ func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 		a.NoError(dtor(testMqName))
 	}
 	mq, err := ctor(testMqName, 0666)
-	if !a.NoError(err) {
+	if !a.NoError(err) || !a.NotNil(mq) {
 		return
 	}
 	if dtor != nil {
