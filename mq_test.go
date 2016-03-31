@@ -370,12 +370,3 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 	a.NoError(err)
 	a.Equal(data, received)
 }
-
-func TestMqXXX(t *testing.T) {
-	for i := 0; i < 15; i++ {
-		a := make([]byte, 1024*1024)
-		_ = a
-		runtime.GC()
-		time.Sleep(time.Millisecond * 50)
-	}
-}
