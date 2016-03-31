@@ -8,7 +8,6 @@ package mq
 import (
 	"os"
 	"syscall"
-	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 
@@ -27,7 +26,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	*(*int)(unsafe.Pointer(rawData)) = typ
+	*(*int)(rawData) = typ
 	copy(message[typeDataSize:], data)
 	_, _, err := syscall.Syscall6(unix.SYS_MSGSND,
 		uintptr(id),

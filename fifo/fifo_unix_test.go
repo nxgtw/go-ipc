@@ -88,11 +88,12 @@ func TestFifoBlockRead(t *testing.T) {
 	ch := ipc_test.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
 	success := ipc_test.WaitForFunc(func() {
-		fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY, 0666)
-		if !assert.NoError(t, err) {
+		fifo, err2 := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY, 0666)
+		if !assert.NoError(t, err2) {
 			return
 		}
-		_, err = fifo.Read(buff)
+		_, err2 = fifo.Read(buff)
+		assert.NoError(err2)
 	}, time.Second*2)
 	if !assert.True(t, success) || !assert.NoError(t, err) ||
 		!assert.Equal(t, testData, buff) {

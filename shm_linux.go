@@ -43,7 +43,7 @@ func checkShmPath(path string) bool {
 	if err := unix.Statfs(path, &statfs); err != nil {
 		return false
 	}
-	return isShmFs(int64(statfs.Type))
+	return isShmFs(statfs.Type)
 }
 
 func isShmFs(fsType int64) bool {

@@ -33,7 +33,7 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 	}
 	path := fifoPath(name)
 	if mode&(ipc.O_OPEN_OR_CREATE|ipc.O_CREATE_ONLY) != 0 {
-		err := unix.Mkfifo(path, uint32(perm))
+		err = unix.Mkfifo(path, uint32(perm))
 		if err != nil {
 			if mode&ipc.O_OPEN_OR_CREATE != 0 && os.IsExist(err) {
 				err = nil
@@ -65,7 +65,7 @@ func (f *fifoImpl) Close() error {
 	return f.file.Close()
 }
 
-// Destroy permanently removes the object, closing it at first.
+// Destroy permanently removes the FIFO, closing it first.
 func (f *fifoImpl) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
@@ -74,7 +74,7 @@ func (f *fifoImpl) Destroy() error {
 	return err
 }
 
-// Destroy permanently removes the object.
+// Destroy permanently removes the FIFO.
 func Destroy(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {

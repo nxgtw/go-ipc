@@ -43,6 +43,7 @@ func OpenMQ(name string, flags int) (Messenger, error) {
 	return openMQ(name, flags)
 }
 
+// DestroyMQ permanently removes mq object
 func DestroyMQ(name string) error {
 	return destroyMq(name)
 }

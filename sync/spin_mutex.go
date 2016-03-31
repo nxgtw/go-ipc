@@ -88,7 +88,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 			return nil, resultErr
 		}
 	}
-	m := (*spinMutexImpl)(unsafe.Pointer(&region.Data()[0]))
+	m := (*spinMutexImpl)(allocator.ByteSliceData(region.Data()))
 	impl := &SpinMutex{m, region, name}
 	return impl, nil
 }

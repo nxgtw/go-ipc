@@ -82,12 +82,12 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 		return nil, err
 	}
 	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
-	if attrs, err := result.GetAttrs(); err != nil {
+	attrs, err := result.GetAttrs()
+	if err != nil {
 		result.Close()
 		return nil, err
-	} else {
-		result.inputBuff = make([]byte, attrs.Msgsize)
 	}
+	result.inputBuff = make([]byte, attrs.Msgsize)
 	return result, nil
 }
 
@@ -207,6 +207,7 @@ func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
 	return attrs, nil
 }
 
+// Cap returns size of the mq buffer
 func (mq *LinuxMessageQueue) Cap() (int, error) {
 	attrs, err := mq.GetAttrs()
 	if err != nil {
@@ -268,7 +269,7 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 // NotifyCancel cancels notification subscribtion
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
-	if err := mq_notify(mq.ID(), nil); err == nil {
+	if err = mq_notify(mq.ID(), nil); err == nil {
 		cancelLinuxMqNotifications(mq.cancelSocket)
 		mq.cancelSocket = -1
 	}
