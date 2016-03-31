@@ -3,6 +3,8 @@
 package sync
 
 import (
+	"sync"
+	"fmt"
 	"os"
 
 	ipc "bitbucket.org/avd/go-ipc"
@@ -42,7 +44,12 @@ func (m *mutexImpl) Lock() {
 }
 
 func (m *mutexImpl) Unlock() {
-	releaseMutex(m.handle)
+	if err := releaseMutex(m.handle); err != nil {
+		fmt.Printf("%v", err)
+		var m sync.Mutex{}
+		m.Lock()
+		os.Exit(1)
+	}
 }
 
 func (m *mutexImpl) Close() error {

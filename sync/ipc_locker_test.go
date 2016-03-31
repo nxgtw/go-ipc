@@ -4,12 +4,13 @@ package sync
 
 import (
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
-	"unsafe"
 
 	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -166,11 +167,13 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	var wg sync.WaitGroup
 	sharedValue := 0
-	for i := 0; i < 30; i++ {
+	routines, iters := 16, 100000
+	old := runtime.GOMAXPROCS(routines)
+	for i := 0; i < routines; i++ {
 		wg.Add(1)
 		go func() {
 			lk.Lock()
-			for i := 0; i < 1000; i++ {
+			for i := 0; i < iters; i++ {
 				sharedValue++
 			}
 			lk.Unlock()
@@ -178,7 +181,8 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 		}()
 	}
 	wg.Wait()
-	a.Equal(30000, sharedValue)
+	runtime.GOMAXPROCS(old)
+	a.Equal(routines*iters, sharedValue)
 	return true
 }
 
@@ -212,11 +216,15 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	for i := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testLockerName, typ, 16, testMemObj, 64, data, "")
+	args := argsForSyncTestCommand(testLockerName, typ, 4, testMemObj, 1024, data, "")
 	var wg sync.WaitGroup
 	var flag int32 = 1
-	const jobs = 4
+	jobs := runtime.NumCPU() - 1
+	if jobs == 0 {
+		jobs = 1
+	}
 	wg.Add(jobs)
+	rr := 0
 	for i := 0; i < jobs; i++ {
 		go func() {
 			for atomic.LoadInt32(&flag) != 0 {
@@ -230,6 +238,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 				for i := range data {
 					data[i] = byte(i)
 				}
+				rr++
 				lk.Unlock()
 			}
 			wg.Done()
@@ -246,9 +255,8 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 
 func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
 	const (
-		iterations = 50000
-		jobs       = 4
-		remoteJobs = 4
+		iterations = 50
+		remoteJobs = 1
 		remoteIncs = int64(iterations * remoteJobs)
 	)
 	a := assert.New(t)
@@ -277,10 +285,14 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		a.NoError(ipc.DestroyMemoryObject(testMemObj))
 	}()
 	data := region.Data()
-	ptr := (*int64)(unsafe.Pointer(&(data[0])))
+	ptr := (*int64)(allocator.ByteSliceData(data))
 	args := argsForSyncInc64Command(testLockerName, typ, remoteJobs, testMemObj, iterations, "")
 	var wg sync.WaitGroup
 	flag := int32(1)
+	jobs := runtime.NumCPU()
+	if jobs == 0 {
+		jobs = 1
+	}
 	wg.Add(jobs)
 	resultChan := ipc_testing.RunTestAppAsync(args, nil)
 	localIncs := int64(0)
@@ -290,12 +302,16 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 				lk.Lock()
 				*ptr++
 				localIncs++
+				//time.Sleep(time.Millisecond)
+				//println(localIncs)
 				lk.Unlock()
 			}
 			wg.Done()
 		}()
 	}
+	println("before wait")
 	result := <-resultChan
+	println("after wait")
 	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
 	if !assert.NoError(t, result.Err) {

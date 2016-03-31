@@ -14,6 +14,7 @@ import (
 	"unsafe"
 
 	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
@@ -111,7 +112,7 @@ func inc64() error {
 		return err
 	}
 	data := region.Data()
-	ptr := (*int64)(unsafe.Pointer(&(data[0])))
+	ptr := (*int64)(allocator.ByteSliceData(data))
 	if err = performInc(ptr, locker, n); err == nil {
 		fmt.Println(*ptr)
 	}

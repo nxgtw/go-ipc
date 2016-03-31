@@ -1,6 +1,7 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
 package mq
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
 import (
 	"os"

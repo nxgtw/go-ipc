@@ -13,5 +13,11 @@ type fifoImpl struct {
 }
 
 func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
+	//	path := fifoPath(name)
 	return &fifoImpl{}, nil
+}
+
+func fifoPath(name string) string {
+	const template = `\\.\pipe\`
+	return template + name
 }

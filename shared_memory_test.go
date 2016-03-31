@@ -99,33 +99,38 @@ func TestCreateMemoryRegionExclusive(t *testing.T) {
 }
 
 func TestMemoryObjectSize(t *testing.T) {
+	a := assert.New(t)
 	pageSize := int64(os.Getpagesize())
-	if !assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
+	if !a.NoError(DestroyMemoryObject(defaultObjectName)) {
 		return
 	}
 	obj, err := NewMemoryObject(defaultObjectName, O_CREATE_ONLY|O_READWRITE, 0666)
-	if !assert.NoError(t, err) {
+	defer func() {
+		a.NoError(obj.Destroy())
+	}()
+	if !a.NoError(err) {
 		return
 	}
-	if !assert.NoError(t, obj.Truncate(pageSize-512)) {
+	if !a.NoError(obj.Truncate(pageSize - 512)) {
 		return
 	}
 	if runtime.GOOS == "darwin" {
-		assert.Equal(t, pageSize, obj.Size())
+		a.Equal(pageSize, obj.Size())
 	} else {
-		assert.Equal(t, pageSize-512, obj.Size())
-		if !assert.NoError(t, obj.Truncate(1000)) {
+		a.Equal(pageSize-512, obj.Size())
+		if !a.NoError(obj.Truncate(1000)) {
 			return
 		}
-		assert.Equal(t, int64(1000), obj.Size())
+		a.Equal(int64(1000), obj.Size())
 	}
 }
 
 func TestMemoryObjectName(t *testing.T) {
+	a := assert.New(t)
 	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
-	if assert.NoError(t, err) {
-		assert.Equal(t, defaultObjectName, obj.Name())
-		obj.Destroy()
+	if a.NoError(err) {
+		a.Equal(defaultObjectName, obj.Name())
+		a.NoError(obj.Destroy())
 	}
 }
 
@@ -134,7 +139,9 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer DestroyMemoryObject(defaultObjectName)
+	defer func() {
+		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
+	}()
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
@@ -142,7 +149,9 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer region.Close()
+	defer func() {
+		assert.NoError(t, region.Close())
+	}()
 	if !assert.NoError(t, object.Close()) {
 		return
 	}
