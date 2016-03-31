@@ -7,6 +7,7 @@ package mq
 import (
 	"errors"
 	"os"
+	"unsafe"
 
 	"bitbucket.org/avd/go-ipc"
 
@@ -25,6 +26,8 @@ const (
 
 	cDefaultMessageType = 1
 	cSysVAnyMessage     = 0
+
+	typeDataSize = int(unsafe.Sizeof(int(0)))
 )
 
 // SystemVMessageQueue is a System V ipc mechanism based on message passing
@@ -35,6 +38,10 @@ type SystemVMessageQueue struct {
 }
 
 type key uint64
+
+// msqidDs is not currently suppoerted and must not be used
+type msqidDs struct {
+}
 
 // this is to ensure, that system V implementation of ipc mq
 // satisfy the minimal queue interface

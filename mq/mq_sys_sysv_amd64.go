@@ -15,14 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	typeDataSize = int(unsafe.Sizeof(int(0)))
-)
-
-// msqidDs is not currently suppoerted and must not be used
-type msqidDs struct {
-}
-
 func msgget(k key, flags int) (int, error) {
 	id, _, err := syscall.Syscall(unix.SYS_MSGGET, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
@@ -34,9 +26,9 @@ func msgget(k key, flags int) (int, error) {
 func msgsnd(id int, typ int, data []byte, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
-	*(*int)(unsafe.Pointer(&message[0])) = typ
-	copy(message[typeDataSize:], data)
 	rawData := allocator.ByteSliceData(message)
+	*(*int)(unsafe.Pointer(rawData)) = typ
+	copy(message[typeDataSize:], data)
 	_, _, err := syscall.Syscall6(unix.SYS_MSGSND,
 		uintptr(id),
 		uintptr(rawData),
