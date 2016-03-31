@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -97,7 +99,7 @@ func mmapOffsetMultiple() int64 {
 func msync(data []byte, flags int) error {
 	dataPointer := unsafe.Pointer(&data[0])
 	_, _, err := unix.Syscall(unix.SYS_MSYNC, uintptr(dataPointer), uintptr(len(data)), uintptr(flags))
-	use(dataPointer)
+	allocator.Use(dataPointer)
 	if err != syscall.Errno(0) {
 		return err
 	}

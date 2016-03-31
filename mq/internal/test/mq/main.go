@@ -10,6 +10,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/mq"
 )
 
 var (
@@ -51,24 +52,24 @@ func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one argument")
 	}
-	mq, err := openMqWithType(*objName, ipc.O_READ_ONLY, *typ)
+	msqQueue, err := openMqWithType(*objName, ipc.O_READ_ONLY, *typ)
 	if err != nil {
 		return err
 	}
-	defer mq.Close()
+	defer msqQueue.Close()
 	expected, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
 	received := make([]byte, len(expected))
 	if *timeout >= 0 {
-		if tm, ok := mq.(ipc.TimedMessenger); ok {
+		if tm, ok := msqQueue.(mq.TimedMessenger); ok {
 			err = tm.ReceiveTimeout(received, time.Duration(*timeout)*time.Millisecond)
 		} else {
 			return fmt.Errorf("selected mq implementation does not support timeouts")
 		}
 	} else {
-		err = mq.Receive(received)
+		err = msqQueue.Receive(received)
 	}
 	if err != nil {
 		return err
@@ -85,23 +86,23 @@ func send() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("send: must provide exactly one argument")
 	}
-	mq, err := openMqWithType(*objName, ipc.O_WRITE_ONLY, *typ)
+	msgQueue, err := openMqWithType(*objName, ipc.O_WRITE_ONLY, *typ)
 	if err != nil {
 		return err
 	}
-	defer mq.Close()
+	defer msgQueue.Close()
 	toSend, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
 	if *timeout >= 0 {
-		if tm, ok := mq.(ipc.TimedMessenger); ok {
+		if tm, ok := msgQueue.(mq.TimedMessenger); ok {
 			err = tm.SendTimeout(toSend, time.Duration(*timeout)*time.Millisecond)
 		} else {
 			return fmt.Errorf("selected mq implementation does not support timeouts")
 		}
 	} else {
-		err = mq.Send(toSend)
+		err = msgQueue.Send(toSend)
 	}
 	return nil
 }

@@ -3,7 +3,7 @@
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 // +build amd64
 
-package ipc
+package mq
 
 import (
 	"os"
@@ -44,7 +44,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 		uintptr(flags),
 		0,
 		0)
-	use(rawData)
+	allocator.Use(rawData)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGSND", err)
 	}
@@ -62,7 +62,7 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 		uintptr(typ),
 		uintptr(flags),
 		0)
-	use(rawData)
+	allocator.Use(rawData)
 	copy(data, message[typeDataSize:])
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGRCV", err)

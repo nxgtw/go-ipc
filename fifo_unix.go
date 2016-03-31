@@ -20,7 +20,7 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 	if _, err := createModeToOsMode(mode); err != nil {
 		return nil, err
 	}
-	osMode, err := accessModeToOsMode(mode)
+	osMode, err := AccessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}

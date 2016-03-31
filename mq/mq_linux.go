@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mq
 
 import (
 	"errors"
@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 
 	"golang.org/x/sys/unix"
 )
@@ -110,11 +113,11 @@ func (mq *LinuxMessageQueue) SendTimeout(data []byte, timeout time.Duration) err
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) Send(data []byte) error {
 	timeout := time.Duration(-1)
-	if mq.flags&O_NONBLOCK != 0 {
+	if mq.flags&ipc.O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
 	err := mq.SendTimeoutPriority(data, 0, timeout)
-	if mq.flags&O_NONBLOCK != 0 && err != nil {
+	if mq.flags&ipc.O_NONBLOCK != 0 && err != nil {
 		if sysErr, ok := err.(syscall.Errno); ok {
 			if sysErr.Temporary() {
 				err = nil
@@ -171,7 +174,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) 
 // It blocks if the queue is empty.
 func (mq *LinuxMessageQueue) Receive(data []byte) error {
 	timeout := time.Duration(-1)
-	if mq.flags&O_NONBLOCK != 0 {
+	if mq.flags&ipc.O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
 	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
@@ -216,9 +219,9 @@ func (mq *LinuxMessageQueue) Cap() (int, error) {
 // This appliesa to the current instance only.
 func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 	if block {
-		mq.flags &= ^O_NONBLOCK
+		mq.flags &= ^ipc.O_NONBLOCK
 	} else {
-		mq.flags |= O_NONBLOCK
+		mq.flags |= ipc.O_NONBLOCK
 	}
 	return nil
 }
@@ -248,7 +251,7 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	}
 	ndata := &notify_data{mq_id: mq.ID()}
 	pndata := unsafe.Pointer(ndata)
-	defer use(pndata)
+	defer allocator.Use(pndata)
 	ev := &sigevent{
 		sigev_notify: cSIGEV_THREAD,
 		sigev_signo:  int32(notifySocket),
@@ -287,7 +290,7 @@ func DestroyLinuxMessageQueue(name string) error {
 // This will apply for all send/receive operations on any instance of the
 // linux mq with the given name.
 func SetLinuxMqBlocking(name string, block bool) error {
-	mq, err := OpenLinuxMessageQueue(name, O_READWRITE)
+	mq, err := OpenLinuxMessageQueue(name, ipc.O_READWRITE)
 	if err != nil {
 		return err
 	}
@@ -300,15 +303,15 @@ func SetLinuxMqBlocking(name string, block bool) error {
 
 func mqFlagsToOsFlags(flags int) (int, error) {
 	// by default, assume we're opening it for readwrite
-	if flags&(O_READWRITE|O_READ_ONLY|O_WRITE_ONLY) == 0 {
-		flags = O_READWRITE
+	if flags&(ipc.O_READWRITE|ipc.O_READ_ONLY|ipc.O_WRITE_ONLY) == 0 {
+		flags = ipc.O_READWRITE
 	}
-	sysflags, err := accessModeToOsMode(flags)
+	sysflags, err := ipc.AccessModeToOsMode(flags)
 	if err != nil {
 		return 0, err
 	}
 	sysflags |= unix.O_CLOEXEC
-	if flags&(O_OPEN_OR_CREATE|O_CREATE_ONLY) != 0 {
+	if flags&(ipc.O_OPEN_OR_CREATE|ipc.O_CREATE_ONLY) != 0 {
 		return 0, fmt.Errorf("to create message queue, use CreateMessageQueue func")
 	}
 	return sysflags, nil

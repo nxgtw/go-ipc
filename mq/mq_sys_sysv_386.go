@@ -3,4 +3,4 @@
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 // +build 386
 
-package ipc
+package mq

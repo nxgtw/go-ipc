@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mq
 
 import (
 	"fmt"
@@ -145,8 +145,8 @@ func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
 		uintptr(attrsP),
 		0,
 		0)
-	use(bytes)
-	use(attrsP)
+	allocator.Use(bytes)
+	allocator.Use(attrsP)
 	if err != syscall.Errno(0) {
 		return -1, err
 	}
@@ -163,8 +163,8 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 		uintptr(prio),
 		uintptr(timeoutPtr),
 		0)
-	use(rawData)
-	use(timeoutPtr)
+	allocator.Use(rawData)
+	allocator.Use(timeoutPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -182,9 +182,9 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (in
 		uintptr(prioPtr),
 		uintptr(timeoutPtr),
 		0)
-	use(rawData)
-	use(timeoutPtr)
-	use(prioPtr)
+	allocator.Use(rawData)
+	allocator.Use(timeoutPtr)
+	allocator.Use(prioPtr)
 	if err != syscall.Errno(0) {
 		return 0, 0, err
 	}
@@ -194,7 +194,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (in
 func mq_notify(id int, event *sigevent) error {
 	eventPtr := unsafe.Pointer(event)
 	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(id), uintptr(eventPtr), uintptr(0))
-	use(eventPtr)
+	allocator.Use(eventPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -208,8 +208,8 @@ func mq_getsetattr(id int, attrs, oldAttrs *MqAttr) error {
 		uintptr(id),
 		uintptr(attrsPtr),
 		uintptr(oldAttrsPtr))
-	use(attrsPtr)
-	use(oldAttrsPtr)
+	allocator.Use(attrsPtr)
+	allocator.Use(oldAttrsPtr)
 	if err != syscall.Errno(0) {
 		return err
 	}
@@ -223,7 +223,7 @@ func mq_unlink(name string) error {
 	}
 	bytes := unsafe.Pointer(nameBytes)
 	_, _, err = syscall.Syscall(unix.SYS_MQ_UNLINK, uintptr(bytes), uintptr(0), uintptr(0))
-	use(bytes)
+	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		return err
 	}

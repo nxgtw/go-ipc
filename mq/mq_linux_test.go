@@ -2,7 +2,7 @@
 
 // +build linux
 
-package ipc
+package mq
 
 import (
 	"os"

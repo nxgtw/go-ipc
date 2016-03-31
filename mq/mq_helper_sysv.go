@@ -1,10 +1,9 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
-
 // +build !linux_mq
 
-package ipc
+package mq
 
 import "os"
 

@@ -64,7 +64,7 @@ func copyObjectData(value reflect.Value, memory []byte) {
 	size := ObjectSize(value)
 	objectData := ByteSliceFromUnsafePointer(addr, size, size)
 	copy(memory, objectData)
-	use(addr)
+	Use(addr)
 }
 
 // Alloc copies value's data into a byte slice performing some sanity checks.
@@ -145,7 +145,7 @@ func ObjectData(object interface{}) ([]byte, error) {
 //	... work with data
 //	allocator.UseBytes(data)
 func UseValue(value interface{}) {
-	use(ObjectAddress(reflect.ValueOf(value)))
+	Use(ObjectAddress(reflect.ValueOf(value)))
 }
 
 // IsReferenceType returns true, is the object is a pointer or a slice
@@ -202,4 +202,8 @@ func checkNumericType(kind reflect.Kind) error {
 	return fmt.Errorf("unsupported type %q", kind.String())
 }
 
-func use(unsafe.Pointer)
+// from syscall package:
+// Use is a no-op, but the compiler cannot see that it is.
+// Calling Use(p) ensures that p is kept live until that point.
+//go:noescape
+func Use(unsafe.Pointer)

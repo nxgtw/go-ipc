@@ -4,7 +4,6 @@ package ipc
 
 import (
 	"fmt"
-	"strconv"
 
 	"bitbucket.org/avd/go-ipc/internal/test"
 )
@@ -12,24 +11,7 @@ import (
 const (
 	shmProgName  = "./internal/test/shared_memory/main.go"
 	fifoProgName = "./internal/test/fifo/main.go"
-	mqProgPath   = "./internal/test/mq/"
 )
-
-var mqProgFiles []string
-
-func init() {
-	var err error
-	mqProgFiles, err = ipc_testing.LocatePackageFiles(mqProgPath)
-	if err != nil {
-		panic(err)
-	}
-	if len(mqProgFiles) == 0 {
-		panic("no files to test mq")
-	}
-	for i, name := range mqProgFiles {
-		mqProgFiles[i] = mqProgPath + name
-	}
-}
 
 // Shared memory test program
 
@@ -77,48 +59,6 @@ func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
 func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
 	strBytes := ipc_testing.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
-}
-
-// Mq test program
-
-func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
-	return []string{mqProgPath, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
-}
-
-func argsForMqDestroyCommand(name string) []string {
-	return []string{mqProgPath, "-object=" + name, "destroy"}
-}
-
-func argsForMqSendCommand(name string, timeout int, typ, options string, data []byte) []string {
-	return append(mqProgFiles,
-		"-object="+name,
-		"-type="+typ,
-		"-options="+options,
-		"-timeout="+strconv.Itoa(timeout),
-		"send",
-		ipc_testing.BytesToString(data),
-	)
-}
-
-func argsForMqTestCommand(name string, timeout int, typ, options string, data []byte) []string {
-	return append(mqProgFiles,
-		"-object="+name,
-		"-type="+typ,
-		"-options="+options,
-		"-timeout="+strconv.Itoa(timeout),
-		"test",
-		ipc_testing.BytesToString(data),
-	)
-}
-
-func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) []string {
-	return append(mqProgFiles,
-		"-object="+name,
-		"-type="+typ,
-		"-options="+options,
-		"-timeout="+strconv.Itoa(timeout),
-		"notifywait",
-	)
 }
 
 func boolStr(value bool) string {

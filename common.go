@@ -5,7 +5,6 @@ package ipc
 import (
 	"fmt"
 	"os"
-	"unsafe"
 )
 
 // Destroyer is an object which can be permanently removed
@@ -23,7 +22,9 @@ type Buffered interface {
 	Cap() (int, error)
 }
 
-func accessModeToOsMode(mode int) (osMode int, err error) {
+// AccessModeToOsMode converts library's access flags into
+// os flags, which can be passed to system calls.
+func AccessModeToOsMode(mode int) (osMode int, err error) {
 	if mode&O_READ_ONLY != 0 {
 		if mode&(O_WRITE_ONLY|O_READWRITE) != 0 {
 			return 0, fmt.Errorf("incompatible open flags")
@@ -67,7 +68,7 @@ func openModeToOsMode(mode int) (int, error) {
 	if createMode, err = createModeToOsMode(mode); err != nil {
 		return 0, err
 	}
-	if accessMode, err = accessModeToOsMode(mode); err != nil {
+	if accessMode, err = AccessModeToOsMode(mode); err != nil {
 		return 0, err
 	}
 	return createMode | accessMode, nil
@@ -86,7 +87,7 @@ func openOrCreateFile(opener func(int) error, mode int) (bool, error) {
 		return false, err
 	case mode&O_OPEN_OR_CREATE != 0:
 		const attempts = 16
-		amode, err := accessModeToOsMode(mode)
+		amode, err := AccessModeToOsMode(mode)
 		if err == nil {
 			for attempt := 0; attempt < attempts; attempt++ {
 				if err = opener(amode | os.O_CREATE | os.O_EXCL); !os.IsExist(err) {
@@ -102,9 +103,3 @@ func openOrCreateFile(opener func(int) error, mode int) (bool, error) {
 		return false, fmt.Errorf("unknown open mode")
 	}
 }
-
-// from syscall package:
-// use is a no-op, but the compiler cannot see that it is.
-// Calling use(p) ensures that p is kept live until that point.
-//go:noescape
-func use(p unsafe.Pointer)

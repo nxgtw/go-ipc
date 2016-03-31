@@ -2,11 +2,13 @@
 
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
-package ipc
+package mq
 
 import (
 	"errors"
 	"os"
+
+	"bitbucket.org/avd/go-ipc"
 
 	"golang.org/x/sys/unix"
 )
@@ -68,7 +70,7 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 		return nil, err
 	}
 	result := &SystemVMessageQueue{id: id, name: name}
-	if flags&O_NONBLOCK != 0 {
+	if flags&ipc.O_NONBLOCK != 0 {
 		result.flags |= cIpcNoWait
 	}
 	return result, nil

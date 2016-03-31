@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/mq"
 )
 
-func createMqWithType(name string, perm os.FileMode, typ, opt string) (ipc.Messenger, error) {
+func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return ipc.CreateMQ(name, perm)
+		return mq.CreateMQ(name, perm)
 	case "sysv":
-		return ipc.CreateSystemVMessageQueue(name, perm)
+		return mq.CreateSystemVMessageQueue(name, perm)
 	case "linux":
-		mqSize, msgSize := ipc.DefaultLinuxMqMaxSize, ipc.DefaultLinuxMqMaxMessageSize
+		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMaxMessageSize
 		if len(opt) > 0 {
 			var err error
 			parts := strings.Split(opt, ",")
@@ -34,20 +35,20 @@ func createMqWithType(name string, perm os.FileMode, typ, opt string) (ipc.Messe
 				}
 			}
 		}
-		return ipc.CreateLinuxMessageQueue(name, perm, mqSize, msgSize)
+		return mq.CreateLinuxMessageQueue(name, perm, mqSize, msgSize)
 	default:
 		return nil, fmt.Errorf("unknown mq type %q", typ)
 	}
 }
 
-func openMqWithType(name string, flags int, typ string) (ipc.Messenger, error) {
+func openMqWithType(name string, flags int, typ string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return ipc.OpenMQ(name, flags)
+		return mq.OpenMQ(name, flags)
 	case "sysv":
-		return ipc.OpenSystemVMessageQueue(name, flags)
+		return mq.OpenSystemVMessageQueue(name, flags)
 	case "linux":
-		return ipc.OpenLinuxMessageQueue(name, flags)
+		return mq.OpenLinuxMessageQueue(name, flags)
 	default:
 		return nil, fmt.Errorf("unknown mq type %q", typ)
 	}
@@ -56,11 +57,11 @@ func openMqWithType(name string, flags int, typ string) (ipc.Messenger, error) {
 func destroyMqWithType(name, typ string) error {
 	switch typ {
 	case "default":
-		return ipc.DestroyMQ(name)
+		return mq.DestroyMQ(name)
 	case "sysv":
-		return ipc.DestroySystemVMessageQueue(name)
+		return mq.DestroySystemVMessageQueue(name)
 	case "linux":
-		return ipc.DestroyLinuxMessageQueue(name)
+		return mq.DestroyLinuxMessageQueue(name)
 	default:
 		return fmt.Errorf("unknown mq type %q", typ)
 	}
@@ -70,7 +71,7 @@ func notifywait(name string, timeout int, typ string) error {
 	if typ != "linux" {
 		return fmt.Errorf("notifywait is supported for 'linux' mq, not '%s'", typ)
 	}
-	mq, err := ipc.OpenLinuxMessageQueue(name, ipc.O_READWRITE)
+	mq, err := mq.OpenLinuxMessageQueue(name, ipc.O_READWRITE)
 	if err != nil {
 		return err
 	}

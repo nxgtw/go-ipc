@@ -2,7 +2,7 @@
 
 //+build linux_mq
 
-package ipc
+package mq
 
 import "os"
 

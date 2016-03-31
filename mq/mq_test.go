@@ -1,14 +1,16 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mq
 
 import (
 	"os"
 	"runtime"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
@@ -17,11 +19,28 @@ import (
 
 const (
 	testMqName = "go-ipc.mq"
+	mqProgPath = "./internal/test/mq/"
 )
 
 type mqCtor func(name string, perm os.FileMode) (Messenger, error)
 type mqOpener func(name string, flags int) (Messenger, error)
 type mqDtor func(name string) error
+
+var mqProgFiles []string
+
+func init() {
+	var err error
+	mqProgFiles, err = ipc_testing.LocatePackageFiles(mqProgPath)
+	if err != nil {
+		panic(err)
+	}
+	if len(mqProgFiles) == 0 {
+		panic("no files to test mq")
+	}
+	for i, name := range mqProgFiles {
+		mqProgFiles[i] = mqProgPath + name
+	}
+}
 
 func testCreateMq(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	a := assert.New(t)
@@ -49,7 +68,7 @@ func testCreateMqExcl(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	}
 	_, err = ctor(testMqName, 0666)
 	a.Error(err)
-	if d, ok := mq.(Destroyer); ok {
+	if d, ok := mq.(ipc.Destroyer); ok {
 		a.NoError(d.Destroy())
 	} else {
 		a.NoError(mq.Close())
@@ -79,7 +98,7 @@ func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	} else {
 		a.NoError(mq.Close())
 	}
-	_, err = opener(testMqName, O_READ_ONLY)
+	_, err = opener(testMqName, ipc.O_READ_ONLY)
 	a.Error(err)
 }
 
@@ -105,7 +124,7 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 		return
 	}
 	var received uint64
-	mqr, err := opener(testMqName, O_READ_ONLY)
+	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
 	if !a.NoError(err) {
 		return
 	}
@@ -139,7 +158,7 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(mq.Send(data))
 	}()
 	received := testStruct{}
-	mqr, err := opener(testMqName, O_READ_ONLY)
+	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
 	if !a.NoError(err) {
 		return
 	}
@@ -171,7 +190,7 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 		a.NoError(mq.Send(message))
 	}()
 	received := make([]byte, 1024)
-	mqr, err := opener(testMqName, O_READ_ONLY)
+	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
 	if !a.NoError(err) {
 		return
 	}
@@ -197,7 +216,7 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(Blocker); ok {
+	if blocker, ok := mq.(ipc.Blocker); ok {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
@@ -232,7 +251,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if tmq, ok := mq.(TimedMessenger); ok {
 		data := make([]byte, 8)
 		tm := time.Millisecond * 200
-		if buf, ok := mq.(Buffered); ok {
+		if buf, ok := mq.(ipc.Buffered); ok {
 			cap, err := buf.Cap()
 			if !a.NoError(err) {
 				return
@@ -298,7 +317,7 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(Blocker); ok {
+	if blocker, ok := mq.(ipc.Blocker); ok {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
@@ -369,4 +388,46 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 	err = mq.Receive(received)
 	a.NoError(err)
 	a.Equal(data, received)
+}
+
+// Mq test program
+
+func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
+	return []string{mqProgPath, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
+}
+
+func argsForMqDestroyCommand(name string) []string {
+	return []string{mqProgPath, "-object=" + name, "destroy"}
+}
+
+func argsForMqSendCommand(name string, timeout int, typ, options string, data []byte) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
+		"send",
+		ipc_testing.BytesToString(data),
+	)
+}
+
+func argsForMqTestCommand(name string, timeout int, typ, options string, data []byte) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
+		"test",
+		ipc_testing.BytesToString(data),
+	)
+}
+
+func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) []string {
+	return append(mqProgFiles,
+		"-object="+name,
+		"-type="+typ,
+		"-options="+options,
+		"-timeout="+strconv.Itoa(timeout),
+		"notifywait",
+	)
 }

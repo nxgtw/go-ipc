@@ -9,6 +9,8 @@ import (
 	"os"
 	"runtime"
 	"unsafe"
+
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 )
 
 // MemoryRegion is a mmapped area of a memory object.
@@ -101,7 +103,7 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 // 	data := region.Data()
 //	{ work with data }
 func UseMemoryRegion(region *MemoryRegion) {
-	use(unsafe.Pointer(region))
+	allocator.Use(unsafe.Pointer(region))
 }
 
 // calcMmapOffsetFixup returns a value X,
