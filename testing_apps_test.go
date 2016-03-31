@@ -37,30 +37,6 @@ func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
 	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
 }
 
-// FIFO memory test program
-
-func argsForFifoCreateCommand(name string) []string {
-	return []string{fifoProgName, "-object=" + name, "create"}
-}
-
-func argsForFifoDestroyCommand(name string) []string {
-	return []string{fifoProgName, "-object=" + name, "destroy"}
-}
-
-func argsForFifoReadCommand(name string, nonblock bool, lenght int) []string {
-	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "read", fmt.Sprintf("%d", lenght)}
-}
-
-func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_testing.BytesToString(data)
-	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "test", strBytes}
-}
-
-func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_testing.BytesToString(data)
-	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
-}
-
 func boolStr(value bool) string {
 	if value {
 		return "true"

@@ -2,25 +2,54 @@
 
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
-package ipc
+package fifo
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
 )
 
-const testFifoName = "go-fifo-test"
+const (
+	testFifoName = "go-fifo-test"
+	fifoProgName = "./internal/test/fifo/main.go"
+)
+
+// FIFO memory test program
+
+func argsForFifoCreateCommand(name string) []string {
+	return []string{fifoProgName, "-object=" + name, "create"}
+}
+
+func argsForFifoDestroyCommand(name string) []string {
+	return []string{fifoProgName, "-object=" + name, "destroy"}
+}
+
+func argsForFifoReadCommand(name string, nonblock bool, lenght int) []string {
+	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "read", fmt.Sprintf("%d", lenght)}
+}
+
+func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
+	strBytes := ipc_test.BytesToString(data)
+	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "test", strBytes}
+}
+
+func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
+	strBytes := ipc_test.BytesToString(data)
+	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
+}
 
 // tests whether we can create a fifo in the directiry chosen by the library
 func TestFifoCreate(t *testing.T) {
-	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
-	fifo, err := NewFifo(testFifoName, O_CREATE_ONLY|O_READ_ONLY|O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, ipc.O_CREATE_ONLY|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 	}
@@ -28,13 +57,20 @@ func TestFifoCreate(t *testing.T) {
 
 // tests whether we can create a fifo in the directiry chosen by the calling program
 func TestFifoCreateAbsPath(t *testing.T) {
-	if !assert.NoError(t, DestroyFifo("/tmp/go-fifo-test")) {
+	if !assert.NoError(t, Destroy("/tmp/go-fifo-test")) {
 		return
 	}
-	fifo, err := NewFifo("/tmp/go-fifo-test", O_CREATE_ONLY|O_READ_ONLY|O_NONBLOCK, 0666)
+	fifo, err := New("/tmp/go-fifo-test", ipc.O_CREATE_ONLY|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 	}
+}
+
+func boolStr(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 // 1) write data into a fifo in a separate process in blocking mode
@@ -42,17 +78,17 @@ func TestFifoCreateAbsPath(t *testing.T) {
 // 3) compare the results
 func TestFifoBlockRead(t *testing.T) {
 	testData := []byte{0, 128, 255}
-	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
-	defer DestroyFifo(testFifoName)
+	defer Destroy(testFifoName)
 	buff := make([]byte, len(testData))
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
 	ch := ipc_test.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
 	success := ipc_test.WaitForFunc(func() {
-		fifo, err := NewFifo(testFifoName, O_OPEN_OR_CREATE|O_READ_ONLY, 0666)
+		fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY, 0666)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -77,14 +113,14 @@ func TestFifoBlockRead(t *testing.T) {
 // 3) the results are compared by another process
 func TestFifoBlockWrite(t *testing.T) {
 	testData := []byte{0, 128, 255}
-	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
-	defer DestroyFifo(testFifoName)
+	defer Destroy(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
 	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
-	fifo, err := NewFifo(testFifoName, O_OPEN_OR_CREATE|O_WRITE_ONLY, 0666)
+	fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_WRITE_ONLY, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -104,18 +140,18 @@ func TestFifoBlockWrite(t *testing.T) {
 // 3) the results are compared by another process
 func TestFifoNonBlockWrite(t *testing.T) {
 	testData := []byte{0, 128, 255}
-	if !assert.NoError(t, DestroyFifo(testFifoName)) {
+	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
-	defer DestroyFifo(testFifoName)
+	defer Destroy(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
 	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	// wait for app to launch and start reading from the fifo
-	fifo, err := NewFifo(testFifoName, O_OPEN_ONLY|O_WRITE_ONLY|O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
 	for n := 0; err != nil && n < 10; n++ {
 		<-time.After(time.Millisecond * 200)
-		fifo, err = NewFifo(testFifoName, O_OPEN_ONLY|O_WRITE_ONLY|O_NONBLOCK, 0666)
+		fifo, err = New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
 	}
 	if !assert.NoError(t, err) {
 		return

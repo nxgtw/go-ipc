@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/fifo"
 	"bitbucket.org/avd/go-ipc/internal/test"
 )
 
@@ -33,7 +34,7 @@ func create() error {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	mode := ipc.O_CREATE_ONLY | ipc.O_READWRITE
-	fifo, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
@@ -45,7 +46,7 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	return ipc.DestroyFifo(*objName)
+	return fifo.Destroy(*objName)
 }
 
 func read() error {
@@ -60,7 +61,7 @@ func read() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,7 @@ func test() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func write() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := ipc.NewFifo(*objName, mode, 0666)
+	fifo, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}

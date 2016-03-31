@@ -43,7 +43,9 @@ func AccessModeToOsMode(mode int) (osMode int, err error) {
 	return 0, fmt.Errorf("no access mode flags")
 }
 
-func createModeToOsMode(mode int) (int, error) {
+// CreateModeToOsMode converts library's create flags into
+// os flags, which can be passed to system calls.
+func CreateModeToOsMode(mode int) (int, error) {
 	if mode&O_OPEN_OR_CREATE != 0 {
 		if mode&(O_CREATE_ONLY|O_OPEN_ONLY) != 0 {
 			return 0, fmt.Errorf("incompatible open flags")
@@ -65,7 +67,7 @@ func createModeToOsMode(mode int) (int, error) {
 func openModeToOsMode(mode int) (int, error) {
 	var err error
 	var createMode, accessMode int
-	if createMode, err = createModeToOsMode(mode); err != nil {
+	if createMode, err = CreateModeToOsMode(mode); err != nil {
 		return 0, err
 	}
 	if accessMode, err = AccessModeToOsMode(mode); err != nil {

@@ -2,12 +2,14 @@
 
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
-package ipc
+package fifo
 
 import (
 	"fmt"
 	"os"
 	"strings"
+
+	"bitbucket.org/avd/go-ipc"
 
 	"golang.org/x/sys/unix"
 )
@@ -17,10 +19,10 @@ type fifoImpl struct {
 }
 
 func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
-	if _, err := createModeToOsMode(mode); err != nil {
+	if _, err := ipc.CreateModeToOsMode(mode); err != nil {
 		return nil, err
 	}
-	osMode, err := AccessModeToOsMode(mode)
+	osMode, err := ipc.AccessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -30,17 +32,17 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
 	}
 	path := fifoPath(name)
-	if mode&(O_OPEN_OR_CREATE|O_CREATE_ONLY) != 0 {
+	if mode&(ipc.O_OPEN_OR_CREATE|ipc.O_CREATE_ONLY) != 0 {
 		err := unix.Mkfifo(path, uint32(perm))
 		if err != nil {
-			if mode&O_OPEN_OR_CREATE != 0 && os.IsExist(err) {
+			if mode&ipc.O_OPEN_OR_CREATE != 0 && os.IsExist(err) {
 				err = nil
 			} else {
 				return nil, err
 			}
 		}
 	}
-	if mode&O_NONBLOCK != 0 {
+	if mode&ipc.O_NONBLOCK != 0 {
 		osMode |= unix.O_NONBLOCK
 	}
 	file, err := os.OpenFile(path, osMode, perm)
@@ -72,8 +74,8 @@ func (f *fifoImpl) Destroy() error {
 	return err
 }
 
-// DestroyFifo permanently removes the object.
-func DestroyFifo(name string) error {
+// Destroy permanently removes the object.
+func Destroy(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {
 		return nil
