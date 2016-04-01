@@ -10,11 +10,12 @@ import (
 	"syscall"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
 )
 
-func msgget(k key, flags int) (int, error) {
+func msgget(k common.Key, flags int) (int, error) {
 	id, _, err := syscall.Syscall(unix.SYS_MSGGET, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
 		return 0, os.NewSyscallError("MSGGET", err)
@@ -61,7 +62,7 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 	return nil
 }
 
-func msgctl(id int, cmd int, buf *msqidDs) error {
+func msgctl(id, cmd int, buf *msqidDs) error {
 	_, _, err := syscall.Syscall(unix.SYS_MSGCTL, uintptr(id), uintptr(cmd), 0)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGCTL", err)

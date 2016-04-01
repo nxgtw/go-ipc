@@ -2,8 +2,6 @@
 // ignore this for a while, as linux rw mutexes don't work,
 // and windows mutexes are not ready yes.
 
-// +build windows
-
 package sync
 
 import (

@@ -309,9 +309,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 			wg.Done()
 		}()
 	}
-	println("before wait")
 	result := <-resultChan
-	println("after wait")
 	atomic.StoreInt32(&flag, 0)
 	wg.Wait()
 	if !assert.NoError(t, result.Err) {

@@ -12,6 +12,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
 )
@@ -94,7 +95,7 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 // SendTimeoutPriority sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) SendTimeoutPriority(data []byte, prio int, timeout time.Duration) error {
-	return mq_timedsend(mq.ID(), data, prio, timeoutToTimeSpec(timeout))
+	return mq_timedsend(mq.ID(), data, prio, common.TimeoutToTimeSpec(timeout))
 }
 
 // SendPriority sends a message with a given priority.
@@ -138,7 +139,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Du
 		dataToReceive = data
 	}
 	var prio int
-	actualMsgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), dataToReceive, &prio, timeoutToTimeSpec(timeout))
+	actualMsgSize, maxMsgSize, err := mq_timedreceive(mq.ID(), dataToReceive, &prio, common.TimeoutToTimeSpec(timeout))
 	if maxMsgSize != 0 && actualMsgSize != 0 {
 		if curMaxMsgSize != maxMsgSize {
 			mq.inputBuff = make([]byte, maxMsgSize)
@@ -316,12 +317,4 @@ func mqFlagsToOsFlags(flags int) (int, error) {
 		return 0, fmt.Errorf("to create message queue, use CreateMessageQueue func")
 	}
 	return sysflags, nil
-}
-
-func timeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
-	if timeout >= 0 {
-		ts := unix.NsecToTimespec(time.Now().Add(timeout).UnixNano())
-		return &ts
-	}
-	return nil
 }

@@ -10,20 +10,10 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc"
-
-	"golang.org/x/sys/unix"
+	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 const (
-	cIpcCreate = 00001000 /* create if key is nonexistent */
-	cIpcExcl   = 00002000 /* fail if key exists */
-	cIpcNoWait = 00004000 /* return error on wait */
-
-	cIpcRmid = 0 /* remove resource */
-	cIpcSet  = 1 /* set ipc_perm options */
-	cIpcStat = 2 /* get ipc_perm options */
-	cIpcInfo = 3 /* see ipcs */
-
 	cDefaultMessageType = 1
 	cSysVAnyMessage     = 0
 
@@ -37,14 +27,12 @@ type SystemVMessageQueue struct {
 	name  string
 }
 
-type key uint64
-
 // msqidDs is not currently suppoerted and must not be used
 type msqidDs struct {
 }
 
 // this is to ensure, that system V implementation of ipc mq
-// satisfy the minimal queue interface
+// satisfies the minimal queue interface
 var (
 	_ Messenger = (*SystemVMessageQueue)(nil)
 )
@@ -55,11 +43,11 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")
 	}
-	k, err := sysVMqkey(name)
+	k, err := common.KeyForName(name)
 	if err != nil {
 		return nil, err
 	}
-	id, err := msgget(k, int(perm)|cIpcCreate|cIpcExcl)
+	id, err := msgget(k, int(perm)|common.IpcCreate|common.IpcExcl)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +56,7 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 
 // OpenSystemVMessageQueue opens existing message queue
 func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, error) {
-	k, err := sysVMqkey(name)
+	k, err := common.KeyForName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +66,7 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 	}
 	result := &SystemVMessageQueue{id: id, name: name}
 	if flags&ipc.O_NONBLOCK != 0 {
-		result.flags |= cIpcNoWait
+		result.flags |= common.IpcNoWait
 	}
 	return result, nil
 }
@@ -98,9 +86,9 @@ func (mq *SystemVMessageQueue) Receive(data []byte) error {
 // Destroy closes the queue and removes it permanently
 func (mq *SystemVMessageQueue) Destroy() error {
 	mq.Close()
-	err := msgctl(mq.id, cIpcRmid, nil)
+	err := msgctl(mq.id, common.IpcRmid, nil)
 	if err == nil {
-		if err = os.Remove(filenameForSysVMqName(mq.name)); os.IsNotExist(err) {
+		if err = os.Remove(common.TmpFilename(mq.name)); os.IsNotExist(err) {
 			err = nil
 		}
 	} else if os.IsNotExist(err) {
@@ -117,9 +105,9 @@ func (mq *SystemVMessageQueue) Close() error {
 // SetBlocking sets whether the send/receive operations on the queue block.
 func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
 	if block {
-		mq.flags &= ^cIpcNoWait
+		mq.flags &= ^common.IpcNoWait
 	} else {
-		mq.flags |= cIpcNoWait
+		mq.flags |= common.IpcNoWait
 	}
 	return nil
 }
@@ -134,30 +122,4 @@ func DestroySystemVMessageQueue(name string) error {
 		return err
 	}
 	return mq.Destroy()
-}
-
-func sysVMqkey(name string) (key, error) {
-	name = filenameForSysVMqName(name)
-	file, err := os.Create(name)
-	if err != nil {
-		return 0, errors.New("invalid mq name")
-	}
-	file.Close()
-	k, err := ftok(name)
-	if err != nil {
-		return 0, errors.New("invalid mq name")
-	}
-	return k, nil
-}
-
-func filenameForSysVMqName(name string) string {
-	return os.TempDir() + "/" + name
-}
-
-func ftok(name string) (key, error) {
-	var statfs unix.Stat_t
-	if err := unix.Stat(name, &statfs); err != nil {
-		return key(0), err
-	}
-	return key(statfs.Ino&0xFFFF | ((statfs.Dev & 0xFF) << 16)), nil
 }
