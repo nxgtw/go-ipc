@@ -2,13 +2,15 @@
 
 // +build linux
 
-package ipc
+package shm
 
 import (
 	"errors"
 	"os"
 	"strings"
 	"sync"
+
+	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 const (
@@ -31,13 +33,11 @@ func destroyMemoryObject(path string) error {
 
 // glibc/sysdeps/posix/shm_open.c
 func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
-	var file *os.File
-	opener := func(mode int) error {
-		var err error
-		file, err = os.OpenFile(path, mode, perm)
-		return err
+	osMode, err := common.OpenModeToOsMode(mode)
+	if err != nil {
+		return nil, err
 	}
-	_, err := openOrCreateFile(opener, mode)
+	file, err := os.OpenFile(path, osMode, perm)
 	return file, err
 }
 

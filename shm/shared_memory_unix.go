@@ -2,7 +2,7 @@
 
 // +build darwin dragonfly freebsd linux netbsd openbsd solaris
 
-package ipc
+package shm
 
 import (
 	"os"

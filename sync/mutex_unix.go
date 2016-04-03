@@ -6,54 +6,71 @@ package sync
 
 import (
 	"os"
+	"syscall"
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-type mutexImpl struct {
+type mutex struct {
 	name string
 	id   int
 }
 
-func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
+func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
 		return nil, err
 	}
-	var flags int
-	switch mode {
-	case ipc.O_OPEN_ONLY:
-	case ipc.O_CREATE_ONLY:
-		flags = common.IpcCreate | common.IpcExcl
-	case ipc.O_OPEN_OR_CREATE:
-		flags = common.IpcCreate
+	var id int
+	opener := func() error {
+		id, err = semget(k, 1, int(perm))
+		return err
 	}
-	id, err := semget(k, 1, flags)
+	creator := func() error {
+		id, err = semget(k, 1, common.IpcCreate|common.IpcExcl|int(perm))
+		return err
+	}
+	created, err := common.OpenOrCreate(creator, opener, mode)
 	if err != nil {
 		return nil, err
 	}
-	if err = semAdd(id, 1); err != nil {
-		return nil, err
+	if created {
+		if err = semAdd(id, 1); err != nil {
+			semctl(id, 0, common.IpcRmid)
+			return nil, err
+		}
 	}
-	return &mutexImpl{name: name, id: id}, nil
+	return &mutex{name: name, id: id}, nil
 }
 
-func (m *mutexImpl) Lock() {
-	semAdd(m.id, -1)
+func (m *mutex) Lock() {
+	for {
+		if err := semAdd(m.id, -1); err == nil {
+			return
+		} else if !isInterruptedSyscallErr(err) {
+			panic(err)
+		}
+	}
 }
 
-func (m *mutexImpl) Unlock() {
-	semAdd(m.id, 1)
+func (m *mutex) Unlock() {
+	for {
+		if err := semAdd(m.id, 1); err == nil {
+			return
+		} else if !isInterruptedSyscallErr(err) {
+			panic(err)
+		}
+	}
 }
 
 // Close is a no-op for unix semaphore
-func (m *mutexImpl) Close() error {
+func (m *mutex) Close() error {
 	return nil
 }
 
 // Destroy closes the mutex and removes it permanently
-func (m *mutexImpl) Destroy() error {
+func (m *mutex) Destroy() error {
 	m.Close()
 	err := semctl(m.id, 0, common.IpcRmid)
 	if err == nil {
@@ -81,4 +98,13 @@ func DestroyMutex(name string) error {
 func semAdd(id, value int) error {
 	b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
 	return semtimedop(id, []sembuf{b}, nil)
+}
+
+func isInterruptedSyscallErr(err error) bool {
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		if errno, ok := sysErr.Err.(syscall.Errno); ok {
+			return errno == syscall.Errno(syscall.EINTR)
+		}
+	}
+	return false
 }

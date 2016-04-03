@@ -16,6 +16,7 @@ import (
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/shm"
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
 
@@ -93,7 +94,7 @@ func inc64() error {
 	if flag.NArg() != 3 {
 		return fmt.Errorf("test: must provide exactly two arguments")
 	}
-	memObject, err := ipc.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READWRITE, 0666)
+	memObject, err := shm.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READWRITE, 0666)
 	if err != nil {
 		return err
 	}
@@ -134,7 +135,7 @@ func test() error {
 	if flag.NArg() != 4 {
 		return fmt.Errorf("test: must provide exactly three arguments")
 	}
-	memObject, err := ipc.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
+	memObject, err := shm.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {
 		return err
 	}

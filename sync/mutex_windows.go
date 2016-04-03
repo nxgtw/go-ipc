@@ -3,8 +3,6 @@
 package sync
 
 import (
-	"sync"
-	"fmt"
 	"os"
 
 	ipc "bitbucket.org/avd/go-ipc"
@@ -12,11 +10,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type mutexImpl struct {
+type mutex struct {
 	handle windows.Handle
 }
 
-func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
+func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 	var handle windows.Handle
 	var err error
 	switch mode {
@@ -36,23 +34,20 @@ func newMutexImpl(name string, mode int, perm os.FileMode) (*mutexImpl, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mutexImpl{handle: handle}, nil
+	return &mutex{handle: handle}, nil
 }
 
-func (m *mutexImpl) Lock() {
+func (m *mutex) Lock() {
 	windows.WaitForSingleObject(m.handle, windows.INFINITE)
 }
 
-func (m *mutexImpl) Unlock() {
+func (m *mutex) Unlock() {
 	if err := releaseMutex(m.handle); err != nil {
-		fmt.Printf("%v", err)
-		var m sync.Mutex{}
-		m.Lock()
-		os.Exit(1)
+		panic("failed to unlock mutex: " + err.Error())
 	}
 }
 
-func (m *mutexImpl) Close() error {
+func (m *mutex) Close() error {
 	return windows.CloseHandle(m.handle)
 }
 

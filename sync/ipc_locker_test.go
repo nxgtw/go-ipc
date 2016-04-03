@@ -12,6 +12,7 @@ import (
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/shm"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -167,7 +168,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	var wg sync.WaitGroup
 	sharedValue := 0
-	routines, iters := 16, 100000
+	routines, iters := 16, 1000000
 	old := runtime.GOMAXPROCS(routines)
 	for i := 0; i < routines; i++ {
 		wg.Add(1)
@@ -210,7 +211,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	}
 	defer func() {
 		a.NoError(region.Close())
-		a.NoError(ipc.DestroyMemoryObject(testMemObj))
+		a.NoError(shm.DestroyMemoryObject(testMemObj))
 	}()
 	data := region.Data()
 	for i := range data { // fill the data with correct values
@@ -224,7 +225,6 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 		jobs = 1
 	}
 	wg.Add(jobs)
-	rr := 0
 	for i := 0; i < jobs; i++ {
 		go func() {
 			for atomic.LoadInt32(&flag) != 0 {
@@ -238,7 +238,6 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 				for i := range data {
 					data[i] = byte(i)
 				}
-				rr++
 				lk.Unlock()
 			}
 			wg.Done()
@@ -255,8 +254,8 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 
 func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
 	const (
-		iterations = 50
-		remoteJobs = 1
+		iterations = 75000
+		remoteJobs = 4
 		remoteIncs = int64(iterations * remoteJobs)
 	)
 	a := assert.New(t)
@@ -282,7 +281,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	}
 	defer func() {
 		a.NoError(region.Close())
-		a.NoError(ipc.DestroyMemoryObject(testMemObj))
+		a.NoError(shm.DestroyMemoryObject(testMemObj))
 	}()
 	data := region.Data()
 	ptr := (*int64)(allocator.ByteSliceData(data))

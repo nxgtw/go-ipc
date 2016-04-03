@@ -1,13 +1,17 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package shm
+
+import (
+	"bitbucket.org/avd/go-ipc"
+)
 
 // this is to ensure, that all implementations of shm-related structs
 // satisfy the same minimal interface
 var (
 	_ iSharedMemoryObject = (*MemoryObject)(nil)
-	_ iSharedMemoryRegion = (*MemoryRegion)(nil)
-	_ MappableHandle      = (*MemoryObject)(nil)
+	_ iSharedMemoryRegion = (*ipc.MemoryRegion)(nil)
+	_ ipc.MappableHandle  = (*MemoryObject)(nil)
 )
 
 type iSharedMemoryObject interface {

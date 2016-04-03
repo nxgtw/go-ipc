@@ -11,6 +11,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/shm"
 )
 
 type spinMutexImpl struct {
@@ -105,24 +106,24 @@ func (spin *SpinMutex) Destroy() error {
 		return err
 	}
 	spin.region = nil
-	err := ipc.DestroyMemoryObject(spin.name)
+	err := shm.DestroyMemoryObject(spin.name)
 	spin.name = ""
 	return err
 }
 
 // DestroySpinMutex removes the mutex object with a given name
 func DestroySpinMutex(name string) error {
-	return ipc.DestroyMemoryObject(spinName(name))
+	return shm.DestroyMemoryObject(spinName(name))
 }
 
 func spinName(name string) string {
 	return "go-ipc.spin." + name
 }
 
-func createMemoryObject(name string, mode int, perm os.FileMode) (obj *ipc.MemoryObject, created bool, err error) {
+func createMemoryObject(name string, mode int, perm os.FileMode) (obj *shm.MemoryObject, created bool, err error) {
 	switch {
 	case mode&(ipc.O_OPEN_ONLY|ipc.O_CREATE_ONLY) != 0:
-		obj, err = ipc.NewMemoryObject(name, mode, perm)
+		obj, err = shm.NewMemoryObject(name, mode, perm)
 		if err == nil && (mode&ipc.O_CREATE_ONLY) != 0 {
 			created = true
 		}
@@ -130,11 +131,11 @@ func createMemoryObject(name string, mode int, perm os.FileMode) (obj *ipc.Memor
 		const attempts = 16
 		mode = mode & ^(ipc.O_OPEN_OR_CREATE)
 		for attempt := 0; attempt < attempts; attempt++ {
-			if obj, err = ipc.NewMemoryObject(name, mode|ipc.O_CREATE_ONLY, perm); !os.IsExist(err) {
+			if obj, err = shm.NewMemoryObject(name, mode|ipc.O_CREATE_ONLY, perm); !os.IsExist(err) {
 				created = true
 				break
 			} else {
-				if obj, err = ipc.NewMemoryObject(name, mode|ipc.O_OPEN_ONLY, perm); !os.IsNotExist(err) {
+				if obj, err = shm.NewMemoryObject(name, mode|ipc.O_OPEN_ONLY, perm); !os.IsNotExist(err) {
 					break
 				}
 			}

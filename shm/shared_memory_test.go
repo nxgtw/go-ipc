@@ -1,19 +1,22 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package shm
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
 	"time"
 
+	"bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
 )
 
 const (
+	shmProgName       = "./internal/test/shared_memory/main.go"
 	defaultObjectName = "go-ipc-test"
 )
 
@@ -21,7 +24,31 @@ var (
 	shmTestData = []byte{1, 2, 3, 4, 128, 255}
 )
 
-func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*MemoryRegion, error) {
+// Shared memory test program
+
+func argsForShmCreateCommand(name string, size int64) []string {
+	return []string{shmProgName, "-object=" + name, "create", fmt.Sprintf("%d", size)}
+}
+
+func argsForShmDestroyCommand(name string) []string {
+	return []string{shmProgName, "-object=" + name, "destroy"}
+}
+
+func argsForShmReadCommand(name string, offset int64, lenght int) []string {
+	return []string{shmProgName, "-object=" + name, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght)}
+}
+
+func argsForShmTestCommand(name string, offset int64, data []byte) []string {
+	strBytes := ipc_test.BytesToString(data)
+	return []string{shmProgName, "-object=" + name, "test", fmt.Sprintf("%d", offset), strBytes}
+}
+
+func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
+	strBytes := ipc_test.BytesToString(data)
+	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
+}
+
+func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
 	object, err := NewMemoryObject(defaultObjectName, objMode, 0666)
 	if err != nil {
 		return nil, err
@@ -32,12 +59,12 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 			panic(err.Error())
 		}
 	}()
-	if objMode&O_OPEN_ONLY == 0 {
+	if objMode&ipc.O_OPEN_ONLY == 0 {
 		if err := object.Truncate(size + offset); err != nil {
 			return nil, err
 		}
 	}
-	region, err := NewMemoryRegion(object, regionMode, offset, int(size))
+	region, err := ipc.NewMemoryRegion(object, regionMode, offset, int(size))
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +72,7 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 }
 
 func TestCreateMemoryObject(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	assert.NoError(t, err)
 	if assert.NotNil(t, obj) {
 		assert.NoError(t, obj.Close())
@@ -55,13 +82,13 @@ func TestCreateMemoryObject(t *testing.T) {
 }
 
 func TestOpenMemoryObjectReadonly(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer obj.Destroy()
 	defer obj.Close()
-	obj2, err := NewMemoryObject(defaultObjectName, O_OPEN_ONLY|O_READ_ONLY, 0)
+	obj2, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -69,19 +96,19 @@ func TestOpenMemoryObjectReadonly(t *testing.T) {
 }
 
 func TestDestroyMemoryObject(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	assert.NoError(t, err)
 	if assert.NotNil(t, obj) {
 		if !assert.NoError(t, obj.Destroy()) {
 			return
 		}
-		_, err = NewMemoryObject(defaultObjectName, O_OPEN_ONLY|O_READ_ONLY, 0666)
+		_, err = NewMemoryObject(defaultObjectName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 		assert.Error(t, err)
 	}
 }
 
 func TestDestroyMemoryObject2(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if assert.NoError(t, err) {
 		obj.Close()
 		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
@@ -89,11 +116,11 @@ func TestDestroyMemoryObject2(t *testing.T) {
 }
 
 func TestCreateMemoryRegionExclusive(t *testing.T) {
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
-	_, err = NewMemoryObject(defaultObjectName, O_CREATE_ONLY|O_READWRITE, 0666)
+	_, err = NewMemoryObject(defaultObjectName, ipc.O_CREATE_ONLY|ipc.O_READWRITE, 0666)
 	assert.Error(t, err)
 	obj.Destroy()
 }
@@ -104,7 +131,7 @@ func TestMemoryObjectSize(t *testing.T) {
 	if !a.NoError(DestroyMemoryObject(defaultObjectName)) {
 		return
 	}
-	obj, err := NewMemoryObject(defaultObjectName, O_CREATE_ONLY|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_CREATE_ONLY|ipc.O_READWRITE, 0666)
 	defer func() {
 		a.NoError(obj.Destroy())
 	}()
@@ -127,7 +154,7 @@ func TestMemoryObjectSize(t *testing.T) {
 
 func TestMemoryObjectName(t *testing.T) {
 	a := assert.New(t)
-	obj, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if a.NoError(err) {
 		a.Equal(defaultObjectName, obj.Name())
 		a.NoError(obj.Destroy())
@@ -135,7 +162,7 @@ func TestMemoryObjectName(t *testing.T) {
 }
 
 func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
-	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	object, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -145,7 +172,7 @@ func TestIfRegionIsAliveAferObjectClose(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(1024)) {
 		return
 	}
-	region, err := NewMemoryRegion(object, MEM_READWRITE, 0, 1024)
+	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READWRITE, 0, 1024)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -167,7 +194,7 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 	if !assert.NoError(t, DestroyMemoryObject(defaultObjectName)) {
 		return
 	}
-	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	object, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -192,7 +219,7 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 }
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, int64(len(shmTestData)), 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -202,7 +229,7 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	region2, err := createMemoryRegionSimple(O_OPEN_ONLY|O_READ_ONLY, MEM_READ_ONLY, int64(len(shmTestData)), 0)
+	region2, err := createMemoryRegionSimple(ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, ipc.MEM_READ_ONLY, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -211,7 +238,7 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, int64(len(shmTestData)), 128)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -226,7 +253,7 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 }
 
 func TestReadMemoryAnotherProcess(t *testing.T) {
-	object, err := NewMemoryObject(defaultObjectName, O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	object, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -238,9 +265,10 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	}
 	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
 	if !assert.NoError(t, result.Err) {
+		t.Log(result.Output)
 		return
 	}
-	region, err := NewMemoryRegion(object, MEM_READ_ONLY, 0, len(shmTestData))
+	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READ_ONLY, 0, len(shmTestData))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -253,19 +281,19 @@ func TestMemoryRegionNorGcedWithUse(t *testing.T) {
 	if !a.NoError(DestroyMemoryObject("gc-test")) {
 		return
 	}
-	obj, err := NewMemoryObject("gc-test", O_OPEN_OR_CREATE|O_READWRITE, 0666)
+	obj, err := NewMemoryObject("gc-test", ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if !a.NoError(err) {
 		return
 	}
 	if !a.NoError(obj.Truncate(1024)) {
 		return
 	}
-	region, err := NewMemoryRegion(obj, MEM_READWRITE, 0, 1024)
+	region, err := ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, 1024)
 	if !a.NoError(err) {
 		return
 	}
-	defer UseMemoryRegion(region)
-	data := region.data
+	defer ipc.UseMemoryRegion(region)
+	data := region.Data()
 	region = nil
 	// we can't use assert.NotPanics here, as if the region is gc'ed,
 	// we get segmentation fault, which cannot be handled by user code.
@@ -281,7 +309,7 @@ func TestMemoryRegionNorGcedWithUse(t *testing.T) {
 }
 
 func TestMemoryRegionReader(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READ_ONLY, 1024, 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READ_ONLY, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -289,7 +317,7 @@ func TestMemoryRegionReader(t *testing.T) {
 		region.Close()
 		DestroyMemoryObject(defaultObjectName)
 	}()
-	reader := NewMemoryRegionReader(region)
+	reader := ipc.NewMemoryRegionReader(region)
 	b := make([]byte, 1024)
 	read, err := reader.ReadAt(b, 0)
 	if !assert.NoError(t, err) || !assert.Equal(t, 1024, read) {
@@ -311,7 +339,7 @@ func TestMemoryRegionReader(t *testing.T) {
 }
 
 func TestMemoryRegionWriter(t *testing.T) {
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -319,7 +347,7 @@ func TestMemoryRegionWriter(t *testing.T) {
 		region.Close()
 		DestroyMemoryObject(defaultObjectName)
 	}()
-	writer := NewMemoryRegionWriter(region)
+	writer := ipc.NewMemoryRegionWriter(region)
 	b := make([]byte, 1024)
 	written, err := writer.WriteAt(b, 0)
 	if !assert.NoError(t, err) || !assert.Equal(t, 1024, written) {
@@ -343,7 +371,7 @@ func TestMemoryRegionWriter(t *testing.T) {
 func TestMemoryRegionReaderWriter(t *testing.T) {
 	a := assert.New(t)
 	data := []byte{1, 2, 3, 4, 5, 6}
-	region, err := createMemoryRegionSimple(O_OPEN_OR_CREATE|O_READWRITE, MEM_READWRITE, 1024, 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 1024, 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -351,8 +379,8 @@ func TestMemoryRegionReaderWriter(t *testing.T) {
 		a.NoError(region.Close())
 		a.NoError(DestroyMemoryObject(defaultObjectName))
 	}()
-	writer := NewMemoryRegionWriter(region)
-	reader := NewMemoryRegionReader(region)
+	writer := ipc.NewMemoryRegionWriter(region)
+	reader := ipc.NewMemoryRegionReader(region)
 	n, err := writer.WriteAt(data, 128)
 	if !assert.NoError(t, err) || !assert.Equal(t, n, len(data)) {
 		return

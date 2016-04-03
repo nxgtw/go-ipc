@@ -9,7 +9,7 @@ import (
 
 // Mutex is an interprocess readwrite lock object
 type Mutex struct {
-	*mutexImpl
+	*mutex
 }
 
 // NewMutex creates a new readwrite mutex
@@ -22,10 +22,10 @@ func NewMutex(name string, mode int, perm os.FileMode) (*Mutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
-	impl, err := newMutexImpl(name, mode, perm)
+	m, err := newMutex(name, mode, perm)
 	if err != nil {
 		return nil, err
 	}
-	result := &Mutex{impl}
+	result := &Mutex{m}
 	return result, nil
 }

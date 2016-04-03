@@ -2,7 +2,7 @@
 
 // +build darwin dragonfly freebsd netbsd openbsd
 
-package ipc
+package shm
 
 import (
 	"fmt"

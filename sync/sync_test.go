@@ -9,6 +9,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/shm"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 )
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
-	object, err := ipc.NewMemoryObject(testMemObj, objMode, 0666)
+	object, err := shm.NewMemoryObject(testMemObj, objMode, 0666)
 	if err != nil {
 		return nil, err
 	}

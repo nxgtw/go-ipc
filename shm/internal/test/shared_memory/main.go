@@ -10,6 +10,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/shm"
 )
 
 var (
@@ -34,7 +35,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	obj, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
+	obj, err := shm.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,7 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	return ipc.DestroyMemoryObject(*objName)
+	return shm.DestroyMemoryObject(*objName)
 }
 
 func read() error {
@@ -61,7 +62,7 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
+	object, err := shm.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -85,7 +86,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
+	object, err := shm.NewMemoryObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	object, err := ipc.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
+	object, err := shm.NewMemoryObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
 	if err != nil {
 		return err
 	}
