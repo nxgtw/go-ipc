@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
 )
@@ -19,10 +20,10 @@ type fifoImpl struct {
 }
 
 func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
-	if _, err := ipc.CreateModeToOsMode(mode); err != nil {
+	if _, err := common.CreateModeToOsMode(mode); err != nil {
 		return nil, err
 	}
-	osMode, err := ipc.AccessModeToOsMode(mode)
+	osMode, err := common.AccessModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}

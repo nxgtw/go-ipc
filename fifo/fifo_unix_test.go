@@ -93,7 +93,7 @@ func TestFifoBlockRead(t *testing.T) {
 			return
 		}
 		_, err2 = fifo.Read(buff)
-		assert.NoError(err2)
+		assert.NoError(t, err2)
 	}, time.Second*2)
 	if !assert.True(t, success) || !assert.NoError(t, err) ||
 		!assert.Equal(t, testData, buff) {
