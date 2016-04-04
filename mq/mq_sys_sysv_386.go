@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
 )
@@ -22,7 +23,7 @@ const (
 	cMSGCTL = 14
 )
 
-func msgget(k key, flags int) (int, error) {
+func msgget(k common.Key, flags int) (int, error) {
 	id, _, err := syscall.Syscall6(unix.SYS_IPC, uintptr(cMSGGET), uintptr(k), uintptr(flags), 0, 0, 0)
 	if err != syscall.Errno(0) {
 		return 0, os.NewSyscallError("MSGGET", err)
