@@ -104,7 +104,7 @@ func send() error {
 	} else {
 		err = msgQueue.Send(toSend)
 	}
-	return nil
+	return err
 }
 
 func runCommand() error {

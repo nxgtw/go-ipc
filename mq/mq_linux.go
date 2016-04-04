@@ -43,8 +43,8 @@ type LinuxMessageQueue struct {
 	inputBuff []byte
 }
 
-// MqAttr contains attributes of the queue
-type MqAttr struct {
+// linuxMqAttr contains attributes of the queue
+type linuxMqAttr struct {
 	Flags   int /* Flags: 0 or O_NONBLOCK */
 	Maxmsg  int /* Max. # of messages on queue */
 	Msgsize int /* Max. message size (bytes) */
@@ -58,7 +58,7 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 		return nil, errors.New("invalid mq permissions")
 	}
 	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL
-	attrs := &MqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
+	attrs := &linuxMqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
 	id, err := mq_open(name, sysflags, uint32(perm), attrs)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 		return nil, err
 	}
 	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
-	attrs, err := result.GetAttrs()
+	attrs, err := result.getAttrs()
 	if err != nil {
 		result.Close()
 		return nil, err
@@ -199,18 +199,9 @@ func (mq *LinuxMessageQueue) Close() error {
 	return err
 }
 
-// GetAttrs returns attributes of the queue
-func (mq *LinuxMessageQueue) GetAttrs() (*MqAttr, error) {
-	attrs := new(MqAttr)
-	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
-		return nil, err
-	}
-	return attrs, nil
-}
-
 // Cap returns size of the mq buffer
 func (mq *LinuxMessageQueue) Cap() (int, error) {
-	attrs, err := mq.GetAttrs()
+	attrs, err := mq.getAttrs()
 	if err != nil {
 		return 0, err
 	}
@@ -277,6 +268,15 @@ func (mq *LinuxMessageQueue) NotifyCancel() error {
 	return err
 }
 
+// getAttrs returns attributes of the queue
+func (mq *LinuxMessageQueue) getAttrs() (*linuxMqAttr, error) {
+	attrs := new(linuxMqAttr)
+	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
+		return nil, err
+	}
+	return attrs, nil
+}
+
 // DestroyLinuxMessageQueue removes the queue permanently
 func DestroyLinuxMessageQueue(name string) error {
 	err := mq_unlink(name)
@@ -296,7 +296,7 @@ func SetLinuxMqBlocking(name string, block bool) error {
 	if err != nil {
 		return err
 	}
-	attrs := new(MqAttr)
+	attrs := new(linuxMqAttr)
 	if !block {
 		attrs.Flags |= unix.O_NONBLOCK
 	}

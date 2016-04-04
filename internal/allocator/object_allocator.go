@@ -202,7 +202,7 @@ func checkNumericType(kind reflect.Kind) error {
 	return fmt.Errorf("unsupported type %q", kind.String())
 }
 
-// from syscall package:
+// Use was taken from syscall package:
 // Use is a no-op, but the compiler cannot see that it is.
 // Calling Use(p) ensures that p is kept live until that point.
 //go:noescape

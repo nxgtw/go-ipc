@@ -86,7 +86,7 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 	}
 	defer mq.Destroy()
 	assert.NoError(t, mq.Send(make([]byte, 1)))
-	attrs, err := mq.GetAttrs()
+	attrs, err := mq.getAttrs()
 	assert.NoError(t, err)
 	assert.Equal(t, 5, attrs.Maxmsg)
 	assert.Equal(t, 121, attrs.Msgsize)

@@ -131,7 +131,7 @@ type sigevent struct {
 	padding                 [8]int32 // 8 is the maximum padding size
 }
 
-func mq_open(name string, flags int, mode uint32, attrs *MqAttr) (int, error) {
+func mq_open(name string, flags int, mode uint32, attrs *linuxMqAttr) (int, error) {
 	nameBytes, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return -1, err
@@ -201,7 +201,7 @@ func mq_notify(id int, event *sigevent) error {
 	return nil
 }
 
-func mq_getsetattr(id int, attrs, oldAttrs *MqAttr) error {
+func mq_getsetattr(id int, attrs, oldAttrs *linuxMqAttr) error {
 	attrsPtr := unsafe.Pointer(attrs)
 	oldAttrsPtr := unsafe.Pointer(oldAttrs)
 	_, _, err := syscall.Syscall(unix.SYS_MQ_GETSETATTR,

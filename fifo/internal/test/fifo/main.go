@@ -34,11 +34,11 @@ func create() error {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	mode := ipc.O_CREATE_ONLY | ipc.O_READWRITE
-	fifo, err := fifo.New(*objName, mode, 0666)
+	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
-	fifo.Close()
+	obj.Close()
 	return nil
 }
 
@@ -61,14 +61,14 @@ func read() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := fifo.New(*objName, mode, 0666)
+	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
-	defer fifo.Close()
+	defer obj.Close()
 	buffer := make([]byte, length)
 	var n int
-	if n, err = fifo.Read(buffer); err == nil {
+	if n, err = obj.Read(buffer); err == nil {
 		if n == length {
 			if length > 0 {
 				fmt.Println(ipc_testing.BytesToString(buffer))
@@ -88,17 +88,17 @@ func test() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := fifo.New(*objName, mode, 0666)
+	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
-	defer fifo.Close()
+	defer obj.Close()
 	data, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
 	buffer := make([]byte, len(data))
-	if _, err = fifo.Read(buffer); err == nil {
+	if _, err = obj.Read(buffer); err == nil {
 		for i, value := range data {
 			if value != buffer[i] {
 				return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, buffer[i])
@@ -116,16 +116,17 @@ func write() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	fifo, err := fifo.New(*objName, mode, 0666)
+	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
 	}
-	defer fifo.Close()
+	defer obj.Close()
 	data, err := ipc_testing.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	if written, err := fifo.Write(data); err == nil && written != len(data) {
+	var written int
+	if written, err = obj.Write(data); err == nil && written != len(data) {
 		err = fmt.Errorf("must write %d bytes, but wrote %d", len(data), written)
 	}
 	return err
