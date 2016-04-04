@@ -83,9 +83,7 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		a.NoError(lk.Close())
 	}(lk)
 	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
-	if !a.Error(err) {
-		return
-	}
+	a.Error(err)
 }
 
 func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
@@ -151,13 +149,16 @@ func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	_, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+
+	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) {
 		return
 	}
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
 			return
+		} else {
+			a.NoError(lk.Close())
 		}
 		_, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
 		if !a.Error(err) {

@@ -15,6 +15,7 @@ var (
 	procCreateMutex  = modkernel32.NewProc("CreateMutexW")
 	procOpenMutex    = modkernel32.NewProc("OpenMutexW")
 	procReleaseMutex = modkernel32.NewProc("ReleaseMutex")
+	procOpenEvent    = modkernel32.NewProc("OpenEventW")
 )
 
 func createMutex(name string) (windows.Handle, error) {
@@ -47,4 +48,16 @@ func releaseMutex(handle windows.Handle) error {
 		return os.NewSyscallError("ReleaseMutex", err)
 	}
 	return nil
+}
+
+func openEvent(name string, desiredAccess uint32, inheritHandle uint32) (windows.Handle, error) {
+	namep, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	h, _, err := procOpenEvent.Call(uintptr(desiredAccess), uintptr(inheritHandle), uintptr(unsafe.Pointer(namep)))
+	if h == 0 {
+		return 0, os.NewSyscallError("OpenEvent", err)
+	}
+	return windows.Handle(h), nil
 }

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	ipc "bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/windows"
 )
@@ -20,38 +20,34 @@ func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 	if err != nil {
 		return nil, err
 	}
-	handle, err := windows.CreateEvent(nil, 0, 1, namep)
-	if handle == windows.Handle(0) {
-		return nil, err
-	}
-	var created bool
-	switch mode {
-	case ipc.O_OPEN_ONLY:
-		if os.IsExist(err) {
-			err = nil
-		}
-	case ipc.O_CREATE_ONLY:
-		if !os.IsExist(err) {
-			if err != nil {
-				print(err.Error())
+	var handle windows.Handle
+	creator := func(create bool) error {
+		var err error
+		handle, err = openEvent(name, windows.SYNCHRONIZE, uint32(0))
+		if create {
+			if handle != windows.Handle(0) {
+				// this is emulation of O_EXCL. despite wait MSDN for CreateEvent says:
+				// "If the named event object existed before the function call, the function returns a handle
+				// to the existing object and GetLastError returns ERROR_ALREADY_EXIST",
+				// we cannot actually find out with CreateEvent
+				// if the event has already existed if was created in the same process.
+				// so, we just do a check with OpenEvent.
+				// yes, there is a race condition.
+				windows.CloseHandle(handle)
+				return windows.ERROR_ALREADY_EXISTS
+			} else {
+				handle, err = windows.CreateEvent(nil, 0, 1, namep)
 			}
-			err = nil
-			created = true
+		} else {
+			if handle != windows.Handle(0) {
+				return nil
+			}
 		}
-	case ipc.O_OPEN_OR_CREATE:
-		if !os.IsExist(err) {
-			created = true
-		}
-		err = nil
+		return err
 	}
+	_, err = common.OpenOrCreate(creator, mode)
 	if err != nil {
 		return nil, err
-	}
-	if created {
-		if err = windows.SetEvent(handle); err != nil {
-			windows.Close(handle)
-			return nil, err
-		}
 	}
 	return &mutex{handle: handle}, nil
 }
