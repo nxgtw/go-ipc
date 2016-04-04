@@ -24,11 +24,11 @@ const (
 type lockerCtor func(name string, mode int, perm os.FileMode) (IPCLocker, error)
 type lockerDtor func(name string) error
 
-func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_READWRITE, 0666)
@@ -41,7 +41,7 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	a.Error(err)
 	lk, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -52,22 +52,21 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	a.NoError(lk.Close())
-	return true
 }
 
-func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -78,28 +77,27 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
 	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.Error(err) {
-		return false
+		return
 	}
-	return true
 }
 
-func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !assert.NoError(t, err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -110,22 +108,21 @@ func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	lk, err = ctor(testLockerName, ipc.O_OPEN_OR_CREATE, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	a.NoError(lk.Close())
-	return true
 }
 
-func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_OPEN_OR_CREATE, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -136,16 +133,15 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	}(lk)
 	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
 	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.Error(err) {
-		return false
+		return
 	}
-	return true
 }
 
 func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
@@ -170,16 +166,16 @@ func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	}
 }
 
-func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) || !a.NotNil(lk) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -206,19 +202,18 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	wg.Wait()
 	runtime.GOMAXPROCS(old)
 	a.Equal(routines*iters, sharedValue)
-	return true
 }
 
-func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -229,7 +224,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	}(lk)
 	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 128, 0)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func() {
 		a.NoError(region.Close())
@@ -271,10 +266,9 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	if !a.NoError(result.Err) {
 		t.Logf("test app error. the output is: %s", result.Output)
 	}
-	return true
 }
 
-func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) bool {
+func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
 	const (
 		iterations = 75000
 		remoteJobs = 4
@@ -283,12 +277,12 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
-			return false
+			return
 		}
 	}
 	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func(lk IPCLocker) {
 		if d, ok := lk.(ipc.Destroyer); ok {
@@ -299,7 +293,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	}(lk)
 	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 8, 0)
 	if !a.NoError(err) {
-		return false
+		return
 	}
 	defer func() {
 		a.NoError(region.Close())
@@ -337,5 +331,4 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		t.Logf("test app error. the output is: %s", result.Output)
 	}
 	a.Equal(remoteIncs+localIncs, *ptr)
-	return true
 }

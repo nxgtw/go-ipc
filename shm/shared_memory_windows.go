@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 // Shared memory on Windows is emulated via regular files
@@ -19,7 +21,7 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	if err != nil {
 		return nil, err
 	}
-	osMode, err := openModeToOsMode(mode)
+	osMode, err := common.OpenModeToOsMode(mode)
 	if err != nil {
 		return nil, err
 	}
