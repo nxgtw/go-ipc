@@ -1,14 +1,12 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-package shm
+package ipc
 
 import (
 	"syscall"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-
-	"golang.org/x/sys/windows"
 )
 
 // SYSTEM_INFO is used for GetSystemInfo WinApi call
@@ -31,26 +29,15 @@ type SYSTEM_INFO struct {
 }
 
 var (
-	modkernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procGetSystemInfo   = modkernel32.NewProc("GetSystemInfo")
-	procCreateNamedPipe = modkernel32.NewProc("CreateNamedPipeW")
+	modkernel32       = syscall.NewLazyDLL("kernel32.dll")
+	procGetSystemInfo = modkernel32.NewProc("GetSystemInfo")
 )
 
 func getAllocGranularity() int {
 	var si SYSTEM_INFO
 	ptr := unsafe.Pointer(&si)
+	defer allocator.Use(ptr)
 	// this cannot fail
 	procGetSystemInfo.Call(uintptr(ptr))
-	allocator.Use(ptr)
 	return int(si.AllocationGranularity)
-}
-
-func createNamedPipe(name string, openMode, pipeMode, maxInstances, outBufferSize, inBufferSize, defaultTimeout uint32,
-	attrs *windows.SecurityAttributes) (windows.Handle, error) {
-	_, err := windows.UTF16PtrFromString(name)
-	if err != nil {
-		return windows.InvalidHandle, err
-	}
-	//	procCreateNamedPipe.Call(namep)
-	return windows.InvalidHandle, nil
 }
