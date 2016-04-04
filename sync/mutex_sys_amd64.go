@@ -16,16 +16,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	cSemUndo = 0x1000
-)
-
-type sembuf struct {
-	semnum uint16
-	semop  int16
-	semflg int16
-}
-
 func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall(unix.SYS_SEMGET, uintptr(k), uintptr(nsems), uintptr(semflg))
 	if err != syscall.Errno(0) {
@@ -35,7 +25,7 @@ func semget(k common.Key, nsems, semflg int) (int, error) {
 }
 
 func semctl(id, num, cmd int) error {
-	_, _, err := syscall.Syscall6(unix.SYS_SEMCTL, uintptr(id), uintptr(id), uintptr(num), uintptr(cmd), 0, 0)
+	_, _, err := syscall.Syscall(unix.SYS_SEMCTL, uintptr(id), uintptr(num), uintptr(cmd))
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMCTL", err)
 	}
@@ -55,4 +45,8 @@ func semtimedop(id int, ops []sembuf, timeout *unix.Timespec) error {
 		return os.NewSyscallError("SEMTIMEDOP", err)
 	}
 	return nil
+}
+
+func semop(id int, ops []sembuf) error {
+	return semtimedop(id, ops, nil)
 }

@@ -9,12 +9,12 @@ import (
 	"os"
 )
 
-func OpenOrCreate(creator, opener func() error, mode int) (bool, error) {
+func OpenOrCreate(creator func(bool) error, mode int) (bool, error) {
 	switch mode {
 	case ipc.O_OPEN_ONLY:
-		return false, opener()
+		return false, creator(false)
 	case ipc.O_CREATE_ONLY:
-		err := creator()
+		err := creator(true)
 		if err != nil {
 			return false, err
 		}
@@ -23,10 +23,10 @@ func OpenOrCreate(creator, opener func() error, mode int) (bool, error) {
 		const attempts = 16
 		var err error
 		for attempt := 0; attempt < attempts; attempt++ {
-			if err = creator(); !os.IsExist(err) {
+			if err = creator(true); !os.IsExist(err) {
 				return true, err
 			}
-			if err = opener(); !os.IsNotExist(err) {
+			if err = creator(false); !os.IsNotExist(err) {
 				return false, err
 			}
 		}

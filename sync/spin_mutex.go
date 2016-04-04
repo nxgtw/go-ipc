@@ -11,30 +11,31 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
-type spinMutexImpl struct {
+type spinMutex struct {
 	value uint32
 }
 
-func (impl *spinMutexImpl) Lock() {
-	for !impl.TryLock() {
+func (spin *spinMutex) Lock() {
+	for !spin.TryLock() {
 		runtime.Gosched()
 	}
 }
 
-func (impl *spinMutexImpl) Unlock() {
-	atomic.StoreUint32(&impl.value, 0)
+func (spin *spinMutex) Unlock() {
+	atomic.StoreUint32(&spin.value, 0)
 }
 
-func (impl *spinMutexImpl) TryLock() bool {
-	return atomic.CompareAndSwapUint32(&impl.value, 0, 1)
+func (spin *spinMutex) TryLock() bool {
+	return atomic.CompareAndSwapUint32(&spin.value, 0, 1)
 }
 
 // SpinMutex is a synchronization object which performs busy wait loop
 type SpinMutex struct {
-	*spinMutexImpl
+	*spinMutex
 	region *ipc.MemoryRegion
 	name   string
 }
@@ -53,9 +54,21 @@ func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 }
 
 func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
-	const spinImplSize = int64(unsafe.Sizeof(spinMutexImpl{}))
+	const spinImplSize = int64(unsafe.Sizeof(spinMutex{}))
 	name = spinName(name)
-	obj, created, resultErr := createMemoryObject(name, mode|ipc.O_READWRITE, perm)
+	var obj *shm.MemoryObject
+	creator := func(create bool) error {
+		var err error
+		creatorMode := ipc.O_READWRITE
+		if create {
+			creatorMode |= ipc.O_CREATE_ONLY
+		} else {
+			creatorMode |= ipc.O_OPEN_ONLY
+		}
+		obj, err = shm.NewMemoryObject(name, creatorMode, perm)
+		return err
+	}
+	created, resultErr := common.OpenOrCreate(creator, mode)
 	if resultErr != nil {
 		return nil, resultErr
 	}
@@ -76,20 +89,18 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 		if resultErr = obj.Truncate(spinImplSize); resultErr != nil {
 			return nil, resultErr
 		}
-	} else {
-		if obj.Size() < spinImplSize {
-			return nil, fmt.Errorf("existing object has invalid size %d", obj.Size())
-		}
+	} else if obj.Size() < spinImplSize {
+		return nil, fmt.Errorf("existing object has invalid size %d", obj.Size())
 	}
 	if region, resultErr = ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
 		return nil, resultErr
 	}
 	if created {
-		if resultErr = allocator.Alloc(region.Data(), spinMutexImpl{}); resultErr != nil {
+		if resultErr = allocator.Alloc(region.Data(), spinMutex{}); resultErr != nil {
 			return nil, resultErr
 		}
 	}
-	m := (*spinMutexImpl)(allocator.ByteSliceData(region.Data()))
+	m := (*spinMutex)(allocator.ByteSliceData(region.Data()))
 	impl := &SpinMutex{m, region, name}
 	return impl, nil
 }
@@ -118,30 +129,4 @@ func DestroySpinMutex(name string) error {
 
 func spinName(name string) string {
 	return "go-ipc.spin." + name
-}
-
-func createMemoryObject(name string, mode int, perm os.FileMode) (obj *shm.MemoryObject, created bool, err error) {
-	switch {
-	case mode&(ipc.O_OPEN_ONLY|ipc.O_CREATE_ONLY) != 0:
-		obj, err = shm.NewMemoryObject(name, mode, perm)
-		if err == nil && (mode&ipc.O_CREATE_ONLY) != 0 {
-			created = true
-		}
-	case mode&ipc.O_OPEN_OR_CREATE != 0:
-		const attempts = 16
-		mode = mode & ^(ipc.O_OPEN_OR_CREATE)
-		for attempt := 0; attempt < attempts; attempt++ {
-			if obj, err = shm.NewMemoryObject(name, mode|ipc.O_CREATE_ONLY, perm); !os.IsExist(err) {
-				created = true
-				break
-			} else {
-				if obj, err = shm.NewMemoryObject(name, mode|ipc.O_OPEN_ONLY, perm); !os.IsNotExist(err) {
-					break
-				}
-			}
-		}
-	default:
-		err = fmt.Errorf("invalid open mode")
-	}
-	return
 }

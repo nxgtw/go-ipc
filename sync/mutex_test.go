@@ -33,6 +33,10 @@ func TestMutexOpenMode4(t *testing.T) {
 	testLockerOpenMode4(t, mutexCtor, mutexDtor)
 }
 
+func TestMutexOpenMode5(t *testing.T) {
+	testLockerOpenMode5(t, mutexCtor, mutexDtor)
+}
+
 func TestMutexLock(t *testing.T) {
 	testLockerLock(t, mutexCtor, mutexDtor)
 }

@@ -148,6 +148,28 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	return true
 }
 
+func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(t)
+	if dtor != nil {
+		if !a.NoError(dtor(testLockerName)) {
+			return
+		}
+	}
+	_, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	if dtor != nil {
+		if !a.NoError(dtor(testLockerName)) {
+			return
+		}
+		_, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
+		if !a.Error(err) {
+			return
+		}
+	}
+}
+
 func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) bool {
 	a := assert.New(t)
 	if dtor != nil {

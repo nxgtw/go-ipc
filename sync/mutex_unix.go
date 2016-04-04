@@ -23,15 +23,16 @@ func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 		return nil, err
 	}
 	var id int
-	opener := func() error {
-		id, err = semget(k, 1, int(perm))
-		return err
+	creator := func(create bool) error {
+		var creatorErr error
+		flags := int(perm)
+		if create {
+			flags |= common.IpcCreate | common.IpcExcl
+		}
+		id, creatorErr = semget(k, 1, flags)
+		return creatorErr
 	}
-	creator := func() error {
-		id, err = semget(k, 1, common.IpcCreate|common.IpcExcl|int(perm))
-		return err
-	}
-	created, err := common.OpenOrCreate(creator, opener, mode)
+	created, err := common.OpenOrCreate(creator, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +98,13 @@ func DestroyMutex(name string) error {
 
 func semAdd(id, value int) error {
 	b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
-	return semtimedop(id, []sembuf{b}, nil)
+	return semop(id, []sembuf{b})
 }
 
 func isInterruptedSyscallErr(err error) bool {
 	if sysErr, ok := err.(*os.SyscallError); ok {
 		if errno, ok := sysErr.Err.(syscall.Errno); ok {
-			return errno == syscall.Errno(syscall.EINTR)
+			return errno == syscall.EINTR
 		}
 	}
 	return false

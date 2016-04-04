@@ -308,7 +308,7 @@ func mqFlagsToOsFlags(flags int) (int, error) {
 	if flags&(ipc.O_READWRITE|ipc.O_READ_ONLY|ipc.O_WRITE_ONLY) == 0 {
 		flags = ipc.O_READWRITE
 	}
-	sysflags, err := ipc.AccessModeToOsMode(flags)
+	sysflags, err := common.AccessModeToOsMode(flags)
 	if err != nil {
 		return 0, err
 	}

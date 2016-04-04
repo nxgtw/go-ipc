@@ -31,6 +31,10 @@ func TestSpinMutexOpenMode4(t *testing.T) {
 	testLockerOpenMode4(t, spinCtor, spinDtor)
 }
 
+func TestSpinMutexOpenMode5(t *testing.T) {
+	testLockerOpenMode5(t, spinCtor, spinDtor)
+}
+
 func TestSpinMutexLock(t *testing.T) {
 	testLockerLock(t, spinCtor, spinDtor)
 }
