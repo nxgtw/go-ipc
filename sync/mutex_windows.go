@@ -12,6 +12,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	cEVENT_MODIFY_STATE = 0x0002
+)
+
 type mutex struct {
 	handle windows.Handle
 }
@@ -24,7 +28,7 @@ func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 	var handle windows.Handle
 	creator := func(create bool) error {
 		var err error
-		handle, err = openEvent(name, windows.SYNCHRONIZE, uint32(0))
+		handle, err = openEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
 		if create {
 			if handle != windows.Handle(0) {
 				// this is emulation of O_EXCL. despite wait MSDN for CreateEvent says:
