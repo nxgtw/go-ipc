@@ -102,9 +102,17 @@ func semAdd(id, value int) error {
 }
 
 func isInterruptedSyscallErr(err error) bool {
+	return syscallErrHasCode(err, syscall.EINTR)
+}
+
+func isTimeoutErr(err error) bool {
+	return syscallErrHasCode(err, syscall.EAGAIN)
+}
+
+func syscallErrHasCode(err error, code syscall.Errno) bool {
 	if sysErr, ok := err.(*os.SyscallError); ok {
 		if errno, ok := sysErr.Err.(syscall.Errno); ok {
-			return errno == syscall.EINTR
+			return errno == code
 		}
 	}
 	return false

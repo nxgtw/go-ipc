@@ -10,6 +10,10 @@ import (
 	"runtime"
 	"syscall"
 	"unsafe"
+
+	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 func destroyMemoryObject(path string) error {
@@ -32,15 +36,23 @@ func shmName(name string) (string, error) {
 
 func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
 	var f *os.File
-	opener := func(mode int) error {
-		fd, err := shm_open(path, mode|syscall.O_CLOEXEC, int(perm))
+	amode, err := common.AccessModeToOsMode(mode)
+	if err != nil {
+		return nil, err
+	}
+	opener := func(create bool) error {
+		sysMode := amode | syscall.O_CLOEXEC
+		if create {
+			sysMode |= (syscall.O_CREAT | syscall.O_EXCL)
+		}
+		fd, err := shm_open(path, sysMode, int(perm))
 		if err != nil {
 			return err
 		}
 		f = os.NewFile(fd, path)
 		return nil
 	}
-	_, err := openOrCreateFile(opener, mode)
+	_, err = common.OpenOrCreate(opener, mode&(ipc.O_CREATE_ONLY|ipc.O_OPEN_OR_CREATE|ipc.O_OPEN_ONLY))
 	return f, err
 }
 
@@ -53,7 +65,7 @@ func shm_open(name string, flags, mode int) (uintptr, error) {
 	}
 	bytes := unsafe.Pointer(nameBytes)
 	fd, _, err := syscall.Syscall(syscall.SYS_SHM_OPEN, uintptr(bytes), uintptr(flags), uintptr(mode))
-	use(bytes)
+	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		return 0, err
 	}
@@ -67,7 +79,7 @@ func shm_unlink(name string) error {
 	}
 	bytes := unsafe.Pointer(nameBytes)
 	_, _, err = syscall.Syscall(syscall.SYS_SHM_UNLINK, uintptr(bytes), uintptr(0), uintptr(0))
-	use(bytes)
+	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		return err
 	}

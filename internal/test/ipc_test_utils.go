@@ -57,9 +57,13 @@ func BytesToString(data []byte) string {
 
 // launch helpers
 
-func startTestApp(args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer, error) {
+func goRunApp(args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer, error) {
 	args = append([]string{"run"}, args...)
-	cmd := exec.Command("go", args...)
+	return runApp("go", args, killChan)
+}
+
+func runApp(command string, args []string, killChan <-chan bool) (*exec.Cmd, *bytes.Buffer, error) {
+	cmd := exec.Command(command, args...)
 	buff := bytes.NewBuffer(nil)
 	cmd.Stderr = buff
 	cmd.Stdout = buff
@@ -98,7 +102,17 @@ func waitForCommand(cmd *exec.Cmd, buff *bytes.Buffer) (result TestAppResult) {
 // RunTestApp starts a go program via 'go run'.
 // To kill the process, send to killChan
 func RunTestApp(args []string, killChan <-chan bool) (result TestAppResult) {
-	if cmd, buff, err := startTestApp(args, killChan); err == nil {
+	if cmd, buff, err := goRunApp(args, killChan); err == nil {
+		result = waitForCommand(cmd, buff)
+	} else {
+		result.Err = err
+	}
+	return
+}
+
+// RunApp starts a go program. To kill the process, send to killChan
+func RunApp(command string, args []string, killChan <-chan bool) (result TestAppResult) {
+	if cmd, buff, err := runApp(command, args, killChan); err == nil {
 		result = waitForCommand(cmd, buff)
 	} else {
 		result.Err = err
@@ -111,7 +125,7 @@ func RunTestApp(args []string, killChan <-chan bool) (result TestAppResult) {
 // To wait for the program to finish, receive on TestAppResult chan.
 func RunTestAppAsync(args []string, killChan <-chan bool) <-chan TestAppResult {
 	ch := make(chan TestAppResult, 1)
-	if cmd, buff, err := startTestApp(args, killChan); err != nil {
+	if cmd, buff, err := goRunApp(args, killChan); err != nil {
 		ch <- TestAppResult{Err: err}
 	} else {
 		go func() {

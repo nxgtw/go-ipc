@@ -6,7 +6,13 @@ package sync
 
 import (
 	"os"
+	"runtime"
 	"testing"
+	"time"
+
+	"bitbucket.org/avd/go-ipc"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func mutexCtor(name string, mode int, perm os.FileMode) (IPCLocker, error) {
@@ -47,4 +53,27 @@ func TestMutexMemory(t *testing.T) {
 
 func TestMutexValueInc(t *testing.T) {
 	testLockerValueInc(t, "m", mutexCtor, mutexDtor)
+}
+
+func TestMutexLockTimeout(t *testing.T) {
+	a := assert.New(t)
+	if !a.NoError(mutexDtor(testLockerName)) {
+		return
+	}
+	m, err := mutexCtor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer mutexDtor(testLockerName)
+	tl, ok := m.(TimedIPCLocker)
+	if !ok {
+		t.Skipf("timed mutex is not supported on %s(%s)", runtime.GOOS, runtime.GOARCH)
+		return
+	}
+	tl.Lock()
+	defer tl.Unlock()
+	before := time.Now()
+	timeout := time.Millisecond * 50
+	a.False(tl.LockTimeout(timeout))
+	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.05)
 }

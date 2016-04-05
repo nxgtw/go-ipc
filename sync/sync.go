@@ -5,6 +5,7 @@ package sync
 import (
 	"io"
 	"sync"
+	"time"
 
 	"bitbucket.org/avd/go-ipc"
 )
@@ -21,6 +22,12 @@ var (
 type IPCLocker interface {
 	sync.Locker
 	io.Closer
+}
+
+// IPCLocker is a locker, whose lock operation can be limited with duration
+type TimedIPCLocker interface {
+	IPCLocker
+	LockTimeout(timeout time.Duration) bool
 }
 
 func checkMutexOpenMode(mode int) bool {

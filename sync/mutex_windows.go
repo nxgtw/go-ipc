@@ -5,6 +5,7 @@ package sync
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 
@@ -38,10 +39,9 @@ func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 			} else {
 				handle, err = windows.CreateEvent(nil, 0, 1, namep)
 			}
-		} else {
-			if handle != windows.Handle(0) {
-				return nil
-			}
+		}
+		if handle != windows.Handle(0) {
+			return nil
 		}
 		return err
 	}
@@ -58,7 +58,24 @@ func (m *mutex) Lock() {
 		if err != nil {
 			panic(err)
 		} else {
-			panic(fmt.Errorf("invalid wati state for a mutex: %d", ev))
+			panic(fmt.Errorf("invalid wait state for a mutex: %d", ev))
+		}
+	}
+}
+
+func (m *mutex) LockTimeout(timeout time.Duration) bool {
+	waitMillis := uint32(timeout.Nanoseconds() / 1e6)
+	ev, err := windows.WaitForSingleObject(m.handle, waitMillis)
+	switch ev {
+	case windows.WAIT_OBJECT_0:
+		return true
+	case windows.WAIT_TIMEOUT:
+		return false
+	default:
+		if err != nil {
+			panic(err)
+		} else {
+			panic(fmt.Errorf("invalid wait state for a mutex: %d", ev))
 		}
 	}
 }

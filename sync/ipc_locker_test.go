@@ -318,8 +318,6 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 				lk.Lock()
 				*ptr++
 				localIncs++
-				//time.Sleep(time.Millisecond)
-				//println(localIncs)
 				lk.Unlock()
 			}
 			wg.Done()

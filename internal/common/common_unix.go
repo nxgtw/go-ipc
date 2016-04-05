@@ -49,12 +49,20 @@ func Ftok(name string) (Key, error) {
 	if err := unix.Stat(name, &statfs); err != nil {
 		return Key(0), err
 	}
-	return Key(statfs.Ino&0xFFFF | ((statfs.Dev & 0xFF) << 16)), nil
+	return Key(uint64(statfs.Ino)&0xFFFF | ((uint64(statfs.Dev) & 0xFF) << 16)), nil
+}
+
+func AbsTimeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
+	if timeout >= 0 {
+		ts := unix.NsecToTimespec(time.Now().Add(timeout).UnixNano())
+		return &ts
+	}
+	return nil
 }
 
 func TimeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
 	if timeout >= 0 {
-		ts := unix.NsecToTimespec(time.Now().Add(timeout).UnixNano())
+		ts := unix.NsecToTimespec(timeout.Nanoseconds())
 		return &ts
 	}
 	return nil
