@@ -72,3 +72,13 @@ func msgctl(id, cmd int, buf *msqidDs) error {
 	}
 	return nil
 }
+
+/*
+224     AUE_MSGCTL      COMPAT7|NOSTD { int msgctl(int msqid, int cmd, \
+  426                                     struct msqid_ds_old *buf); }
+  427 225     AUE_MSGGET      NOSTD   { int msgget(key_t key, int msgflg); }
+  428 226     AUE_MSGSND      NOSTD   { int msgsnd(int msqid, const void *msgp, \
+  429                                     size_t msgsz, int msgflg); }
+  430 227     AUE_MSGRCV      NOSTD   { int msgrcv(int msqid, void *msgp, \
+  431                                     size_t msgsz, long msgtyp, int msgflg); }
+*/
