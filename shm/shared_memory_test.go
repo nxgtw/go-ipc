@@ -86,7 +86,9 @@ func TestOpenMemoryObjectReadonly(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer obj.Destroy()
+	defer func() {
+		assert.NoError(t, obj.Destroy())
+	}()
 	defer obj.Close()
 	obj2, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0)
 	if !assert.NoError(t, err) {

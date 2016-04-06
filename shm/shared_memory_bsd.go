@@ -27,11 +27,15 @@ func destroyMemoryObject(path string) error {
 }
 
 func shmName(name string) (string, error) {
+	const maxNameLen = 30
 	// workaround from http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	if runtime.GOOS == "darwin" {
-		name = fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
+		newName := fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
+		if len(newName) <= maxNameLen {
+			name = newName
+		}
 	}
-	return "/tmp/" + name, nil
+	return "/" + name, nil
 }
 
 func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
