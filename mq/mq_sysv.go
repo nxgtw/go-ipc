@@ -27,7 +27,7 @@ type SystemVMessageQueue struct {
 	name  string
 }
 
-// msqidDs is not currently suppoerted and must not be used
+// msqidDs is for msgctl syscall, but it is not currently used
 type msqidDs struct {
 }
 

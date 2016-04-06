@@ -8,6 +8,7 @@ package mq
 import (
 	"os"
 	"syscall"
+	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
@@ -63,7 +64,9 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 }
 
 func msgctl(id, cmd int, buf *msqidDs) error {
-	_, _, err := syscall.Syscall(unix.SYS_MSGCTL, uintptr(id), uintptr(cmd), 0)
+	pBuf := unsafe.Pointer(buf)
+	_, _, err := syscall.Syscall(unix.SYS_MSGCTL, uintptr(id), uintptr(cmd), uintptr(pBuf))
+	allocator.Use(pBuf)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGCTL", err)
 	}
