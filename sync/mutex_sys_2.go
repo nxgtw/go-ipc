@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build linux,amd64 darwin
+// +build linux,amd64 darwin, freebsd
 
 package sync
 
@@ -15,8 +15,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	sysSemGet uintptr
+	sysSemCtl uintptr
+	sysSemOp  uintptr
+)
+
 func semget(k common.Key, nsems, semflg int) (int, error) {
-	id, _, err := unix.Syscall(unix.SYS_SEMGET, uintptr(k), uintptr(nsems), uintptr(semflg))
+	id, _, err := unix.Syscall(sysSemGet, uintptr(k), uintptr(nsems), uintptr(semflg))
 	if err != syscall.Errno(0) {
 		return 0, err
 	}
@@ -24,7 +30,7 @@ func semget(k common.Key, nsems, semflg int) (int, error) {
 }
 
 func semctl(id, num, cmd int) error {
-	_, _, err := syscall.Syscall(unix.SYS_SEMCTL, uintptr(id), uintptr(num), uintptr(cmd))
+	_, _, err := syscall.Syscall(sysSemCtl, uintptr(id), uintptr(num), uintptr(cmd))
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMCTL", err)
 	}
@@ -36,19 +42,10 @@ func semop(id int, ops []sembuf) error {
 		return nil
 	}
 	pOps := unsafe.Pointer(&ops[0])
-	_, _, err := syscall.Syscall(unix.SYS_SEMOP, uintptr(id), uintptr(pOps), uintptr(len(ops)))
+	_, _, err := syscall.Syscall(sysSemOp, uintptr(id), uintptr(pOps), uintptr(len(ops)))
 	allocator.Use(pOps)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMOP", err)
 	}
 	return nil
 }
-
-/*
-220     AUE_SEMCTL      COMPAT7|NOSTD { int __semctl(int semid, int semnum, \
-                                     int cmd, union semun_old *arg); }
-221     AUE_SEMGET      NOSTD   { int semget(key_t key, int nsems, \
-                                     int semflg); }
- 222     AUE_SEMOP       NOSTD   { int semop(int semid, struct sembuf *sops, \
-                                      size_t nsops); }
-*
