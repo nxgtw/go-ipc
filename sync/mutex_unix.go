@@ -6,7 +6,6 @@ package sync
 
 import (
 	"os"
-	"syscall"
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
@@ -49,7 +48,7 @@ func (m *mutex) Lock() {
 	for {
 		if err := semAdd(m.id, -1); err == nil {
 			return
-		} else if !isInterruptedSyscallErr(err) {
+		} else if !common.IsInterruptedSyscallErr(err) {
 			panic(err)
 		}
 	}
@@ -59,7 +58,7 @@ func (m *mutex) Unlock() {
 	for {
 		if err := semAdd(m.id, 1); err == nil {
 			return
-		} else if !isInterruptedSyscallErr(err) {
+		} else if !common.IsInterruptedSyscallErr(err) {
 			panic(err)
 		}
 	}
@@ -99,21 +98,4 @@ func DestroyMutex(name string) error {
 func semAdd(id, value int) error {
 	b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
 	return semop(id, []sembuf{b})
-}
-
-func isInterruptedSyscallErr(err error) bool {
-	return syscallErrHasCode(err, syscall.EINTR)
-}
-
-func isTimeoutErr(err error) bool {
-	return syscallErrHasCode(err, syscall.EAGAIN)
-}
-
-func syscallErrHasCode(err error, code syscall.Errno) bool {
-	if sysErr, ok := err.(*os.SyscallError); ok {
-		if errno, ok := sysErr.Err.(syscall.Errno); ok {
-			return errno == code
-		}
-	}
-	return false
 }

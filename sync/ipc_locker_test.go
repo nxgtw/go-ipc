@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	testLockerName = "go-ipc.locker"
+	testLockerName = "ipclocker"
 )
 
 type lockerCtor func(name string, mode int, perm os.FileMode) (IPCLocker, error)

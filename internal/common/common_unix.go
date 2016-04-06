@@ -7,6 +7,7 @@ package common
 import (
 	"errors"
 	"os"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -66,4 +67,21 @@ func TimeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
 		return &ts
 	}
 	return nil
+}
+
+func IsInterruptedSyscallErr(err error) bool {
+	return SyscallErrHasCode(err, syscall.EINTR)
+}
+
+func IsTimeoutErr(err error) bool {
+	return SyscallErrHasCode(err, syscall.EAGAIN)
+}
+
+func SyscallErrHasCode(err error, code syscall.Errno) bool {
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		if errno, ok := sysErr.Err.(syscall.Errno); ok {
+			return errno == code
+		}
+	}
+	return false
 }

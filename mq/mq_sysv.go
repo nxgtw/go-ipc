@@ -74,7 +74,11 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 // Send sends a message.
 // It blocks if the queue is full.
 func (mq *SystemVMessageQueue) Send(data []byte) error {
-	return msgsnd(mq.id, cDefaultMessageType, data, mq.flags)
+	err := msgsnd(mq.id, cDefaultMessageType, data, mq.flags)
+	if err != nil && mq.flags&common.IpcNoWait != 0 && common.IsTimeoutErr(err) {
+		err = nil
+	}
+	return err
 }
 
 // Receive receives a message.

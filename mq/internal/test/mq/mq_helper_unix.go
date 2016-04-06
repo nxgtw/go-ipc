@@ -8,26 +8,26 @@ import (
 	"fmt"
 	"os"
 
-	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/mq"
 )
 
-func createMqWithType(name string, perm os.FileMode, typ, opt string) (ipc.Messenger, error) {
+func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return ipc.CreateMQ(name, perm)
+		return mq.CreateMQ(name, perm)
 	case "sysv":
-		return ipc.CreateSystemVMessageQueue(name, perm)
+		return mq.CreateSystemVMessageQueue(name, perm)
 	default:
 		return nil, fmt.Errorf("unknown mq type %q", typ)
 	}
 }
 
-func openMqWithType(name string, flags int, typ string) (ipc.Messenger, error) {
+func openMqWithType(name string, flags int, typ string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return ipc.OpenMQ(name, flags)
+		return mq.OpenMQ(name, flags)
 	case "sysv":
-		return ipc.OpenSystemVMessageQueue(name, flags)
+		return mq.OpenSystemVMessageQueue(name, flags)
 	default:
 		return nil, fmt.Errorf("unknown mq type %q", typ)
 	}
@@ -36,9 +36,9 @@ func openMqWithType(name string, flags int, typ string) (ipc.Messenger, error) {
 func destroyMqWithType(name, typ string) error {
 	switch typ {
 	case "default":
-		return ipc.DestroyMQ(name)
+		return mq.DestroyMQ(name)
 	case "sysv":
-		return ipc.DestroySystemVMessageQueue(name)
+		return mq.DestroySystemVMessageQueue(name)
 	default:
 		return fmt.Errorf("unknown mq type %q", typ)
 	}
