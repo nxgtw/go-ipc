@@ -38,3 +38,5 @@ integrations:
           type:
           agent_only:
           branches:
+              only:
+                  - master
