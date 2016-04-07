@@ -14,7 +14,7 @@ import (
 func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return mq.CreateMQ(name, perm)
+		return mq.New(name, perm)
 	case "sysv":
 		return mq.CreateSystemVMessageQueue(name, perm)
 	default:
@@ -25,7 +25,7 @@ func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messen
 func openMqWithType(name string, flags int, typ string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return mq.OpenMQ(name, flags)
+		return mq.Open(name, flags)
 	case "sysv":
 		return mq.OpenSystemVMessageQueue(name, flags)
 	default:
@@ -36,7 +36,7 @@ func openMqWithType(name string, flags int, typ string) (mq.Messenger, error) {
 func destroyMqWithType(name, typ string) error {
 	switch typ {
 	case "default":
-		return mq.DestroyMQ(name)
+		return mq.Destroy(name)
 	case "sysv":
 		return mq.DestroySystemVMessageQueue(name)
 	default:
