@@ -1,1 +1,1 @@
-A library for inter-process communication written in Go.
+A library for inter-process communication written in pure Go.
