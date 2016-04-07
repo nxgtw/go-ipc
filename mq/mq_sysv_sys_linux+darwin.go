@@ -2,12 +2,13 @@
 
 // +build linux,amd64 darwin
 
-package sync
+package mq
 
 import "golang.org/x/sys/unix"
 
 func init() {
-	sysSemGet = unix.SYS_SEMGET
-	sysSemCtl = unix.SYS_SEMCTL
-	sysSemOp = unix.SYS_SEMOP
+	sysMsgCtl = unix.SYS_MSGCTL
+	sysMsgGet = unix.SYS_MSGGET
+	sysMsgRcv = unix.SYS_MSGRCV
+	sysMsgSnd = unix.SYS_MSGSND
 }

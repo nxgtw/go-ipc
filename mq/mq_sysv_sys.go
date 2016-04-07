@@ -1,7 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
-// +build 386
+// +build linux,amd64 darwin freebsd
 
 package mq
 
@@ -12,19 +11,17 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
-
-	"golang.org/x/sys/unix"
 )
 
-const (
-	cMSGSND = 11
-	cMSGRCV = 12
-	cMSGGET = 13
-	cMSGCTL = 14
+var (
+	sysMsgGet uintptr
+	sysMsgSnd uintptr
+	sysMsgRcv uintptr
+	sysMsgCtl uintptr
 )
 
 func msgget(k common.Key, flags int) (int, error) {
-	id, _, err := syscall.Syscall6(unix.SYS_IPC, uintptr(cMSGGET), uintptr(k), uintptr(flags), 0, 0, 0)
+	id, _, err := syscall.Syscall(sysMsgGet, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
 		return 0, os.NewSyscallError("MSGGET", err)
 	}
@@ -35,14 +32,14 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	*(*int)(unsafe.Pointer(rawData)) = typ
+	*(*int)(rawData) = typ
 	copy(message[typeDataSize:], data)
-	_, _, err := syscall.Syscall6(unix.SYS_IPC,
-		uintptr(cMSGSND),
+	_, _, err := syscall.Syscall6(sysMsgSnd,
 		uintptr(id),
+		uintptr(rawData),
 		uintptr(len(data)),
 		uintptr(flags),
-		uintptr(rawData),
+		0,
 		0)
 	allocator.Use(rawData)
 	if err != syscall.Errno(0) {
@@ -55,13 +52,13 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	_, _, err := syscall.Syscall6(unix.SYS_IPC,
-		uintptr(cMSGRCV|(1<<16)),
+	_, _, err := syscall.Syscall6(sysMsgRcv,
 		uintptr(id),
-		uintptr(len(data)),
-		uintptr(flags),
 		uintptr(rawData),
-		uintptr(typ))
+		uintptr(len(data)),
+		uintptr(typ),
+		uintptr(flags),
+		0)
 	allocator.Use(rawData)
 	copy(data, message[typeDataSize:])
 	if err != syscall.Errno(0) {
@@ -70,8 +67,10 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 	return nil
 }
 
-func msgctl(id int, cmd int, buf *msqidDs) error {
-	_, _, err := syscall.Syscall(unix.SYS_IPC, uintptr(cMSGCTL), uintptr(id), uintptr(cmd))
+func msgctl(id, cmd int, buf *msqidDs) error {
+	pBuf := unsafe.Pointer(buf)
+	_, _, err := syscall.Syscall(sysMsgCtl, uintptr(id), uintptr(cmd), uintptr(pBuf))
+	allocator.Use(pBuf)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGCTL", err)
 	}
