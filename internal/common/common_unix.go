@@ -50,6 +50,9 @@ func Ftok(name string) (Key, error) {
 	if err := unix.Stat(name, &statfs); err != nil {
 		return Key(0), err
 	}
+	// unconvert says there is 'redundant type conversion' to uint64,
+	// however, this is not always true, as the types of statfs.Ino and statfs.Dev
+	// may vary on different platforms
 	return Key(uint64(statfs.Ino)&0xFFFF | ((uint64(statfs.Dev) & 0xFF) << 16)), nil
 }
 
@@ -84,4 +87,40 @@ func SyscallErrHasCode(err error, code syscall.Errno) bool {
 		}
 	}
 	return false
+}
+
+func SyscallNameFromErr(err error) string {
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		return sysErr.Syscall
+	}
+	return ""
+}
+
+func UninterruptedSyscall(f func() error) error {
+	for {
+		err := f()
+		if !IsInterruptedSyscallErr(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func UninterruptedSyscallTimeout(f func(time.Duration) error, timeout time.Duration) error {
+	for {
+		opStart := time.Now()
+		err := f(timeout)
+		if !IsInterruptedSyscallErr(err) {
+			return err
+		}
+		if timeout >= 0 {
+			// we were interrupted by a signal. recalculate timeout
+			elapsed := time.Now().Sub(opStart)
+			if timeout > elapsed {
+				timeout = timeout - elapsed
+			} else {
+				return os.NewSyscallError(SyscallNameFromErr(err), syscall.EAGAIN)
+			}
+		}
+	}
 }

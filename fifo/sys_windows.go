@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-package shm
+package fifo
 
 import (
 	"syscall"

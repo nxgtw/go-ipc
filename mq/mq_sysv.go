@@ -74,7 +74,8 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 // Send sends a message.
 // It blocks if the queue is full.
 func (mq *SystemVMessageQueue) Send(data []byte) error {
-	err := msgsnd(mq.id, cDefaultMessageType, data, mq.flags)
+	f := func() error { return msgsnd(mq.id, cDefaultMessageType, data, mq.flags) }
+	err := common.UninterruptedSyscall(f)
 	if err != nil && mq.flags&common.IpcNoWait != 0 && common.IsTimeoutErr(err) {
 		err = nil
 	}
@@ -84,7 +85,8 @@ func (mq *SystemVMessageQueue) Send(data []byte) error {
 // Receive receives a message.
 // It blocks if the queue is empty.
 func (mq *SystemVMessageQueue) Receive(data []byte) error {
-	return msgrcv(mq.id, data, cSysVAnyMessage, mq.flags)
+	f := func() error { return msgrcv(mq.id, data, cSysVAnyMessage, mq.flags) }
+	return common.UninterruptedSyscall(f)
 }
 
 // Destroy closes the queue and removes it permanently

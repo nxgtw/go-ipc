@@ -15,13 +15,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type memoryRegionImpl struct {
+type memoryRegion struct {
 	data       []byte
 	size       int
 	pageOffset int64
 }
 
-func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
+func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*memoryRegion, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err
@@ -41,34 +41,34 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 	if data, err = unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
 		return nil, err
 	}
-	return &memoryRegionImpl{data: data, size: size, pageOffset: pageOffset}, nil
+	return &memoryRegion{data: data, size: size, pageOffset: pageOffset}, nil
 }
 
-func (impl *memoryRegionImpl) Close() error {
-	if impl.data != nil {
-		err := unix.Munmap(impl.data)
-		impl.data = nil
-		impl.pageOffset = 0
-		impl.size = 0
+func (region *memoryRegion) Close() error {
+	if region.data != nil {
+		err := unix.Munmap(region.data)
+		region.data = nil
+		region.pageOffset = 0
+		region.size = 0
 		return err
 	}
 	return nil
 }
 
-func (impl *memoryRegionImpl) Data() []byte {
-	return impl.data[impl.pageOffset:]
+func (region *memoryRegion) Data() []byte {
+	return region.data[region.pageOffset:]
 }
 
-func (impl *memoryRegionImpl) Flush(async bool) error {
+func (region *memoryRegion) Flush(async bool) error {
 	flag := unix.MS_SYNC
 	if async {
 		flag = unix.MS_ASYNC
 	}
-	return msync(impl.data, flag)
+	return msync(region.data, flag)
 }
 
-func (impl *memoryRegionImpl) Size() int {
-	return impl.size
+func (region *memoryRegion) Size() int {
+	return region.size
 }
 
 func memProtAndFlagsFromMode(mode int) (prot, flags int, err error) {

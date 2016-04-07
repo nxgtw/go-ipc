@@ -13,13 +13,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type memoryRegionImpl struct {
+type memoryRegion struct {
 	data       []byte
 	size       int
 	pageOffset int64
 }
 
-func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (*memoryRegionImpl, error) {
+func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*memoryRegion, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err
@@ -43,24 +43,24 @@ func newMemoryRegionImpl(obj MappableHandle, mode int, offset int64, size int) (
 		return nil, os.NewSyscallError("MapViewOfFile", err)
 	}
 	sz := size + int(pageOffset)
-	return &memoryRegionImpl{allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
+	return &memoryRegion{allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
 }
 
-func (impl *memoryRegionImpl) Close() error {
-	runtime.SetFinalizer(impl, nil)
-	return windows.UnmapViewOfFile(uintptr(unsafe.Pointer(&impl.data[0])))
+func (region *memoryRegion) Close() error {
+	runtime.SetFinalizer(region, nil)
+	return windows.UnmapViewOfFile(uintptr(unsafe.Pointer(&region.data[0])))
 }
 
-func (impl *memoryRegionImpl) Data() []byte {
-	return impl.data[impl.pageOffset:]
+func (region *memoryRegion) Data() []byte {
+	return region.data[region.pageOffset:]
 }
 
-func (impl *memoryRegionImpl) Size() int {
-	return impl.size
+func (region *memoryRegion) Size() int {
+	return region.size
 }
 
-func (impl *memoryRegionImpl) Flush(async bool) error {
-	return windows.FlushViewOfFile(uintptr(unsafe.Pointer(&impl.data[0])), uintptr(len(impl.data)))
+func (region *memoryRegion) Flush(async bool) error {
+	return windows.FlushViewOfFile(uintptr(unsafe.Pointer(&region.data[0])), uintptr(len(region.data)))
 }
 
 func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {

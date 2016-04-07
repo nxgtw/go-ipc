@@ -10,7 +10,7 @@ import (
 // MemoryObject represents an object which can be used to
 // map shared memory regions into the process' address space
 type MemoryObject struct {
-	*memoryObjectImpl
+	*memoryObject
 }
 
 // NewMemoryObject creates a new shared memory object.
@@ -19,12 +19,12 @@ type MemoryObject struct {
 // mode - open mode. see O_* constants
 // perm - file's mode and permission bits.
 func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, error) {
-	impl, err := newMemoryObjectImpl(name, mode, perm)
+	impl, err := newMemoryObject(name, mode, perm)
 	if err != nil {
 		return nil, err
 	}
 	result := &MemoryObject{impl}
-	runtime.SetFinalizer(impl, func(memObject *memoryObjectImpl) {
+	runtime.SetFinalizer(impl, func(memObject *memoryObject) {
 		memObject.Close()
 	})
 	return result, nil

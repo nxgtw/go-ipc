@@ -24,7 +24,7 @@ import (
 // region may be gc'ed while its data is used by g()
 // To avoid this, you can use UseMemoryRegion() or region readers/writers
 type MemoryRegion struct {
-	*memoryRegionImpl
+	*memoryRegion
 }
 
 // MappableHandle is an object, which can return a handle,
@@ -78,16 +78,16 @@ func (w *MemoryRegionWriter) WriteAt(p []byte, off int64) (n int, err error) {
 // NewMemoryRegion creates a new shared memory region.
 // object - an object containing a descriptor of the file, which can be mmaped
 // size - object size
-// mode - open mode. see SHM_* constants
+// mode - open mode. see MEM_* constants
 // offset - offset in bytes from the beginning of the mmaped file
 // size - region size
 func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*MemoryRegion, error) {
-	impl, err := newMemoryRegionImpl(object, mode, offset, size)
+	impl, err := newMemoryRegion(object, mode, offset, size)
 	if err != nil {
 		return nil, err
 	}
 	result := &MemoryRegion{impl}
-	runtime.SetFinalizer(impl, func(region *memoryRegionImpl) {
+	runtime.SetFinalizer(impl, func(region *memoryRegion) {
 		region.Close()
 	})
 	return result, nil
@@ -99,9 +99,10 @@ func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*
 // destroyed and you can get segfault.
 // It can be used like the following:
 // 	region := NewMemoryRegion(...)
-//	UseMemoryRegion(region)
+//	defer UseMemoryRegion(region)
 // 	data := region.Data()
 //	{ work with data }
+// However, it is better to use MemoryRegionReader/Writer.
 func UseMemoryRegion(region *MemoryRegion) {
 	allocator.Use(unsafe.Pointer(region))
 }

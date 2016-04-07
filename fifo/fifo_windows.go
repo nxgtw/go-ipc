@@ -8,13 +8,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type fifoImpl struct {
+type fifo struct {
 	handle windows.Handle
 }
 
-func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
+func newFifo(name string, mode int, perm os.FileMode) (*fifo, error) {
 	//	path := fifoPath(name)
-	return &fifoImpl{}, nil
+	return &fifo{}, nil
 }
 
 func fifoPath(name string) string {

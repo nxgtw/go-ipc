@@ -12,11 +12,11 @@ import (
 
 // Shared memory on Windows is emulated via regular files
 // like it is done in boost c++ library
-type memoryObjectImpl struct {
+type memoryObject struct {
 	file *os.File
 }
 
-func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryObjectImpl, err error) {
+func newMemoryObject(name string, mode int, perm os.FileMode) (impl *memoryObject, err error) {
 	path, err := shmName(name)
 	if err != nil {
 		return nil, err
@@ -29,41 +29,41 @@ func newMemoryObjectImpl(name string, mode int, perm os.FileMode) (impl *memoryO
 	if err != nil {
 		return nil, err
 	}
-	return &memoryObjectImpl{file}, nil
+	return &memoryObject{file}, nil
 }
 
-func (impl *memoryObjectImpl) Destroy() error {
-	if int(impl.Fd()) >= 0 {
-		if err := impl.Close(); err != nil {
+func (obj *memoryObject) Destroy() error {
+	if int(obj.Fd()) >= 0 {
+		if err := obj.Close(); err != nil {
 			return err
 		}
 	}
-	return DestroyMemoryObject(impl.Name())
+	return DestroyMemoryObject(obj.Name())
 }
 
-func (impl *memoryObjectImpl) Name() string {
-	return filepath.Base(impl.file.Name())
+func (obj *memoryObject) Name() string {
+	return filepath.Base(obj.file.Name())
 }
 
-func (impl *memoryObjectImpl) Close() error {
-	runtime.SetFinalizer(impl, nil)
-	return impl.file.Close()
+func (obj *memoryObject) Close() error {
+	runtime.SetFinalizer(obj, nil)
+	return obj.file.Close()
 }
 
-func (impl *memoryObjectImpl) Truncate(size int64) error {
-	return impl.file.Truncate(size)
+func (obj *memoryObject) Truncate(size int64) error {
+	return obj.file.Truncate(size)
 }
 
-func (impl *memoryObjectImpl) Size() int64 {
-	fileInfo, err := impl.file.Stat()
+func (obj *memoryObject) Size() int64 {
+	fileInfo, err := obj.file.Stat()
 	if err != nil {
 		return 0
 	}
 	return fileInfo.Size()
 }
 
-func (impl *memoryObjectImpl) Fd() uintptr {
-	return impl.file.Fd()
+func (obj *memoryObject) Fd() uintptr {
+	return obj.file.Fd()
 }
 
 // DestroyMemoryObject permanently removes given memory object

@@ -15,11 +15,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type fifoImpl struct {
+type fifo struct {
 	file *os.File
 }
 
-func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
+func newFifo(name string, mode int, perm os.FileMode) (*fifo, error) {
 	if _, err := common.CreateModeToOsMode(mode); err != nil {
 		return nil, err
 	}
@@ -50,24 +50,24 @@ func newFifoImpl(name string, mode int, perm os.FileMode) (*fifoImpl, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fifoImpl{file: file}, nil
+	return &fifo{file: file}, nil
 }
 
-func (f *fifoImpl) Read(b []byte) (n int, err error) {
+func (f *fifo) Read(b []byte) (n int, err error) {
 	return f.file.Read(b)
 }
 
-func (f *fifoImpl) Write(b []byte) (n int, err error) {
+func (f *fifo) Write(b []byte) (n int, err error) {
 	return f.file.Write(b)
 }
 
 // Close closes the object
-func (f *fifoImpl) Close() error {
+func (f *fifo) Close() error {
 	return f.file.Close()
 }
 
 // Destroy permanently removes the FIFO, closing it first.
-func (f *fifoImpl) Destroy() error {
+func (f *fifo) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
 		return os.Remove(f.file.Name())

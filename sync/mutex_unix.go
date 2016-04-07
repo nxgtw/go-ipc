@@ -55,12 +55,9 @@ func (m *mutex) Lock() {
 }
 
 func (m *mutex) Unlock() {
-	for {
-		if err := semAdd(m.id, 1); err == nil {
-			return
-		} else if !common.IsInterruptedSyscallErr(err) {
-			panic(err)
-		}
+	f := func() error { return semAdd(m.id, 1) }
+	if err := common.UninterruptedSyscall(f); err != nil {
+		panic(err)
 	}
 }
 
