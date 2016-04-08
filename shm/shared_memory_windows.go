@@ -11,7 +11,7 @@ import (
 )
 
 // Shared memory on Windows is emulated via regular files
-// like it is done in boost c++ library
+// like it is done in boost c++ library.
 type memoryObject struct {
 	file *os.File
 }

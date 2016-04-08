@@ -11,7 +11,6 @@ import (
 var (
 	_ iSharedMemoryObject = (*MemoryObject)(nil)
 	_ iSharedMemoryRegion = (*ipc.MemoryRegion)(nil)
-	_ ipc.MappableHandle  = (*MemoryObject)(nil)
 )
 
 type iSharedMemoryObject interface {
@@ -20,6 +19,7 @@ type iSharedMemoryObject interface {
 	Truncate(size int64) error
 	Close() error
 	Destroy() error
+	ipc.MappableHandle
 }
 
 type iSharedMemoryRegion interface {

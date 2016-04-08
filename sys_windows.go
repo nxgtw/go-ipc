@@ -5,8 +5,6 @@ package ipc
 import (
 	"syscall"
 	"unsafe"
-
-	"bitbucket.org/avd/go-ipc/internal/allocator"
 )
 
 // SYSTEM_INFO is used for GetSystemInfo WinApi call
@@ -35,9 +33,7 @@ var (
 
 func getAllocGranularity() int {
 	var si SYSTEM_INFO
-	ptr := unsafe.Pointer(&si)
-	defer allocator.Use(ptr)
 	// this cannot fail
-	procGetSystemInfo.Call(uintptr(ptr))
+	procGetSystemInfo.Call(uintptr(unsafe.Pointer(&si)))
 	return int(si.AllocationGranularity)
 }

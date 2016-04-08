@@ -29,7 +29,9 @@ func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*mem
 	}
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
-	handle, err := windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, nil)
+	var name *uint16
+	// TODO(avd) - named mappings for native windows shm
+	handle, err := windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, name)
 	if err != nil {
 		return nil, os.NewSyscallError("CreateFileMapping", err)
 	}
