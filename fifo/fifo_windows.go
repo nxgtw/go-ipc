@@ -51,6 +51,22 @@ func newFifo(name string, mode int, perm os.FileMode) (*fifo, error) {
 	return &fifo{}, nil
 }
 
+func (f *fifo) Read(b []byte) (n int, err error) {
+	panic("unimplemented")
+}
+
+func (f *fifo) Write(b []byte) (n int, err error) {
+	panic("unimplemented")
+}
+
+func (f *fifo) Close() error {
+	panic("unimplemented")
+}
+
+func (f *fifo) Destroy() error {
+	panic("unimplemented")
+}
+
 func fifoPath(name string) string {
 	const template = `\\.\pipe\`
 	return template + name

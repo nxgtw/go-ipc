@@ -23,3 +23,23 @@ func New(name string, mode int, perm os.FileMode) (*Fifo, error) {
 	}
 	return &Fifo{fifo: impl}, err
 }
+
+// Read reads from the given FIFO. it must be opened for reading
+func (f *Fifo) Read(b []byte) (n int, err error) {
+	return f.fifo.Read(b)
+}
+
+// Write writes to the given FIFO. it must be opened for writing
+func (f *Fifo) Write(b []byte) (n int, err error) {
+	return f.fifo.Write(b)
+}
+
+// Close closes the object
+func (f *Fifo) Close() error {
+	return f.fifo.Close()
+}
+
+// Destroy permanently removes the FIFO, closing it first.
+func (f *Fifo) Destroy() error {
+	return f.fifo.Destroy()
+}

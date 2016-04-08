@@ -61,12 +61,10 @@ func (f *fifo) Write(b []byte) (n int, err error) {
 	return f.file.Write(b)
 }
 
-// Close closes the object
 func (f *fifo) Close() error {
 	return f.file.Close()
 }
 
-// Destroy permanently removes the FIFO, closing it first.
 func (f *fifo) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
