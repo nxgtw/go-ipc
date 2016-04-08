@@ -13,11 +13,11 @@ type Mutex struct {
 }
 
 // NewMutex creates a new readwrite mutex
-// name - object name
-// mode - object creation mode. must be one of the following:
-//	O_OPEN_OR_CREATE
-//	O_CREATE_ONLY
-//	O_OPEN_ONLY
+//	name - object name
+//	mode - object creation mode. must be one of the following:
+//		O_OPEN_OR_CREATE
+//		O_CREATE_ONLY
+//		O_OPEN_ONLY
 func NewMutex(name string, mode int, perm os.FileMode) (*Mutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
@@ -28,4 +28,20 @@ func NewMutex(name string, mode int, perm os.FileMode) (*Mutex, error) {
 	}
 	result := &Mutex{m}
 	return result, nil
+}
+
+// Lock locks m. If the lock is already in use, the calling goroutine blocks until the mutex is available.
+// Lock panics on any error.
+func (m *Mutex) Lock() {
+	m.mutex.Lock()
+}
+
+// Unlock unlocks m. Unlock panics on any error.
+func (m *Mutex) Unlock() {
+	m.mutex.Unlock()
+}
+
+// Close closes current instance so that it cannot be used anymore.
+func (m *Mutex) Close() error {
+	return m.mutex.Close()
 }

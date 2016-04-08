@@ -19,16 +19,19 @@ type spinMutex struct {
 	value uint32
 }
 
+// Lock locks the mutex waiting in a busy loop if needed.
 func (spin *spinMutex) Lock() {
 	for !spin.TryLock() {
 		runtime.Gosched()
 	}
 }
 
+// Unlock releases the mutex.
 func (spin *spinMutex) Unlock() {
 	atomic.StoreUint32(&spin.value, 0)
 }
 
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
 func (spin *spinMutex) TryLock() bool {
 	return atomic.CompareAndSwapUint32(&spin.value, 0, 1)
 }
@@ -106,12 +109,12 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 }
 
 // Close indicates, that the object is no longer in use,
-// and that the underlying resources can be freed
+// and that the underlying resources can be freed.
 func (spin *SpinMutex) Close() error {
 	return spin.region.Close()
 }
 
-// Destroy removes the mutex object
+// Destroy removes the mutex object.
 func (spin *SpinMutex) Destroy() error {
 	if err := spin.Close(); err != nil {
 		return err
@@ -122,7 +125,7 @@ func (spin *SpinMutex) Destroy() error {
 	return err
 }
 
-// DestroySpinMutex removes the mutex object with a given name
+// DestroySpinMutex removes a mutex object with the given name
 func DestroySpinMutex(name string) error {
 	return shm.DestroyMemoryObject(spinName(name))
 }

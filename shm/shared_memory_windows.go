@@ -66,8 +66,7 @@ func (obj *memoryObject) Fd() uintptr {
 	return obj.file.Fd()
 }
 
-// DestroyMemoryObject permanently removes given memory object
-func DestroyMemoryObject(name string) error {
+func destroyMemoryObject(name string) error {
 	path, err := shmName(name)
 	if err != nil {
 		return err

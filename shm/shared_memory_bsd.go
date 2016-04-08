@@ -16,7 +16,7 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-func destroyMemoryObject(path string) error {
+func doDestroyMemoryObject(path string) error {
 	err := shm_unlink(path)
 	if err != nil {
 		if os.IsNotExist(err) {

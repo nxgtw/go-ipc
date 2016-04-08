@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	// DefaultLinuxMqMaxSize is the default queue size on linux
+	// DefaultLinuxMqMaxSize is the default linux mq queue size
 	DefaultLinuxMqMaxSize = 8
-	// DefaultLinuxMqMaxMessageSize is the maximum message size on linux
-	DefaultLinuxMqMaxMessageSize = 8192
+	// DefaultLinuxMqMessageSize is the linux mq message size
+	DefaultLinuxMqMessageSize = 8192
 )
 
 // this is to ensure, that linux implementation of ipc mq
@@ -30,20 +30,20 @@ var (
 	_ Messenger = (*LinuxMessageQueue)(nil)
 )
 
-// LinuxMessageQueue is a linux-specific ipc mechanism based on message passing
+// LinuxMessageQueue is a linux-specific ipc mechanism based on message passing.
 type LinuxMessageQueue struct {
 	id           int
 	name         string
 	cancelSocket int
 	flags        int
-	// The following field are needed if the size of the object to where we want
-	// to receive a message is less, then the maximum message size of the queue.
+	// The following field is needed if the size of the input buffer
+	// less, then the queue message size.
 	// In this case we use inputBuff to receive a message, and if the real size
-	// of the message <= the imput object size, we copy our buffer into that object.
+	// of the message <= the input buffer size, we copy our buffer into that object.
 	inputBuff []byte
 }
 
-// linuxMqAttr contains attributes of the queue
+// linuxMqAttr contains attributes of the queue.
 type linuxMqAttr struct {
 	Flags   int /* Flags: 0 or O_NONBLOCK */
 	Maxmsg  int /* Max. # of messages on queue */
@@ -51,7 +51,7 @@ type linuxMqAttr struct {
 	Curmsgs int /* # of messages currently in queue */
 }
 
-// CreateLinuxMessageQueue creates a new named message queue.
+// CreateLinuxMessageQueue creates a new named linux message queue.
 // 'x' permission cannot be used.
 func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
 	if !checkMqPerm(perm) {
@@ -186,7 +186,7 @@ func (mq *LinuxMessageQueue) Receive(data []byte) error {
 	if mq.flags&ipc.O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
+	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore priority
 	return err
 }
 
@@ -207,7 +207,7 @@ func (mq *LinuxMessageQueue) Close() error {
 	return err
 }
 
-// Cap returns size of the mq buffer
+// Cap returns size of the mq buffer.
 func (mq *LinuxMessageQueue) Cap() (int, error) {
 	attrs, err := mq.getAttrs()
 	if err != nil {
@@ -217,7 +217,7 @@ func (mq *LinuxMessageQueue) Cap() (int, error) {
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.
-// This appliesa to the current instance only.
+// This applies to the current instance only.
 func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 	if block {
 		mq.flags &= ^ipc.O_NONBLOCK
@@ -227,7 +227,7 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 	return nil
 }
 
-// Destroy closes the queue and removes it permanently
+// Destroy closes the queue and removes it permanently.
 func (mq *LinuxMessageQueue) Destroy() error {
 	name := mq.name
 	if err := mq.Close(); err != nil {
@@ -266,7 +266,7 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	return err
 }
 
-// NotifyCancel cancels notification subscribtion
+// NotifyCancel cancels notification subscribtion.
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err = mq_notify(mq.ID(), nil); err == nil {
@@ -276,7 +276,7 @@ func (mq *LinuxMessageQueue) NotifyCancel() error {
 	return err
 }
 
-// getAttrs returns attributes of the queue
+// getAttrs returns attributes of the queue.
 func (mq *LinuxMessageQueue) getAttrs() (*linuxMqAttr, error) {
 	attrs := new(linuxMqAttr)
 	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
@@ -285,7 +285,7 @@ func (mq *LinuxMessageQueue) getAttrs() (*linuxMqAttr, error) {
 	return attrs, nil
 }
 
-// DestroyLinuxMessageQueue removes the queue permanently
+// DestroyLinuxMessageQueue removes the queue permanently.
 func DestroyLinuxMessageQueue(name string) error {
 	err := mq_unlink(name)
 	if err != nil {

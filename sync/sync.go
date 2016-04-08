@@ -18,15 +18,16 @@ var (
 )
 
 // IPCLocker is a minimal interface, which must be satisfied by any synchronization primitive
-// on any platform
+// on any platform.
 type IPCLocker interface {
 	sync.Locker
 	io.Closer
 }
 
-// IPCLocker is a locker, whose lock operation can be limited with duration
+// TimedIPCLocker is a locker, whose lock operation can be limited with duration.
 type TimedIPCLocker interface {
 	IPCLocker
+	// LockTimeout tries to lock the locker, waiting not more, then timeout
 	LockTimeout(timeout time.Duration) bool
 }
 

@@ -13,7 +13,9 @@ import (
 // Messenger is an interface which must be satisfied by any
 // message queue implementation on any platform.
 type Messenger interface {
+	// Send sends the data. It blocks if there are no readers and the queue if full
 	Send(data []byte) error
+	// Receive reads data from the queue. It blocks if the queue is empty
 	Receive(data []byte) error
 	io.Closer
 }
@@ -21,25 +23,33 @@ type Messenger interface {
 // TimedMessenger is a Messenger, which supports send/receive timeouts.
 type TimedMessenger interface {
 	Messenger
+	// SendTimeout sends the data. It blocks if there are no readers and the queue if full.
 	SendTimeout(data []byte, timeout time.Duration) error
+	// It wait for not more then timeout.
+	// ReceiveTimeout reads data from the queue. It blocks if the queue is empty.
+	// It wait for not more then timeout.
 	ReceiveTimeout(data []byte, timeout time.Duration) error
 }
 
 // New creates a mq with a given name and permissions.
 // It uses the default implementation. If there are several implementations on a platform,
-// you should use explicit create functions.
+// you can use explicit create functions.
+//	name is a unique queue name
+//	perm - permissions for the new queue. this may not be supported by all implementations.
 func New(name string, perm os.FileMode) (Messenger, error) {
 	return createMQ(name, perm)
 }
 
-// OpenMQ opens a mq with a given name and flags.
+// Open opens a mq with a given name and flags.
 // It uses the default implementation. If there are several implementations on a platform,
-// you should use explicit create functions.
+// you can use explicit create functions.
+//	name is a unique queue name
+//	flags is a set of flags can be used to specify r/w options. this may not be supported by all implementations.
 func Open(name string, flags int) (Messenger, error) {
 	return openMQ(name, flags)
 }
 
-// Destroy permanently removes mq object
+// Destroy permanently removes mq object.
 func Destroy(name string) error {
 	return destroyMq(name)
 }

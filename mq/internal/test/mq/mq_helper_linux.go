@@ -20,7 +20,7 @@ func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messen
 	case "sysv":
 		return mq.CreateSystemVMessageQueue(name, perm)
 	case "linux":
-		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMaxMessageSize
+		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMessageSize
 		if len(opt) > 0 {
 			var err error
 			parts := strings.Split(opt, ",")

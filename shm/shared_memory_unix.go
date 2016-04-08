@@ -29,19 +29,17 @@ func newMemoryObject(name string, mode int, perm os.FileMode) (impl *memoryObjec
 	return
 }
 
-// Destroy closes the object and removes it permanently
-func (impl *memoryObject) Destroy() error {
-	if int(impl.Fd()) >= 0 {
-		if err := impl.Close(); err != nil {
+func (obj *memoryObject) Destroy() error {
+	if int(obj.Fd()) >= 0 {
+		if err := obj.Close(); err != nil {
 			return err
 		}
 	}
-	return destroyMemoryObject(impl.file.Name())
+	return doDestroyMemoryObject(obj.file.Name())
 }
 
-// Name returns the name of the object as it was given to NewMemoryObject()
-func (impl *memoryObject) Name() string {
-	result := filepath.Base(impl.file.Name())
+func (obj *memoryObject) Name() string {
+	result := filepath.Base(obj.file.Name())
 	// on darwin we do this trick due to
 	// http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	if runtime.GOOS == "darwin" {
@@ -50,54 +48,42 @@ func (impl *memoryObject) Name() string {
 	return result
 }
 
-// Close closes object's underlying file object.
-// Darwin: a call to Close() causes invalid argument error,
-// if the object was not truncated. So, in this case we do not
-// close it and return nil as an error.
-func (impl *memoryObject) Close() error {
-	fdBeforeClose := impl.Fd()
-	err := impl.file.Close()
+func (obj *memoryObject) Close() error {
+	fdBeforeClose := obj.Fd()
+	err := obj.file.Close()
 	if err == nil {
 		return nil
 	}
 	if runtime.GOOS == "darwin" {
 		// we're closing the file for the first time, and
 		// we haven't truncated the file and it hasn't been closed
-		if impl.Size() == 0 && int(fdBeforeClose) >= 0 {
+		if obj.Size() == 0 && int(fdBeforeClose) >= 0 {
 			return nil
 		}
 	}
 	return err
 }
 
-// Truncate resizes the shared memory object.
-// Darwin: it is possible to truncate an object only once after it was created.
-// Darwin: the size should be divisible by system page size,
-// otherwise the size is set to the nearest page size devider greater, then the given size.
-func (impl *memoryObject) Truncate(size int64) error {
-	return impl.file.Truncate(size)
+func (obj *memoryObject) Truncate(size int64) error {
+	return obj.file.Truncate(size)
 }
 
-// Size returns the current object size.
-// Darwin: it may differ from the passed passed to Truncate
-func (impl *memoryObject) Size() int64 {
-	fileInfo, err := impl.file.Stat()
+func (obj *memoryObject) Size() int64 {
+	fileInfo, err := obj.file.Stat()
 	if err != nil {
 		return 0
 	}
 	return fileInfo.Size()
 }
 
-// Fd returns a descriptor of the object's underlying file object
-func (impl *memoryObject) Fd() uintptr {
-	return impl.file.Fd()
+func (obj *memoryObject) Fd() uintptr {
+	return obj.file.Fd()
 }
 
-// DestroyMemoryObject removes an object with a given name
-func DestroyMemoryObject(name string) error {
+func destroyMemoryObject(name string) error {
 	path, err := shmName(name)
 	if err != nil {
 		return err
 	}
-	return destroyMemoryObject(path)
+	return doDestroyMemoryObject(path)
 }

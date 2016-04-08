@@ -20,7 +20,7 @@ const (
 	typeDataSize = int(unsafe.Sizeof(int(0)))
 )
 
-// SystemVMessageQueue is a System V ipc mechanism based on message passing
+// SystemVMessageQueue is a System V ipc mechanism based on message passing.
 type SystemVMessageQueue struct {
 	flags int
 	id    int
@@ -54,7 +54,7 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 	return &SystemVMessageQueue{id: id, name: name}, nil
 }
 
-// OpenSystemVMessageQueue opens existing message queue
+// OpenSystemVMessageQueue opens existing message queue.
 func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
@@ -89,7 +89,7 @@ func (mq *SystemVMessageQueue) Receive(data []byte) error {
 	return common.UninterruptedSyscall(f)
 }
 
-// Destroy closes the queue and removes it permanently
+// Destroy closes the queue and removes it permanently.
 func (mq *SystemVMessageQueue) Destroy() error {
 	mq.Close()
 	err := msgctl(mq.id, common.IpcRmid, nil)
@@ -118,7 +118,7 @@ func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
 	return nil
 }
 
-// DestroySystemVMessageQueue permanently removes queue with a given name
+// DestroySystemVMessageQueue permanently removes queue with a given name.
 func DestroySystemVMessageQueue(name string) error {
 	mq, err := OpenSystemVMessageQueue(name, 0)
 	if err != nil {
