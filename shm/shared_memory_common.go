@@ -14,12 +14,11 @@ var (
 )
 
 type iSharedMemoryObject interface {
-	Name() string
 	Size() int64
 	Truncate(size int64) error
 	Close() error
 	Destroy() error
-	ipc.MappableHandle
+	ipc.Mappable
 }
 
 type iSharedMemoryRegion interface {

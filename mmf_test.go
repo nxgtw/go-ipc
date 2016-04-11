@@ -20,14 +20,18 @@ func TestMmfOpen(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, int(stat.Size()))
+	mr, err := NewMemoryRegion(file, MEM_READ_ONLY, 0, int(stat.Size()))
 	a.NoError(err)
-	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, 0)
+	a.NoError(mr.Close())
+	mr, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, 0)
 	a.NoError(err)
-	_, err = NewMemoryRegion(file, MEM_READ_ONLY, 67746, int(stat.Size())-67746)
+	a.NoError(mr.Close())
+	mr, err = NewMemoryRegion(file, MEM_READ_ONLY, 67746, int(stat.Size())-67746)
 	a.NoError(err)
-	_, err = NewMemoryRegion(file, MEM_READ_ONLY, stat.Size()-1024, 1024)
+	a.NoError(mr.Close())
+	mr, err = NewMemoryRegion(file, MEM_READ_ONLY, stat.Size()-1024, 1024)
 	a.NoError(err)
+	a.NoError(mr.Close())
 	_, err = NewMemoryRegion(file, MEM_READ_ONLY, stat.Size()-1024, 1025)
 	a.Error(err)
 }

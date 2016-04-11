@@ -21,7 +21,7 @@ type memoryRegion struct {
 	pageOffset int64
 }
 
-func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*memoryRegion, error) {
+func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryRegion, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err

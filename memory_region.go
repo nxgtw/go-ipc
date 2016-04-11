@@ -28,10 +28,11 @@ type MemoryRegion struct {
 	*memoryRegion
 }
 
-// MappableHandle is an object, which can return a handle,
+// Mappable is a named object, which can return a handle,
 // that can be used as a file descriptor for mmap.
-type MappableHandle interface {
+type Mappable interface {
 	Fd() uintptr
+	Name() string
 }
 
 // NewMemoryRegion creates a new shared memory region.
@@ -39,7 +40,7 @@ type MappableHandle interface {
 // 	mode - open mode. see MEM_* constants
 // 	offset - offset in bytes from the beginning of the mmaped file
 // 	size - mapping size.
-func NewMemoryRegion(object MappableHandle, mode int, offset int64, size int) (*MemoryRegion, error) {
+func NewMemoryRegion(object Mappable, mode int, offset int64, size int) (*MemoryRegion, error) {
 	impl, err := newMemoryRegion(object, mode, offset, size)
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ type fileInfoGetter interface {
 	Stat() (os.FileInfo, error)
 }
 
-func fileSizeFromFd(f MappableHandle) (int64, error) {
+func fileSizeFromFd(f Mappable) (int64, error) {
 	if f.Fd() == ^uintptr(0) {
 		return 0, nil
 	}
@@ -156,7 +157,7 @@ func fileSizeFromFd(f MappableHandle) (int64, error) {
 	return 0, nil
 }
 
-func checkMmapSize(f MappableHandle, size int) (int, error) {
+func checkMmapSize(f Mappable, size int) (int, error) {
 	if size == 0 {
 		if f.Fd() == ^uintptr(0) {
 			return 0, errors.New("must provide a valid file size")

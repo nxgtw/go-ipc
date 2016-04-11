@@ -19,7 +19,7 @@ type memoryRegion struct {
 	pageOffset int64
 }
 
-func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*memoryRegion, error) {
+func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryRegion, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,12 @@ func newMemoryRegion(obj MappableHandle, mode int, offset int64, size int) (*mem
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
 	var name *uint16
-	// TODO(avd) - named mappings for native windows shm
+	// check for a named region for windows native shared memory via a pagefile
+	if windows.Handle(obj.Fd()) == windows.InvalidHandle && len(obj.Name()) > 0 {
+		if name, err = windows.UTF16PtrFromString(obj.Name()); err != nil {
+			return nil, err
+		}
+	}
 	handle, err := windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, name)
 	if err != nil {
 		return nil, os.NewSyscallError("CreateFileMapping", err)
