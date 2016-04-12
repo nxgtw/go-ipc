@@ -21,8 +21,15 @@ const (
 )
 
 var (
-	shmTestData = []byte{1, 2, 3, 4, 128, 255}
+	shmTestData []byte
 )
+
+func init() {
+	shmTestData = make([]byte, 7000)
+	for i := range shmTestData {
+		shmTestData[i] = byte(i)
+	}
+}
 
 // Shared memory test program
 
@@ -221,7 +228,11 @@ func TestMemoryObjectCloseOnGc(t *testing.T) {
 }
 
 func TestWriteMemoryRegionSameProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 0)
+	a := assert.New(t)
+	if !a.NoError(DestroyMemoryObject(defaultObjectName)) {
+		return
+	}
+	region, err := createMemoryRegionSimple(ipc.O_CREATE_ONLY|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -240,7 +251,11 @@ func TestWriteMemoryRegionSameProcess(t *testing.T) {
 }
 
 func TestWriteMemoryAnotherProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
+	a := assert.New(t)
+	if !a.NoError(DestroyMemoryObject(defaultObjectName)) {
+		return
+	}
+	region, err := createMemoryRegionSimple(ipc.O_CREATE_ONLY|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -255,14 +270,18 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 }
 
 func TestReadMemoryAnotherProcess(t *testing.T) {
-	object, err := NewMemoryObject(defaultObjectName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666)
+	a := assert.New(t)
+	if !a.NoError(DestroyMemoryObject(defaultObjectName)) {
+		return
+	}
+	object, err := NewMemoryObject(defaultObjectName, ipc.O_CREATE_ONLY|ipc.O_READWRITE, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
 		assert.NoError(t, object.Destroy())
 	}()
-	if !assert.NoError(t, object.Truncate(1024)) {
+	if !assert.NoError(t, object.Truncate(int64(len(shmTestData)))) {
 		return
 	}
 	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
@@ -287,10 +306,10 @@ func TestMemoryRegionNorGcedWithUse(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	if !a.NoError(obj.Truncate(1024)) {
+	if !a.NoError(obj.Truncate(8192)) {
 		return
 	}
-	region, err := ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, 1024)
+	region, err := ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, 8192)
 	if !a.NoError(err) {
 		return
 	}

@@ -138,7 +138,7 @@ func calcMmapOffsetFixup(offset int64) int64 {
 	return (offset - (offset/pageSize)*pageSize)
 }
 
-// fileInfoGetter is used to obtain size of the object
+// fileInfoGetter is used to obtain file's size
 type fileInfoGetter interface {
 	Stat() (os.FileInfo, error)
 }
