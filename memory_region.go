@@ -105,6 +105,7 @@ func NewMemoryRegionReader(region *MemoryRegion) *MemoryRegionReader {
 // It holds a reference to the region, so the former can't be gc'ed.
 type MemoryRegionWriter struct {
 	region *MemoryRegion
+	pos    int64
 }
 
 // NewMemoryRegionWriter creates a new writer for the given region.
@@ -126,6 +127,13 @@ func (w *MemoryRegionWriter) WriteAt(p []byte, off int64) (n int, err error) {
 		err = io.EOF
 	}
 	return
+}
+
+// Write is to implement io.Writer.
+func (w *MemoryRegionWriter) Write(p []byte) (n int, err error) {
+	n, err = w.WriteAt(p, w.pos)
+	w.pos += int64(n)
+	return n, err
 }
 
 // calcMmapOffsetFixup returns a value X,

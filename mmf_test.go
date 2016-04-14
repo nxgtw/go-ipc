@@ -3,6 +3,8 @@
 package ipc
 
 import (
+	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -56,4 +58,53 @@ func TestMmfOpenReadonly(t *testing.T) {
 		}
 	}
 	region.Close()
+}
+
+func TestMmfFileCopy(t *testing.T) {
+	a := assert.New(t)
+	inFile, err := os.Open("internal/test/files/test.bin")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer inFile.Close()
+	stat, err := inFile.Stat()
+	if !a.NoError(err) {
+		return
+	}
+	inRegion, err := NewMemoryRegion(inFile, MEM_READ_ONLY, 0, 0)
+	if !a.NoError(err) {
+		return
+	}
+	outFile, err := os.Create("internal/test/files/tmp.bin")
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		outFile.Close()
+		os.Remove("internal/test/files/tmp.bin")
+	}()
+	if !a.NoError(outFile.Truncate(stat.Size())) {
+		return
+	}
+	outRegion, err := NewMemoryRegion(outFile, MEM_READWRITE, 0, 0)
+	if !a.NoError(err) {
+		return
+	}
+	rd := NewMemoryRegionReader(inRegion)
+	wr := NewMemoryRegionWriter(outRegion)
+	written, err := io.Copy(wr, rd)
+	a.Equal(written, stat.Size())
+	a.NoError(err)
+	if !a.NoError(outRegion.Flush(false)) {
+		return
+	}
+	expected, err := ioutil.ReadAll(inFile)
+	if !a.NoError(err) {
+		return
+	}
+	actual, err := ioutil.ReadAll(outFile)
+	if !a.NoError(err) {
+		return
+	}
+	a.Equal(expected, actual)
 }
