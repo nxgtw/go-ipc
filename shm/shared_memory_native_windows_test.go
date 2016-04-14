@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"bitbucket.org/avd/go-ipc"
+	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -50,33 +51,33 @@ func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
 	assert.NoError(t, region2.Close())
 }
 
-/*
 func TestWriteWindowsMemoryAnotherProcess(t *testing.T) {
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
-	if !assert.NoError(t, err) {
+	a := assert.New(t)
+	region, err := createWindowsMemoryRegionSimple(ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
+	if !a.NoError(err) {
 		return
 	}
 	defer func() {
-		assert.NoError(t, region.Close())
-		assert.NoError(t, DestroyMemoryObject(defaultObjectName))
+		a.NoError(region.Close())
 	}()
 	copy(region.Data(), shmTestData)
-	assert.NoError(t, region.Flush(false))
-	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
-	assert.NoError(t, result.Err)
+	a.NoError(region.Flush(false))
+	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, "wnm", 128, shmTestData), nil)
+	a.NoError(result.Err)
 }
 
 func TestReadWindowsMemoryAnotherProcess(t *testing.T) {
+	a := assert.New(t)
 	object := NewWindowsNativeMemoryObject(defaultObjectName)
-	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
-	if !assert.NoError(t, result.Err) {
+	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, "wnm", 0, shmTestData), nil)
+	if !a.NoError(result.Err) {
 		t.Log(result.Output)
 		return
 	}
 	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READ_ONLY, 0, len(shmTestData))
-	if !assert.NoError(t, err) {
+	if !a.NoError(err) {
 		return
 	}
-	defer region.Close()
-	assert.Equal(t, shmTestData, region.Data())
-}*/
+	a.Equal(shmTestData, region.Data())
+	a.NoError(region.Close())
+}

@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	_ iSharedMemoryObject = (*WindowsNativeMemoryObject)(nil)
+	_ SharedMemoryObject = (*WindowsNativeMemoryObject)(nil)
 )
 
 // WindowsNativeMemoryObject represents a standart windows shm implementation backed by a paging file.

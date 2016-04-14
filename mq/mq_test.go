@@ -395,11 +395,11 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 // Mq test program
 
 func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
-	return []string{mqProgPath, "-object=" + name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize)}
+	return append(mqProgFiles, "-object="+name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize))
 }
 
 func argsForMqDestroyCommand(name string) []string {
-	return []string{mqProgPath, "-object=" + name, "destroy"}
+	return append(mqProgFiles, "-object="+name, "destroy")
 }
 
 func argsForMqSendCommand(name string, timeout int, typ, options string, data []byte) []string {

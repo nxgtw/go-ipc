@@ -16,12 +16,13 @@ import (
 )
 
 const (
-	shmProgName       = "./internal/test/shared_memory/main.go"
+	shmProgPath       = "./internal/test/"
 	defaultObjectName = "go-ipc-test"
 )
 
 var (
-	shmTestData []byte
+	shmTestData  []byte
+	shmProgFiles []string
 )
 
 func init() {
@@ -29,30 +30,41 @@ func init() {
 	for i := range shmTestData {
 		shmTestData[i] = byte(i)
 	}
+	var err error
+	shmProgFiles, err = ipc_test.LocatePackageFiles(shmProgPath)
+	if err != nil {
+		panic(err)
+	}
+	if len(shmProgFiles) == 0 {
+		panic("no files to test shm")
+	}
+	for i, name := range shmProgFiles {
+		shmProgFiles[i] = shmProgPath + name
+	}
 }
 
 // Shared memory test program
 
-func argsForShmCreateCommand(name string, size int64) []string {
-	return []string{shmProgName, "-object=" + name, "create", fmt.Sprintf("%d", size)}
+func argsForShmCreateCommand(name, typ string, size int64) []string {
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "create", fmt.Sprintf("%d", size))
 }
 
-func argsForShmDestroyCommand(name string) []string {
-	return []string{shmProgName, "-object=" + name, "destroy"}
+func argsForShmDestroyCommand(name, typ string) []string {
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "destroy")
 }
 
-func argsForShmReadCommand(name string, offset int64, lenght int) []string {
-	return []string{shmProgName, "-object=" + name, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght)}
+func argsForShmReadCommand(name, typ string, offset int64, lenght int) []string {
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght))
 }
 
-func argsForShmTestCommand(name string, offset int64, data []byte) []string {
+func argsForShmTestCommand(name, typ string, offset int64, data []byte) []string {
 	strBytes := ipc_test.BytesToString(data)
-	return []string{shmProgName, "-object=" + name, "test", fmt.Sprintf("%d", offset), strBytes}
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "test", fmt.Sprintf("%d", offset), strBytes)
 }
 
-func argsForShmWriteCommand(name string, offset int64, data []byte) []string {
+func argsForShmWriteCommand(name, typ string, offset int64, data []byte) []string {
 	strBytes := ipc_test.BytesToString(data)
-	return []string{shmProgName, "-object=" + name, "write", fmt.Sprintf("%d", offset), strBytes}
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "write", fmt.Sprintf("%d", offset), strBytes)
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
@@ -265,7 +277,7 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, 128, shmTestData), nil)
+	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, "", 128, shmTestData), nil)
 	assert.NoError(t, result.Err)
 }
 
@@ -284,7 +296,7 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(int64(len(shmTestData)))) {
 		return
 	}
-	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, 0, shmTestData), nil)
+	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, "", 0, shmTestData), nil)
 	if !assert.NoError(t, result.Err) {
 		t.Log(result.Output)
 		return

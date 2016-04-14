@@ -9,11 +9,11 @@ import (
 // this is to ensure, that all implementations of shm-related structs
 // satisfy the same minimal interface
 var (
-	_ iSharedMemoryObject = (*MemoryObject)(nil)
+	_ SharedMemoryObject  = (*MemoryObject)(nil)
 	_ iSharedMemoryRegion = (*ipc.MemoryRegion)(nil)
 )
 
-type iSharedMemoryObject interface {
+type SharedMemoryObject interface {
 	Size() int64
 	Truncate(size int64) error
 	Close() error
