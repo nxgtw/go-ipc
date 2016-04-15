@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
-
 package fifo
 
 import (
@@ -44,6 +42,13 @@ func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
 }
 
+func boolStr(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
 // tests whether we can create a fifo in the directiry chosen by the library
 func TestFifoCreate(t *testing.T) {
 	if !assert.NoError(t, Destroy(testFifoName)) {
@@ -53,24 +58,6 @@ func TestFifoCreate(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 	}
-}
-
-// tests whether we can create a fifo in the directiry chosen by the calling program
-func TestFifoCreateAbsPath(t *testing.T) {
-	if !assert.NoError(t, Destroy("/tmp/go-fifo-test")) {
-		return
-	}
-	fifo, err := New("/tmp/go-fifo-test", ipc.O_CREATE_ONLY|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
-	if assert.NoError(t, err) {
-		assert.NoError(t, fifo.Destroy())
-	}
-}
-
-func boolStr(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
 }
 
 // 1) write data into a fifo in a separate process in blocking mode

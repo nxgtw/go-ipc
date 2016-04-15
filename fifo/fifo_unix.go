@@ -7,7 +7,6 @@ package fifo
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
@@ -82,12 +81,6 @@ func Destroy(name string) error {
 	return err
 }
 
-// fifoPath returns full path for the fifo
-// if its name contains '/' ('/tmp/fifo', './fifo') - use it
-// if only filename was passed, assume it is in /tmp
 func fifoPath(name string) string {
-	if strings.Contains(name, "/") {
-		return name
-	}
 	return "/tmp/" + name
 }
