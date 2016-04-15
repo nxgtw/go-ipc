@@ -80,15 +80,6 @@ func IsTimeoutErr(err error) bool {
 	return SyscallErrHasCode(err, syscall.EAGAIN)
 }
 
-func SyscallErrHasCode(err error, code syscall.Errno) bool {
-	if sysErr, ok := err.(*os.SyscallError); ok {
-		if errno, ok := sysErr.Err.(syscall.Errno); ok {
-			return errno == code
-		}
-	}
-	return false
-}
-
 func SyscallNameFromErr(err error) string {
 	if sysErr, ok := err.(*os.SyscallError); ok {
 		return sysErr.Syscall

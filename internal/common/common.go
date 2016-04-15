@@ -3,6 +3,8 @@
 package common
 
 import (
+	"syscall"
+
 	"bitbucket.org/avd/go-ipc"
 
 	"fmt"
@@ -88,4 +90,13 @@ func OpenModeToOsMode(mode int) (int, error) {
 		return 0, err
 	}
 	return createMode | accessMode, nil
+}
+
+func SyscallErrHasCode(err error, code syscall.Errno) bool {
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		if errno, ok := sysErr.Err.(syscall.Errno); ok {
+			return errno == code
+		}
+	}
+	return false
 }
