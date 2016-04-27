@@ -14,7 +14,6 @@ import (
 // satisfy the same minimal interface
 var (
 	_ IPCLocker = (*SpinMutex)(nil)
-	_ IPCLocker = (*Mutex)(nil)
 )
 
 // IPCLocker is a minimal interface, which must be satisfied by any synchronization primitive
@@ -27,7 +26,7 @@ type IPCLocker interface {
 // TimedIPCLocker is a locker, whose lock operation can be limited with duration.
 type TimedIPCLocker interface {
 	IPCLocker
-	// LockTimeout tries to lock the locker, waiting not more, then timeout
+	// LockTimeout tries to lock the locker, waiting for not more, than timeout
 	LockTimeout(timeout time.Duration) bool
 }
 

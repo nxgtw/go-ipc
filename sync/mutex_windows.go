@@ -16,11 +16,16 @@ const (
 	cEVENT_MODIFY_STATE = 0x0002
 )
 
-type mutex struct {
+// EventMutex is a mutex built on named windows events.
+// It is not possible to use named windows mutex, because
+// goroutines migrate between threads, and windows mutex must
+// be released by the same thread it was locked.
+type EventMutex struct {
 	handle windows.Handle
 }
 
-func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
+// NewEventMutex creates a new mutex.
+func NewEventMutex(name string, mode int, perm os.FileMode) (*EventMutex, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return nil, err
@@ -53,10 +58,11 @@ func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mutex{handle: handle}, nil
+	return &EventMutex{handle: handle}, nil
 }
 
-func (m *mutex) Lock() {
+// Lock locks the mutex. It panics on an error.
+func (m *EventMutex) Lock() {
 	ev, err := windows.WaitForSingleObject(m.handle, windows.INFINITE)
 	if ev != windows.WAIT_OBJECT_0 {
 		if err != nil {
@@ -67,7 +73,8 @@ func (m *mutex) Lock() {
 	}
 }
 
-func (m *mutex) LockTimeout(timeout time.Duration) bool {
+// LockTimeout tries to lock the locker, waiting for not more, than timeout.
+func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
 	waitMillis := uint32(timeout.Nanoseconds() / 1e6)
 	ev, err := windows.WaitForSingleObject(m.handle, waitMillis)
 	switch ev {
@@ -84,18 +91,19 @@ func (m *mutex) LockTimeout(timeout time.Duration) bool {
 	}
 }
 
-func (m *mutex) Unlock() {
+// Unlock releases the mutex. It panics on an error.
+func (m *EventMutex) Unlock() {
 	if err := windows.SetEvent(m.handle); err != nil {
 		panic("failed to unlock mutex: " + err.Error())
 	}
 }
 
-func (m *mutex) Close() error {
+func (m *EventMutex) Close() error {
 	return windows.CloseHandle(m.handle)
 }
 
-// DestroyMutex is a no-op on windows, as the mutex is destroyed,
+// DestroyEventMutex is a no-op on windows, as the mutex is destroyed,
 // when its last handle is closed.
-func DestroyMutex(name string) error {
+func DestroyEventMutex(name string) error {
 	return nil
 }

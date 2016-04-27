@@ -77,3 +77,38 @@ func TestMutexLockTimeout(t *testing.T) {
 	a.False(tl.LockTimeout(timeout))
 	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.05)
 }
+
+func TestMutexLockTimeout2(t *testing.T) {
+	a := assert.New(t)
+	if !a.NoError(mutexDtor(testLockerName)) {
+		return
+	}
+	m, err := mutexCtor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer mutexDtor(testLockerName)
+	tl, ok := m.(TimedIPCLocker)
+	if !ok {
+		t.Skipf("timed mutex is not supported on %s(%s)", runtime.GOOS, runtime.GOARCH)
+		return
+	}
+	before := time.Now()
+	timeout := time.Millisecond * 50
+	tl.Lock()
+	ch := make(chan struct{})
+	go func() {
+		a.True(tl.LockTimeout(timeout * 2))
+		tl.Unlock()
+		ch <- struct{}{}
+	}()
+	<-time.After(timeout)
+	tl.Unlock()
+	select {
+	case <-ch:
+	case <-time.After(timeout * 3):
+		t.Error("failed to lock timed mutex")
+	}
+	runTime := int64(time.Now().Sub(before))
+	a.InEpsilon(runTime, int64(timeout), 0.05)
+}

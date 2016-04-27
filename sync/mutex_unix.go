@@ -8,81 +8,49 @@ import (
 	"os"
 
 	"bitbucket.org/avd/go-ipc"
-	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-type mutex struct {
-	name string
-	id   int
+// SemaMutex is a semaphore-based mutex for unix.
+type SemaMutex struct {
+	s *Semaphore
 }
 
-func newMutex(name string, mode int, perm os.FileMode) (*mutex, error) {
-	k, err := common.KeyForName(name)
+// NewSemaMutex creates a new mutex.
+func NewSemaMutex(name string, mode int, perm os.FileMode) (*SemaMutex, error) {
+	s, err := NewSemaphore(name, mode, perm, 1)
 	if err != nil {
 		return nil, err
 	}
-	var id int
-	creator := func(create bool) error {
-		var creatorErr error
-		flags := int(perm)
-		if create {
-			flags |= common.IpcCreate | common.IpcExcl
-		}
-		id, creatorErr = semget(k, 1, flags)
-		return creatorErr
-	}
-	created, err := common.OpenOrCreate(creator, mode)
-	if err != nil {
-		return nil, err
-	}
-	if created {
-		if err = semAdd(id, 1); err != nil {
-			semctl(id, 0, common.IpcRmid)
-			return nil, err
-		}
-	}
-	return &mutex{name: name, id: id}, nil
+	return &SemaMutex{s: s}, nil
 }
 
-func (m *mutex) Lock() {
-	for {
-		if err := semAdd(m.id, -1); err == nil {
-			return
-		} else if !common.IsInterruptedSyscallErr(err) {
-			panic(err)
-		}
-	}
-}
-
-func (m *mutex) Unlock() {
-	f := func() error { return semAdd(m.id, 1) }
-	if err := common.UninterruptedSyscall(f); err != nil {
+// Lock locks the mutex. It panics on an error.
+func (m *SemaMutex) Lock() {
+	if err := m.s.Add(-1); err != nil {
 		panic(err)
 	}
 }
 
-// Close is a no-op for unix semaphore
-func (m *mutex) Close() error {
+// Unlock releases the mutex. It panics on an error.
+func (m *SemaMutex) Unlock() {
+	if err := m.s.Add(1); err != nil {
+		panic(err)
+	}
+}
+
+// Close is a no-op for unix mutex.
+func (m *SemaMutex) Close() error {
 	return nil
 }
 
-// Destroy closes the mutex and removes it permanently
-func (m *mutex) Destroy() error {
-	m.Close()
-	err := semctl(m.id, 0, common.IpcRmid)
-	if err == nil {
-		if err = os.Remove(common.TmpFilename(m.name)); os.IsNotExist(err) {
-			err = nil
-		}
-	} else if os.IsNotExist(err) {
-		err = nil
-	}
-	return err
+// Destroy closes the mutex and removes it permanently.
+func (m *SemaMutex) Destroy() error {
+	return m.s.Destroy()
 }
 
-// DestroyMutex permanently removes mutex with a given name
-func DestroyMutex(name string) error {
-	m, err := NewMutex(name, ipc.O_OPEN_ONLY, 0666)
+// DestroySemaMutex permanently removes mutex with the given name.
+func DestroySemaMutex(name string) error {
+	m, err := NewSemaMutex(name, ipc.O_OPEN_ONLY, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
@@ -90,9 +58,4 @@ func DestroyMutex(name string) error {
 		return err
 	}
 	return m.Destroy()
-}
-
-func semAdd(id, value int) error {
-	b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
-	return semop(id, []sembuf{b})
 }
