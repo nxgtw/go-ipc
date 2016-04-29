@@ -13,12 +13,6 @@ import (
 
 func createWindowsMemoryRegionSimple(regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
 	object := NewWindowsNativeMemoryObject(defaultObjectName)
-	defer func() {
-		err := object.Close()
-		if err != nil {
-			panic(err.Error())
-		}
-	}()
 	region, err := ipc.NewMemoryRegion(object, regionMode, offset, int(size))
 	if err != nil {
 		return nil, err
@@ -30,7 +24,6 @@ func TestWindowsMemoryObjectName(t *testing.T) {
 	a := assert.New(t)
 	obj := NewWindowsNativeMemoryObject(defaultObjectName)
 	a.Equal(defaultObjectName, obj.Name())
-	a.NoError(obj.Destroy())
 }
 
 func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
