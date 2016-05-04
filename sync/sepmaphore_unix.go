@@ -10,7 +10,7 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-// NewSemaphore is a sysV semaphore.
+// Semaphore is a sysV semaphore.
 type Semaphore struct {
 	name string
 	id   int

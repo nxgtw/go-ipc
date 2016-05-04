@@ -5,19 +5,7 @@ package shm
 import (
 	"os"
 	"runtime"
-
-	"bitbucket.org/avd/go-ipc"
 )
-
-// SharedMemoryObject is an interface, which must be implemented
-// by ant implemetation of an object used for mapping into memory.
-type SharedMemoryObject interface {
-	Size() int64
-	Truncate(size int64) error
-	Close() error
-	Destroy() error
-	ipc.Mappable
-}
 
 // MemoryObject represents an object which can be used to
 // map shared memory regions into the process' address space.
