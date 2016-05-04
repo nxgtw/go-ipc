@@ -46,9 +46,10 @@ type SpinMutex struct {
 // NewSpinMutex creates a new spinmutex
 // name - object name.
 // mode - object creation mode. must be one of the following:
-//  O_CREATE_ONLY
-//  O_OPEN_ONLY
-//  O_OPEN_OR_CREATE
+//		O_CREATE_ONLY
+//		O_OPEN_ONLY
+//		O_OPEN_OR_CREATE
+//	perm - file's mode and permission bits.
 func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
