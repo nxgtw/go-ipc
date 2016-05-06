@@ -5,7 +5,7 @@ package sync
 import (
 	"fmt"
 	"os"
-	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc"
@@ -83,21 +83,44 @@ func NewFutex(name string, mode int, perm os.FileMode, initial uint32) (*Futex, 
 	return futex, nil
 }
 
-func (f *Futex) Wait(new, expected uint32) error {
-	addr := (*uint32)(f.uaddr)
-	for {
-		if atomic.CompareAndSwapUint32(addr, expected, new) {
-			return nil
-		}
-		_, err := futex(f.uaddr, cFUTEX_WAIT, expected, nil, nil, 0)
-		if !common.IsTimeoutErr(err) {
-			return err
-		}
+func (f *Futex) Wait(value uint32, timeout time.Duration) error {
+	fun := func() error {
+		ptr := unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
+		_, err := futex(f.uaddr, cFUTEX_WAIT, value, ptr, nil, 0)
+		return err
 	}
+	return common.UninterruptedSyscall(fun)
 }
 
-func (f *Futex) Wake(count uint32) error {
-	return nil
+func (f *Futex) Wake(count uint32) (int, error) {
+	var woken int32
+	fun := func() error {
+		var err error
+		woken, err = futex(f.uaddr, cFUTEX_WAKE, count, nil, nil, 0)
+		return err
+	}
+	err := common.UninterruptedSyscall(fun)
+	if err == nil {
+		return int(woken), nil
+	}
+	return 0, err
+}
+
+// Close indicates, that the object is no longer in use,
+// and that the underlying resources can be freed.
+func (f *Futex) Close() error {
+	return f.region.Close()
+}
+
+// Destroy removes the futex object.
+func (f *Futex) Destroy() error {
+	if err := f.Close(); err != nil {
+		return err
+	}
+	f.region = nil
+	err := shm.DestroyMemoryObject(f.name)
+	f.name = ""
+	return err
 }
 
 func futexName(name string) string {
