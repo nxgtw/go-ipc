@@ -77,7 +77,12 @@ func IsInterruptedSyscallErr(err error) bool {
 }
 
 func IsTimeoutErr(err error) bool {
-	return SyscallErrHasCode(err, syscall.EAGAIN)
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		if errno, ok := sysErr.Err.(syscall.Errno); ok {
+			return errno.Timeout()
+		}
+	}
+	return false
 }
 
 func SyscallNameFromErr(err error) string {

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -327,4 +328,62 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		t.Logf("test app error. the output is: %s", result.Output)
 	}
 	a.Equal(remoteIncs+localIncs, *ptr)
+}
+
+func testLockerLockTimeout(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(t)
+	if !a.NoError(dtor(testLockerName)) {
+		return
+	}
+	m, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer dtor(testLockerName)
+	tl, ok := m.(TimedIPCLocker)
+	if !ok {
+		t.Skipf("timed locker of type %q is not supported on %s(%s)", typ, runtime.GOOS, runtime.GOARCH)
+		return
+	}
+	tl.Lock()
+	defer tl.Unlock()
+	before := time.Now()
+	timeout := time.Millisecond * 50
+	a.False(tl.LockTimeout(timeout))
+	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.05)
+}
+
+func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(t)
+	if !a.NoError(dtor(testLockerName)) {
+		return
+	}
+	m, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer dtor(testLockerName)
+	tl, ok := m.(TimedIPCLocker)
+	if !ok {
+		t.Skipf("timed locker of type %q is not supported on %s(%s)", typ, runtime.GOOS, runtime.GOARCH)
+		return
+	}
+	before := time.Now()
+	timeout := time.Millisecond * 50
+	tl.Lock()
+	ch := make(chan struct{})
+	go func() {
+		a.True(tl.LockTimeout(timeout * 2))
+		tl.Unlock()
+		ch <- struct{}{}
+	}()
+	<-time.After(timeout)
+	tl.Unlock()
+	select {
+	case <-ch:
+	case <-time.After(timeout * 3):
+		t.Error("failed to lock timed mutex")
+	}
+	runTime := int64(time.Now().Sub(before))
+	a.InEpsilon(runTime, int64(timeout), 0.05)
 }

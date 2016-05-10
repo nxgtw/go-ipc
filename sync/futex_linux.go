@@ -22,6 +22,7 @@ type Futex struct {
 	uaddr  unsafe.Pointer
 	region *ipc.MemoryRegion
 	name   string
+	flags  int32
 }
 
 // NewFutex creates a new futex.
@@ -32,7 +33,8 @@ type Futex struct {
 //		O_OPEN_OR_CREATE
 //	perm - file's mode and permission bits.
 //	initial - initial futex value. it is set only if the futex was created.
-func NewFutex(name string, mode int, perm os.FileMode, initial uint32) (*Futex, error) {
+//	flags - OR'ed combination of FUTEX_PRIVATE_FLAG and FUTEX_CLOCK_REALTIME
+func NewFutex(name string, mode int, perm os.FileMode, initial uint32, flags int32) (*Futex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
@@ -83,10 +85,14 @@ func NewFutex(name string, mode int, perm os.FileMode, initial uint32) (*Futex, 
 	return futex, nil
 }
 
+func (f *Futex) Addr() *uint32 {
+	return (*uint32)(f.uaddr)
+}
+
 func (f *Futex) Wait(value uint32, timeout time.Duration) error {
+	ptr := unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
 	fun := func() error {
-		ptr := unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
-		_, err := futex(f.uaddr, cFUTEX_WAIT, value, ptr, nil, 0)
+		_, err := futex(f.uaddr, cFUTEX_WAIT|f.flags, value, ptr, nil, 0)
 		return err
 	}
 	return common.UninterruptedSyscall(fun)
@@ -96,7 +102,7 @@ func (f *Futex) Wake(count uint32) (int, error) {
 	var woken int32
 	fun := func() error {
 		var err error
-		woken, err = futex(f.uaddr, cFUTEX_WAKE, count, nil, nil, 0)
+		woken, err = futex(f.uaddr, cFUTEX_WAKE|f.flags, count, nil, nil, 0)
 		return err
 	}
 	err := common.UninterruptedSyscall(fun)

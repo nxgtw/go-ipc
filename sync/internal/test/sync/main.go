@@ -17,7 +17,6 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/shm"
-	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
 
 var (
@@ -40,33 +39,11 @@ if jobs > 1, all goroutines will execute operations reads.
 byte array should be passed as a continuous string of 2-symbol hex byte values like '01020A'
 `
 
-func createLocker(mode int, readonly bool) (locker sync.Locker, err error) {
-	if *objType == "m" {
-		locker, err = ipc_sync.NewMutex(*objName, mode, 0666)
-	} else if *objType == "rwm" {
-		/*if rwm, errRwm := ipc.NewRwMutex(*objName, mode, 0666); errRwm == nil {
-			if readonly {
-				locker = rwm.RLocker()
-			} else {
-				locker = rwm
-			}
-		} else {
-			err = errRwm
-		}*/
-		err = fmt.Errorf("unimplemented")
-	} else if *objType == "spin" {
-		locker, err = ipc_sync.NewSpinMutex(*objName, mode, 0666)
-	} else {
-		err = fmt.Errorf("unknown object type %q", *objType)
-	}
-	return
-}
-
 func create() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	if _, err := createLocker(ipc.O_CREATE_ONLY, false); err != nil {
+	if _, err := createLocker(*objType, *objName, ipc.O_CREATE_ONLY); err != nil {
 		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
 		return err
 	}
@@ -78,16 +55,7 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	var err error
-	if *objType == "m" {
-		err = fmt.Errorf("unimplemented")
-	} else if *objType == "rwm" {
-		//err = ipc.DestroyRwMutex(*objName)
-		panic("unimplemented")
-	} else {
-		return fmt.Errorf("unknown object type %q", *objType)
-	}
-	return err
+	return destroyLocker(*objType, *objName)
 }
 
 func inc64() error {
@@ -108,7 +76,7 @@ func inc64() error {
 		return err
 	}
 	defer region.Close()
-	locker, err := createLocker(ipc.O_OPEN_ONLY, false)
+	locker, err := createLocker(*objType, *objName, ipc.O_OPEN_ONLY)
 	if err != nil {
 		return err
 	}
@@ -153,7 +121,7 @@ func test() error {
 		return err
 	}
 	defer region.Close()
-	locker, err := createLocker(ipc.O_OPEN_ONLY, true)
+	locker, err := createLocker(*objType, *objName, ipc.O_OPEN_ONLY)
 	if err != nil {
 		return err
 	}
