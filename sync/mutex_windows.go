@@ -13,14 +13,14 @@ import (
 )
 
 // EventMutex is a mutex built on named windows events.
-// It is not possible to use named windows mutex, because
+// It is not possible to use native windows named mutex, because
 // goroutines migrate between threads, and windows mutex must
 // be released by the same thread it was locked.
 type EventMutex struct {
 	handle windows.Handle
 }
 
-// NewEventMutex creates a new mutex.
+// NewEventMutex creates a new event-basedmutex.
 func NewEventMutex(name string, mode int, perm os.FileMode) (*EventMutex, error) {
 	var handle windows.Handle
 	creator := func(create bool) error {
