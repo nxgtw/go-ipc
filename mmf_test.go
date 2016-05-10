@@ -11,9 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testFolder = "internal/test/testdata/"
+	testFile   = testFolder + "test.bin"
+)
+
 func TestMmfOpen(t *testing.T) {
 	a := assert.New(t)
-	file, err := os.Open("internal/test/files/test.bin")
+	file, err := os.Open(testFile)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -42,7 +47,7 @@ func TestMmfOpenReadonly(t *testing.T) {
 	const (
 		offset = 67746
 	)
-	file, err := os.Open("internal/test/files/test.bin")
+	file, err := os.Open(testFile)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -62,7 +67,7 @@ func TestMmfOpenReadonly(t *testing.T) {
 
 func TestMmfFileCopy(t *testing.T) {
 	a := assert.New(t)
-	inFile, err := os.Open("internal/test/files/test.bin")
+	inFile, err := os.Open(testFile)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -75,13 +80,13 @@ func TestMmfFileCopy(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	outFile, err := os.Create("internal/test/files/tmp.bin")
+	outFile, err := os.Create(testFolder + "tmp.bin")
 	if !a.NoError(err) {
 		return
 	}
 	defer func() {
 		outFile.Close()
-		os.Remove("internal/test/files/tmp.bin")
+		os.Remove(testFolder + "tmp.bin")
 	}()
 	if !a.NoError(outFile.Truncate(stat.Size())) {
 		return
