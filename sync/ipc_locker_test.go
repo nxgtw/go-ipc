@@ -160,9 +160,7 @@ func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 		_, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
-		if !a.Error(err) {
-			return
-		}
+		a.Error(err)
 	}
 }
 

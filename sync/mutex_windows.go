@@ -12,10 +12,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	cEVENT_MODIFY_STATE = 0x0002
-)
-
 // EventMutex is a mutex built on named windows events.
 // It is not possible to use named windows mutex, because
 // goroutines migrate between threads, and windows mutex must
@@ -26,35 +22,24 @@ type EventMutex struct {
 
 // NewEventMutex creates a new mutex.
 func NewEventMutex(name string, mode int, perm os.FileMode) (*EventMutex, error) {
-	namep, err := windows.UTF16PtrFromString(name)
-	if err != nil {
-		return nil, err
-	}
 	var handle windows.Handle
 	creator := func(create bool) error {
 		var err error
-		handle, err = openEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
 		if create {
-			if handle != windows.Handle(0) {
-				// this is emulation of O_EXCL. despite wait MSDN for CreateEvent says:
-				// "If the named event object existed before the function call, the function returns a handle
-				// to the existing object and GetLastError returns ERROR_ALREADY_EXIST",
-				// we cannot actually find out with CreateEvent
-				// if the event has already existed if was created in the same process.
-				// so, we just do a check with OpenEvent.
-				// yes, there is a race condition.
+			handle, err = createEvent(name, nil, 0, 1)
+			if os.IsExist(err) {
 				windows.CloseHandle(handle)
-				return windows.ERROR_ALREADY_EXISTS
-			} else {
-				handle, err = windows.CreateEvent(nil, 0, 1, namep)
+				return err
 			}
+		} else {
+			handle, err = openEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
 		}
 		if handle != windows.Handle(0) {
 			return nil
 		}
 		return err
 	}
-	_, err = common.OpenOrCreate(creator, mode)
+	_, err := common.OpenOrCreate(creator, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +83,7 @@ func (m *EventMutex) Unlock() {
 	}
 }
 
+// Close closes event's handle.
 func (m *EventMutex) Close() error {
 	return windows.CloseHandle(m.handle)
 }
