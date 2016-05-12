@@ -34,7 +34,7 @@ type FutexMutex struct {
 //		O_OPEN_OR_CREATE
 //	perm - file's mode and permission bits.
 func NewFutexMutex(name string, mode int, perm os.FileMode) (*FutexMutex, error) {
-	futex, err := NewIPCFutex(name, mode, perm, cFutexMutexUnlocked, 0)
+	futex, err := NewIPCFutex(name, mode, perm, cFutexMutexUnlocked)
 	if err != nil {
 		return nil, err
 	}

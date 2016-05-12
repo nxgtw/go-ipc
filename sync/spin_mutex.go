@@ -11,7 +11,6 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
@@ -60,19 +59,7 @@ func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 	const spinImplSize = int64(unsafe.Sizeof(spinMutex{}))
 	name = spinName(name)
-	var obj *shm.MemoryObject
-	creator := func(create bool) error {
-		var err error
-		creatorMode := ipc.O_READWRITE
-		if create {
-			creatorMode |= ipc.O_CREATE_ONLY
-		} else {
-			creatorMode |= ipc.O_OPEN_ONLY
-		}
-		obj, err = shm.NewMemoryObject(name, creatorMode, perm)
-		return err
-	}
-	created, resultErr := common.OpenOrCreate(creator, mode)
+	obj, created, resultErr := newMemoryObjectSize(name, mode, perm, spinImplSize)
 	if resultErr != nil {
 		return nil, resultErr
 	}
@@ -89,13 +76,6 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 			obj.Destroy()
 		}
 	}()
-	if created {
-		if resultErr = obj.Truncate(spinImplSize); resultErr != nil {
-			return nil, resultErr
-		}
-	} else if obj.Size() < spinImplSize {
-		return nil, fmt.Errorf("existing object has invalid size %d", obj.Size())
-	}
 	if region, resultErr = ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
 		return nil, resultErr
 	}
