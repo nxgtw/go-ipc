@@ -37,8 +37,8 @@ var (
 	_ Messenger = (*SystemVMessageQueue)(nil)
 )
 
-// CreateSystemVMessageQueue creates new queue with a given name and permissions.
-// 'x' permission cannot be used.
+// CreateSystemVMessageQueue creates new queue with the given name and permissions.
+// 'execute' permission cannot be used.
 func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQueue, error) {
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")

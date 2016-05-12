@@ -51,8 +51,8 @@ type linuxMqAttr struct {
 	Curmsgs int /* # of messages currently in queue */
 }
 
-// CreateLinuxMessageQueue creates a new named linux message queue.
-// 'x' permission cannot be used.
+// CreateLinuxMessageQueue creates new queue with the given name and permissions.
+// 'execute' permission cannot be used.
 func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")

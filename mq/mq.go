@@ -24,17 +24,17 @@ type Messenger interface {
 type TimedMessenger interface {
 	Messenger
 	// SendTimeout sends the data. It blocks if there are no readers and the queue if full.
+	// It wait for not more, than timeout.
 	SendTimeout(data []byte, timeout time.Duration) error
-	// It wait for not more then timeout.
 	// ReceiveTimeout reads data from the queue. It blocks if the queue is empty.
-	// It wait for not more then timeout.
+	// It wait for not more, than timeout.
 	ReceiveTimeout(data []byte, timeout time.Duration) error
 }
 
 // New creates a mq with a given name and permissions.
 // It uses the default implementation. If there are several implementations on a platform,
 // you can use explicit create functions.
-//	name is a unique queue name
+//	name - unique queue name.
 //	perm - permissions for the new queue. this may not be supported by all implementations.
 func New(name string, perm os.FileMode) (Messenger, error) {
 	return createMQ(name, perm)
@@ -43,8 +43,8 @@ func New(name string, perm os.FileMode) (Messenger, error) {
 // Open opens a mq with a given name and flags.
 // It uses the default implementation. If there are several implementations on a platform,
 // you can use explicit create functions.
-//	name is a unique queue name
-//	flags is a set of flags can be used to specify r/w options. this may not be supported by all implementations.
+//	name  - unique queue name.
+//	flags - a set of flags can be used to specify r/w options. this may not be supported by all implementations.
 func Open(name string, flags int) (Messenger, error) {
 	return openMQ(name, flags)
 }
