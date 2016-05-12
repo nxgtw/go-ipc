@@ -19,7 +19,10 @@ const (
 	cFUTEX_CMP_REQUEUE = 4
 	cFUTEX_WAKE_OP     = 5
 
-	FUTEX_PRIVATE_FLAG   = 128
+	// FUTEX_PRIVATE_FLAG is used to optimize futex usage for process-private futexes.
+	FUTEX_PRIVATE_FLAG = 128
+	// FUTEX_CLOCK_REALTIME is used to tell the kernel, that is must treat timeouts for
+	// FUTEX_WAIT_BITSET, FUTEX_WAIT_REQUEUE_PI, and FUTEX_WAIT as an absolute time based on CLOCK_REALTIME
 	FUTEX_CLOCK_REALTIME = 256
 
 	cFutexWakeAll = math.MaxInt32

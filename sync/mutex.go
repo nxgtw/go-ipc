@@ -22,6 +22,7 @@ func NewMutex(name string, mode int, perm os.FileMode) (IPCLocker, error) {
 	return newMutex(name, mode, perm)
 }
 
+// DestroyMutex permanently removes mutex with the given name.
 func DestroyMutex(name string) error {
 	return destroyMutex(name)
 }

@@ -19,19 +19,22 @@ const (
 	cFutexMutexLockedHaveWaiters = 2
 )
 
+// FutexMutex is a mutex based on linux futex object.
 type FutexMutex struct {
-	futex *Futex
+	futex *IPCFutex
 }
 
-// FutexMutex creates a new futex-based mutex.
-// name - object name.
-// mode - object creation mode. must be one of the following:
+// NewFutexMutex creates a new futex-based mutex.
+// This implementation is based on a paper 'Futexes Are Tricky' by Ulrich Drepper,
+// this document can be found in 'docs' folder.
+//	name - object name.
+//	mode - object creation mode. must be one of the following:
 //		O_CREATE_ONLY
 //		O_OPEN_ONLY
 //		O_OPEN_OR_CREATE
 //	perm - file's mode and permission bits.
 func NewFutexMutex(name string, mode int, perm os.FileMode) (*FutexMutex, error) {
-	futex, err := NewFutex(name, mode, perm, cFutexMutexUnlocked, 0)
+	futex, err := NewIPCFutex(name, mode, perm, cFutexMutexUnlocked, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +64,7 @@ func (f *FutexMutex) LockTimeout(timeout time.Duration) bool {
 func (f *FutexMutex) Unlock() {
 	addr := f.futex.Addr()
 	if !atomic.CompareAndSwapUint32(addr, cFutexMutexLockedNoWaiters, cFutexMutexUnlocked) {
-		*addr = 0
+		*addr = cFutexMutexUnlocked
 		if _, err := f.futex.Wake(1); err != nil {
 			panic(err)
 		}

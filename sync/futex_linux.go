@@ -18,23 +18,25 @@ const (
 	futexSize = 4
 )
 
-type Futex struct {
+// IPCFutex is a linux ipc mechanism, which can be used to implement
+// different synchronization objects.
+type IPCFutex struct {
 	uaddr  unsafe.Pointer
 	region *ipc.MemoryRegion
 	name   string
 	flags  int32
 }
 
-// NewFutex creates a new futex.
-// name - object name.
+// NewIPCFutex creates a new futex, placing it in a shared memory region with the given name.
+// name - shared memory region name.
 // mode - object creation mode. must be one of the following:
 //		O_CREATE_ONLY
 //		O_OPEN_ONLY
 //		O_OPEN_OR_CREATE
 //	perm - file's mode and permission bits.
 //	initial - initial futex value. it is set only if the futex was created.
-//	flags - OR'ed combination of FUTEX_PRIVATE_FLAG and FUTEX_CLOCK_REALTIME
-func NewFutex(name string, mode int, perm os.FileMode, initial uint32, flags int32) (*Futex, error) {
+//	flags - OR'ed combination of FUTEX_PRIVATE_FLAG and FUTEX_CLOCK_REALTIME.
+func NewIPCFutex(name string, mode int, perm os.FileMode, initial uint32, flags int32) (*IPCFutex, error) {
 	if !checkMutexOpenMode(mode) {
 		return nil, fmt.Errorf("invalid open mode")
 	}
@@ -78,18 +80,22 @@ func NewFutex(name string, mode int, perm os.FileMode, initial uint32, flags int
 	if region, resultErr = ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, int(futexSize)); resultErr != nil {
 		return nil, resultErr
 	}
-	futex := &Futex{uaddr: allocator.ByteSliceData(region.Data()), region: region, name: name}
+	futex := &IPCFutex{uaddr: allocator.ByteSliceData(region.Data()), region: region, name: name}
 	if created {
 		*(*uint32)(futex.uaddr) = initial
 	}
 	return futex, nil
 }
 
-func (f *Futex) Addr() *uint32 {
+// Addr returns address of the futex's value.
+func (f *IPCFutex) Addr() *uint32 {
 	return (*uint32)(f.uaddr)
 }
 
-func (f *Futex) Wait(value uint32, timeout time.Duration) error {
+// Wait checks if the the value equals futex's value.
+// If it doesn't, Wait returns EWOULDBLOCK.
+// Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
+func (f *IPCFutex) Wait(value uint32, timeout time.Duration) error {
 	ptr := unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
 	fun := func() error {
 		_, err := futex(f.uaddr, cFUTEX_WAIT|f.flags, value, ptr, nil, 0)
@@ -98,7 +104,8 @@ func (f *Futex) Wait(value uint32, timeout time.Duration) error {
 	return common.UninterruptedSyscall(fun)
 }
 
-func (f *Futex) Wake(count uint32) (int, error) {
+// Wake wakes count threads waiting on the futex.
+func (f *IPCFutex) Wake(count uint32) (int, error) {
 	var woken int32
 	fun := func() error {
 		var err error
@@ -114,12 +121,12 @@ func (f *Futex) Wake(count uint32) (int, error) {
 
 // Close indicates, that the object is no longer in use,
 // and that the underlying resources can be freed.
-func (f *Futex) Close() error {
+func (f *IPCFutex) Close() error {
 	return f.region.Close()
 }
 
 // Destroy removes the futex object.
-func (f *Futex) Destroy() error {
+func (f *IPCFutex) Destroy() error {
 	if err := f.Close(); err != nil {
 		return err
 	}
