@@ -18,6 +18,7 @@ type Futex struct {
 	uaddr unsafe.Pointer
 }
 
+// NewFutex returns a new futex object for the given address.
 func NewFutex(uaddr unsafe.Pointer) *Futex {
 	return &Futex{uaddr: uaddr}
 }

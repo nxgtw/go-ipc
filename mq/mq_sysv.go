@@ -103,7 +103,9 @@ func (mq *SystemVMessageQueue) Destroy() error {
 	return err
 }
 
-// Close closes the queue. There is no need to close System V mq.
+// Close closes the queue.
+// As there is no need to close SystemV mq, this function returns nil.
+// It was added to satisfy io.Closer
 func (mq *SystemVMessageQueue) Close() error {
 	return nil
 }

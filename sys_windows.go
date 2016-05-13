@@ -7,9 +7,9 @@ import (
 	"unsafe"
 )
 
-// SYSTEM_INFO is used for GetSystemInfo WinApi call
+// systemInfo is used for GetSystemInfo WinApi call
 // see https://msdn.microsoft.com/en-us/library/windows/desktop/ms724958(v=vs.85).aspx
-type SYSTEM_INFO struct {
+type systemInfo struct {
 	// This is the first member of the union
 	OemID uint32
 	// These are the second member of the union
@@ -32,7 +32,7 @@ var (
 )
 
 func getAllocGranularity() int {
-	var si SYSTEM_INFO
+	var si systemInfo
 	// this cannot fail
 	procGetSystemInfo.Call(uintptr(unsafe.Pointer(&si)))
 	return int(si.AllocationGranularity)

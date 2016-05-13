@@ -106,16 +106,6 @@ func TestAllocStructPtr(t *testing.T) {
 	assert.Equal(t, obj, ptr)
 }
 
-func TestAllocMutex(t *testing.T) {
-	var obj sync.Mutex
-	data := make([]byte, unsafe.Sizeof(obj))
-	if !assert.NoError(t, Alloc(data, obj)) {
-		return
-	}
-	ptr := (*sync.Mutex)(unsafe.Pointer(&data[0]))
-	assert.Equal(t, obj, *ptr)
-}
-
 func TestAllocSlice(t *testing.T) {
 	obj := make([]int, 10)
 	for i := range obj {

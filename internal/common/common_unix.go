@@ -99,7 +99,6 @@ func UninterruptedSyscall(f func() error) error {
 			return err
 		}
 	}
-	return nil
 }
 
 func UninterruptedSyscallTimeout(f func(time.Duration) error, timeout time.Duration) error {

@@ -97,6 +97,8 @@ func checkShmPath(path string) bool {
 	if err := unix.Statfs(path, &statfs); err != nil {
 		return false
 	}
+	// unconvert says 'warning: redundant type conversion',
+	// however, it is not, as statfs.Type has different types on different platforms.
 	return isShmFs(int64(statfs.Type))
 }
 
