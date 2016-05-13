@@ -21,7 +21,7 @@ import (
 
 const (
 	testMqName = "go-ipc.mq"
-	mqProgPath = "./internal/test/mq/"
+	mqProgPath = "./internal/test/"
 )
 
 type mqCtor func(name string, perm os.FileMode) (Messenger, error)

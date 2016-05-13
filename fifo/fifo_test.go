@@ -15,7 +15,7 @@ import (
 
 const (
 	testFifoName = "go-fifo-test"
-	fifoProgName = "./internal/test/fifo/main.go"
+	fifoProgName = "./internal/test/main.go"
 )
 
 // FIFO memory test program
