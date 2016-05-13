@@ -13,13 +13,6 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 )
 
-type iSharedMemoryRegion interface {
-	Data() []byte
-	Size() int
-	Flush(async bool) error
-	Close() error
-}
-
 // MemoryRegion is a mmapped area of a memory object.
 // Warning. The internal object has a finalizer set,
 // so the region will be unmapped during the gc.

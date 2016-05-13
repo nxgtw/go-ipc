@@ -1,1 +1,11 @@
+# go-ipc Contributor List:
+# This is the official list of people who can contribute
+# (and typically have contributed) code to the LiteIDE repository.
+#
+# Names should be added to this file like so:
+#     Individual's name <submission email address>
+#
+
+# Please keep the list sorted.
+
 Alexander Demakin <alexander.demakin@gmail.com>
