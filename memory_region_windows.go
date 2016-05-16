@@ -67,7 +67,7 @@ func (region *memoryRegion) Size() int {
 }
 
 func (region *memoryRegion) Flush(async bool) error {
-	return windows.FlushViewOfFile(uintptr(unsafe.Pointer(&region.data[0])), uintptr(len(region.data)))
+	return windows.FlushViewOfFile(uintptr(allocator.ByteSliceData(region.data)), uintptr(len(region.data)))
 }
 
 func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
