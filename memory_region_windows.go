@@ -13,6 +13,15 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func init() {
+	g, p := getAllocGranularity(), os.Getpagesize()
+	if g >= p {
+		mmapOffsetMultiple = int64(g)
+	} else {
+		mmapOffsetMultiple = int64(p)
+	}
+}
+
 type memoryRegion struct {
 	data       []byte
 	size       int
@@ -87,12 +96,4 @@ func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 		err = fmt.Errorf("invalid mem region flags")
 	}
 	return
-}
-
-func mmapOffsetMultiple() int64 {
-	g, p := getAllocGranularity(), os.Getpagesize()
-	if g >= p {
-		return int64(g)
-	}
-	return int64(p)
 }

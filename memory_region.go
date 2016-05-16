@@ -11,6 +11,10 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 )
 
+var (
+	mmapOffsetMultiple int64
+)
+
 // MemoryRegion is a mmapped area of a memory object.
 // Warning. The internal object has a finalizer set,
 // so the region will be unmapped during the gc.
@@ -92,8 +96,7 @@ func UseMemoryRegion(region *MemoryRegion) {
 // however, on windows it must be a multiple of the
 // memory allocation granularity value as well.
 func calcMmapOffsetFixup(offset int64) int64 {
-	pageSize := mmapOffsetMultiple()
-	return (offset - (offset/pageSize)*pageSize)
+	return (offset - (offset/mmapOffsetMultiple)*mmapOffsetMultiple)
 }
 
 // fileInfoGetter is used to obtain file's size

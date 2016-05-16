@@ -15,6 +15,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func init() {
+	mmapOffsetMultiple = int64(os.Getpagesize())
+}
+
 type memoryRegion struct {
 	data       []byte
 	size       int
@@ -89,10 +93,6 @@ func memProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 		err = fmt.Errorf("invalid mem region flags")
 	}
 	return
-}
-
-func mmapOffsetMultiple() int64 {
-	return int64(os.Getpagesize())
 }
 
 // syscalls

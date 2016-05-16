@@ -34,7 +34,8 @@ func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
 	defer func() {
 		assert.NoError(t, region.Close())
 	}()
-	copy(region.Data(), shmTestData)
+	copied := copy(region.Data(), shmTestData)
+	assert.Equal(t, copied, len(shmTestData))
 	assert.NoError(t, region.Flush(false))
 	region2, err := createWindowsMemoryRegionSimple(ipc.MEM_READ_ONLY, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {

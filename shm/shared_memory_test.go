@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	shmTestData = make([]byte, 7000)
+	shmTestData = make([]byte, 70)
 	for i := range shmTestData {
 		shmTestData[i] = byte(i)
 	}
