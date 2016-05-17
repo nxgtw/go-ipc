@@ -102,7 +102,7 @@ func test() error {
 	}
 	for i, value := range region.Data() {
 		if value != data[i] {
-			return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, data[i])
+			return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, data[i], value)
 		}
 	}
 	return nil

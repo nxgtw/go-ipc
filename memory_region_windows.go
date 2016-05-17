@@ -26,6 +26,7 @@ type memoryRegion struct {
 	data       []byte
 	size       int
 	pageOffset int64
+	fileHandle windows.Handle
 }
 
 func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryRegion, error) {
@@ -40,7 +41,7 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
 	var name *uint16
 	// check for a named region for windows native shared memory via a pagefile
-	if windows.Handle(obj.Fd()) == windows.InvalidHandle && len(obj.Name()) > 0 {
+	if windows.Handle(obj.Fd()) == windows.InvalidHandle {
 		if name, err = windows.UTF16PtrFromString(obj.Name()); err != nil {
 			return nil, err
 		}
@@ -49,22 +50,40 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	if err != nil {
 		return nil, os.NewSyscallError("CreateFileMapping", err)
 	}
-	defer windows.CloseHandle(handle)
+	// if we use windows native shared memory, we can't close this handle right now.
+	// it will be closed, when Close is called.
+	mapHandle := handle
+	if windows.Handle(obj.Fd()) != windows.InvalidHandle {
+		defer windows.CloseHandle(handle)
+		handle = windows.InvalidHandle
+	}
 	pageOffset := calcMmapOffsetFixup(offset)
 	offset -= pageOffset
 	lowOffset := uint32(offset & 0xFFFFFFFF)
 	highOffset := uint32(offset >> 32)
-	addr, err := windows.MapViewOfFile(handle, flags, highOffset, lowOffset, uintptr(int64(size)+pageOffset))
+	addr, err := windows.MapViewOfFile(mapHandle, flags, highOffset, lowOffset, uintptr(int64(size)+pageOffset))
 	if err != nil {
 		return nil, os.NewSyscallError("MapViewOfFile", err)
 	}
-	sz := size + int(pageOffset)
-	return &memoryRegion{allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(addr), sz, sz), size, pageOffset}, nil
+	totalSize := size + int(pageOffset)
+	return &memoryRegion{
+		data:       allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(addr), totalSize, totalSize),
+		size:       size,
+		pageOffset: pageOffset,
+		fileHandle: handle,
+	}, nil
 }
 
 func (region *memoryRegion) Close() error {
 	runtime.SetFinalizer(region, nil)
-	return windows.UnmapViewOfFile(uintptr(unsafe.Pointer(&region.data[0])))
+	err := windows.UnmapViewOfFile(uintptr(allocator.ByteSliceData(region.data)))
+	if err != nil {
+		return err
+	}
+	if region.fileHandle != windows.InvalidHandle {
+		err = windows.CloseHandle(region.fileHandle)
+	}
+	return err
 }
 
 func (region *memoryRegion) Data() []byte {
