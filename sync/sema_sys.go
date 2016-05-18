@@ -24,7 +24,7 @@ var (
 func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall(sysSemGet, uintptr(k), uintptr(nsems), uintptr(semflg))
 	if err != syscall.Errno(0) {
-		return 0, err
+		return 0, os.NewSyscallError("SEMGET", err)
 	}
 	return int(id), nil
 }
