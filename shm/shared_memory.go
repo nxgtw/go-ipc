@@ -30,7 +30,7 @@ type MemoryObject struct {
 }
 
 // NewMemoryObject creates a new shared memory object.
-//	name - a name of the object. should not contain '/' and exceed 255 symbols
+//	name - a name of the object. should not contain '/' and exceed 255 symbols (30 on darwin)
 //	size - object size
 //	mode - open mode. see ipc.O_* constants
 //	perm - file's mode and permission bits.

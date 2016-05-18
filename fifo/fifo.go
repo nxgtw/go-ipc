@@ -2,11 +2,18 @@
 
 package fifo
 
-import "os"
+import (
+	"io"
+	"os"
+
+	"bitbucket.org/avd/go-ipc"
+)
 
 // Fifo represents a First-In-First-Out object
-type Fifo struct {
-	*fifo
+type Fifo interface {
+	io.ReadWriter
+	io.Closer
+	ipc.Destroyer
 }
 
 // New creates or opens a new FIFO object
@@ -16,30 +23,11 @@ type Fifo struct {
 //		O_READ_ONLY or O_WRITE_ONLY
 //		O_NONBLOCK.
 //	perm - file permissions.
-func New(name string, mode int, perm os.FileMode) (*Fifo, error) {
-	impl, err := newFifo(name, mode, perm)
-	if err != nil {
-		return nil, err
-	}
-	return &Fifo{fifo: impl}, err
+func New(name string, mode int, perm os.FileMode) (Fifo, error) {
+	return newFifo(name, mode, perm)
 }
 
-// Read reads from the given FIFO. The FIFO must be opened for reading.
-func (f *Fifo) Read(b []byte) (n int, err error) {
-	return f.fifo.Read(b)
-}
-
-// Write writes to the given FIFO. The FIFO must be opened for writing.
-func (f *Fifo) Write(b []byte) (n int, err error) {
-	return f.fifo.Write(b)
-}
-
-// Close closes the object.
-func (f *Fifo) Close() error {
-	return f.fifo.Close()
-}
-
-// Destroy permanently removes the FIFO, closing it first.
-func (f *Fifo) Destroy() error {
-	return f.fifo.Destroy()
+// Destroy permanently removes the FIFO.
+func Destroy(name string) error {
+	return destroyFifo(name)
 }

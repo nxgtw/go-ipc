@@ -35,14 +35,14 @@ func (spin *spinMutex) TryLock() bool {
 	return atomic.CompareAndSwapUint32(&spin.value, 0, 1)
 }
 
-// SpinMutex is a synchronization object which performs busy wait loop
+// SpinMutex is a synchronization object which performs busy wait loop.
 type SpinMutex struct {
 	*spinMutex
 	region *ipc.MemoryRegion
 	name   string
 }
 
-// NewSpinMutex creates a new spinmutex
+// NewSpinMutex creates a new spin mutex.
 // name - object name.
 // mode - object creation mode. must be one of the following:
 //		O_CREATE_ONLY

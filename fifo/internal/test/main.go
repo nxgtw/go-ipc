@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/fifo"
@@ -88,7 +89,14 @@ func test() error {
 	if *nonBlock {
 		mode |= ipc.O_NONBLOCK
 	}
-	obj, err := fifo.New(*objName, mode, 0666)
+	var obj fifo.Fifo
+	var err error
+	completed := ipc_testing.WaitForFunc(func() {
+		obj, err = fifo.New(*objName, mode, 0666)
+	}, time.Second*2)
+	if !completed {
+		return fmt.Errorf("fifo.New took too long to finish")
+	}
 	if err != nil {
 		return err
 	}
@@ -97,13 +105,19 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	buffer := make([]byte, len(data))
-	if _, err = obj.Read(buffer); err == nil {
-		for i, value := range data {
-			if value != buffer[i] {
-				return fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, buffer[i])
+	completed = ipc_testing.WaitForFunc(func() {
+		buffer := make([]byte, len(data))
+		if _, err = obj.Read(buffer); err == nil {
+			for i, value := range data {
+				if value != buffer[i] {
+					err = fmt.Errorf("invalid value at %d. expected '%d', got '%d'", i, value, buffer[i])
+					return
+				}
 			}
 		}
+	}, time.Second*2)
+	if !completed {
+		return fmt.Errorf("read took too long to finish")
 	}
 	return err
 }

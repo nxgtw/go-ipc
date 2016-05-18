@@ -14,11 +14,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type fifo struct {
+// UnixFifo is a first-in-first-out unix ipc mechanism.
+type UnixFifo struct {
 	file *os.File
 }
 
-func newFifo(name string, mode int, perm os.FileMode) (*fifo, error) {
+// NewUnixFifo creates a new unix FIFO.
+func NewUnixFifo(name string, mode int, perm os.FileMode) (*UnixFifo, error) {
 	if _, err := common.CreateModeToOsMode(mode); err != nil {
 		return nil, err
 	}
@@ -49,22 +51,26 @@ func newFifo(name string, mode int, perm os.FileMode) (*fifo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fifo{file: file}, nil
+	return &UnixFifo{file: file}, nil
 }
 
-func (f *fifo) Read(b []byte) (n int, err error) {
+// Read reads from the given FIFO. it must be opened for reading.
+func (f *UnixFifo) Read(b []byte) (n int, err error) {
 	return f.file.Read(b)
 }
 
-func (f *fifo) Write(b []byte) (n int, err error) {
+// Write writes to the given FIFO. it must be opened for writing.
+func (f *UnixFifo) Write(b []byte) (n int, err error) {
 	return f.file.Write(b)
 }
 
-func (f *fifo) Close() error {
+// Close closes the object.
+func (f *UnixFifo) Close() error {
 	return f.file.Close()
 }
 
-func (f *fifo) Destroy() error {
+// Destroy permanently removes the FIFO, closing it first.
+func (f *UnixFifo) Destroy() error {
 	var err error
 	if err = f.file.Close(); err == nil {
 		return os.Remove(f.file.Name())
@@ -72,8 +78,8 @@ func (f *fifo) Destroy() error {
 	return err
 }
 
-// Destroy permanently removes the FIFO.
-func Destroy(name string) error {
+// DestroyUnixFIFO permanently removes the FIFO.
+func DestroyUnixFIFO(name string) error {
 	err := os.Remove(fifoPath(name))
 	if os.IsNotExist(err) {
 		return nil
