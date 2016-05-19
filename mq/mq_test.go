@@ -14,7 +14,6 @@ import (
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -81,7 +80,7 @@ func testCreateMqExcl(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	}
 	_, err = ctor(testMqName, 0666)
 	a.Error(err)
-	if d, ok := mq.(common.Destroyer); ok {
+	if d, ok := mq.(ipc.Destroyer); ok {
 		a.NoError(d.Destroy())
 	} else {
 		a.NoError(mq.Close())

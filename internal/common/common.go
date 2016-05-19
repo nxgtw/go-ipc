@@ -3,18 +3,12 @@
 package common
 
 import (
+	"fmt"
+	"os"
 	"syscall"
 
 	"bitbucket.org/avd/go-ipc"
-
-	"fmt"
-	"os"
 )
-
-// Destroyer is an object which can be permanently removed.
-type Destroyer interface {
-	Destroy() error
-}
 
 // OpenOrCreate performs open/create file operation according to the given mode.
 // It allows to find out if the object was opened or created.
