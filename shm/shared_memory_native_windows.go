@@ -24,6 +24,7 @@ type WindowsNativeMemoryObject struct {
 	name string
 }
 
+// NewWindowsNativeMemoryObject returns a new Windows native shared memory object.
 func NewWindowsNativeMemoryObject(name string) *WindowsNativeMemoryObject {
 	return &WindowsNativeMemoryObject{name: name}
 }
