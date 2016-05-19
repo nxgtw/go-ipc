@@ -1,10 +1,15 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mmf
 
 import (
+	"os"
 	"syscall"
 	"unsafe"
+
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+
+	"golang.org/x/sys/windows"
 )
 
 // systemInfo is used for GetSystemInfo WinApi call
@@ -27,8 +32,9 @@ type systemInfo struct {
 }
 
 var (
-	modkernel32       = syscall.NewLazyDLL("kernel32.dll")
-	procGetSystemInfo = modkernel32.NewProc("GetSystemInfo")
+	modkernel32         = syscall.NewLazyDLL("kernel32.dll")
+	procGetSystemInfo   = modkernel32.NewProc("GetSystemInfo")
+	procOpenFileMapping = modkernel32.NewProc("OpenFileMappingW")
 )
 
 func getAllocGranularity() int {
@@ -36,4 +42,21 @@ func getAllocGranularity() int {
 	// this cannot fail
 	procGetSystemInfo.Call(uintptr(unsafe.Pointer(&si)))
 	return int(si.AllocationGranularity)
+}
+
+func openFileMapping(access uint32, inheritHandle uint32, name string) (windows.Handle, error) {
+	namep, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	nameu := unsafe.Pointer(namep)
+	r1, _, err := procOpenFileMapping.Call(uintptr(access), uintptr(inheritHandle), uintptr(nameu))
+	allocator.Use(nameu)
+	if r1 == 0 {
+		return 0, os.NewSyscallError("OpenFileMapping", err)
+	}
+	if err == syscall.Errno(0) {
+		err = nil
+	}
+	return windows.Handle(r1), err
 }

@@ -12,7 +12,9 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
 	"github.com/stretchr/testify/assert"
@@ -45,7 +47,7 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -70,7 +72,7 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -99,7 +101,7 @@ func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -124,7 +126,7 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -177,7 +179,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -215,13 +217,13 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 128, 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, mmf.MEM_READWRITE, 128, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -284,13 +286,13 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, ipc.MEM_READWRITE, 8, 0)
+	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, mmf.MEM_READWRITE, 8, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -346,7 +348,10 @@ func testLockerLockTimeout(t *testing.T, typ string, ctor lockerCtor, dtor locke
 		return
 	}
 	tl.Lock()
-	defer tl.Unlock()
+	defer func() {
+		tl.Unlock()
+		a.NoError(tl.Close())
+	}()
 	before := time.Now()
 	timeout := time.Millisecond * 50
 	a.False(tl.LockTimeout(timeout))

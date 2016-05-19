@@ -9,6 +9,7 @@ import (
 
 	ipc "bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
@@ -33,7 +34,7 @@ func init() {
 	}
 }
 
-func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
+func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
 	object, err := shm.NewMemoryObject(testMemObj, objMode, 0666)
 	if err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 			return nil, err
 		}
 	}
-	region, err := ipc.NewMemoryRegion(object, regionMode, offset, int(size))
+	region, err := mmf.NewMemoryRegion(object, regionMode, offset, int(size))
 	if err != nil {
 		return nil, err
 	}

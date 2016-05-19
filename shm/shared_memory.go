@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime"
 
-	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/mmf"
 )
 
 var (
@@ -20,7 +20,7 @@ type SharedMemoryObject interface {
 	Truncate(size int64) error
 	Close() error
 	Destroy() error
-	ipc.Mappable
+	mmf.Mappable
 }
 
 // MemoryObject represents an object which can be used to

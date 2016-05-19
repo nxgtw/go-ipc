@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mmf
 
 import (
 	"errors"
@@ -9,6 +9,14 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+)
+
+// Constants for memory regions.
+const (
+	MEM_READ_ONLY     = 0x00000001
+	MEM_READ_PRIVATE  = 0x00000002
+	MEM_READWRITE     = 0x00000004
+	MEM_COPY_ON_WRITE = 0x00000008
 )
 
 var (

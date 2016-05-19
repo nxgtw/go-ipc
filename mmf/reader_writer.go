@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mmf
 
 import (
 	"bytes"

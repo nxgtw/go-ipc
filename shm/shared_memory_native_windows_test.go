@@ -5,15 +5,15 @@ package shm
 import (
 	"testing"
 
-	"bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/mmf"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func createWindowsMemoryRegionSimple(regionMode int, size int64, offset int64) (*ipc.MemoryRegion, error) {
+func createWindowsMemoryRegionSimple(regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
 	object := NewWindowsNativeMemoryObject(defaultObjectName)
-	region, err := ipc.NewMemoryRegion(object, regionMode, offset, int(size))
+	region, err := mmf.NewMemoryRegion(object, regionMode, offset, int(size))
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +21,7 @@ func createWindowsMemoryRegionSimple(regionMode int, size int64, offset int64) (
 }
 
 func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
-	region, err := createWindowsMemoryRegionSimple(ipc.MEM_READWRITE, int64(len(shmTestData)), 0)
+	region, err := createWindowsMemoryRegionSimple(mmf.MEM_READWRITE, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -31,7 +31,7 @@ func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
 	copied := copy(region.Data(), shmTestData)
 	assert.Equal(t, copied, len(shmTestData))
 	assert.NoError(t, region.Flush(false))
-	region2, err := createWindowsMemoryRegionSimple(ipc.MEM_READ_ONLY, int64(len(shmTestData)), 0)
+	region2, err := createWindowsMemoryRegionSimple(mmf.MEM_READ_ONLY, int64(len(shmTestData)), 0)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -41,7 +41,7 @@ func TestWriteWindowsMemoryRegionSameProcess(t *testing.T) {
 
 func TestWriteWindowsMemoryAnotherProcess(t *testing.T) {
 	a := assert.New(t)
-	region, err := createWindowsMemoryRegionSimple(ipc.MEM_READWRITE, int64(len(shmTestData)), 128)
+	region, err := createWindowsMemoryRegionSimple(mmf.MEM_READWRITE, int64(len(shmTestData)), 128)
 	if !a.NoError(err) {
 		return
 	}
@@ -59,7 +59,7 @@ func TestWriteWindowsMemoryAnotherProcess(t *testing.T) {
 func TestReadWindowsMemoryAnotherProcess(t *testing.T) {
 	a := assert.New(t)
 	object := NewWindowsNativeMemoryObject(defaultObjectName)
-	region, err := ipc.NewMemoryRegion(object, ipc.MEM_READWRITE, 0, len(shmTestData))
+	region, err := mmf.NewMemoryRegion(object, mmf.MEM_READWRITE, 0, len(shmTestData))
 	if !a.NoError(err) {
 		return
 	}
@@ -73,4 +73,20 @@ func TestReadWindowsMemoryAnotherProcess(t *testing.T) {
 	if !a.NoError(result.Err) {
 		t.Log(result.Output)
 	}
+}
+
+func TestMemoryRegionCreation(t *testing.T) {
+	a := assert.New(t)
+	region, err := createWindowsMemoryRegionSimple(mmf.MEM_READ_ONLY, 4096, 0)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(region.Close())
+	}()
+	region2, err := createWindowsMemoryRegionSimple(mmf.MEM_READWRITE, 4096, 0)
+	if !assert.NoError(t, err) {
+		return
+	}
+	a.NoError(region2.Close())
 }

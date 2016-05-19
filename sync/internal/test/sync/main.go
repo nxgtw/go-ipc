@@ -16,6 +16,7 @@ import (
 	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
@@ -71,7 +72,7 @@ func inc64() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(memObject, ipc.MEM_READWRITE, 0, int(unsafe.Sizeof(int64(0))))
+	region, err := mmf.NewMemoryRegion(memObject, mmf.MEM_READWRITE, 0, int(unsafe.Sizeof(int64(0))))
 	if err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	region, err := ipc.NewMemoryRegion(memObject, ipc.MEM_READ_ONLY, 0, len(expected))
+	region, err := mmf.NewMemoryRegion(memObject, mmf.MEM_READ_ONLY, 0, len(expected))
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,7 @@ func test() error {
 	return performTest(expected, region, locker, n)
 }
 
-func performTest(expected []byte, actual *ipc.MemoryRegion, locker sync.Locker, n int) error {
+func performTest(expected []byte, actual *mmf.MemoryRegion, locker sync.Locker, n int) error {
 	return performParallel(func(id int) error {
 		for i := 0; i < n; i++ {
 			if err := testData(expected, actual.Data(), locker, i); err != nil {

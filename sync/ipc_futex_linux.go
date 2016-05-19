@@ -7,15 +7,15 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
 // IPCFutex is a linux futex, placed into a shared memory region.
 type IPCFutex struct {
 	futex  *Futex
-	region *ipc.MemoryRegion
+	region *mmf.MemoryRegion
 	name   string
 }
 
@@ -36,7 +36,7 @@ func NewIPCFutex(name string, mode int, perm os.FileMode, initial uint32) (*IPCF
 	if resultErr != nil {
 		return nil, resultErr
 	}
-	var region *ipc.MemoryRegion
+	var region *mmf.MemoryRegion
 	defer func() {
 		obj.Close()
 		if resultErr == nil {
@@ -49,7 +49,7 @@ func NewIPCFutex(name string, mode int, perm os.FileMode, initial uint32) (*IPCF
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, int(futexSize)); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(futexSize)); resultErr != nil {
 		return nil, resultErr
 	}
 	result := &IPCFutex{

@@ -11,6 +11,20 @@ import (
 	"os"
 )
 
+// Destroyer is an object which can be permanently removed.
+type Destroyer interface {
+	Destroy() error
+}
+
+// OpenOrCreate performs open/create file operation according to the given mode.
+// It allows to find out if the object was opened or created.
+//	creator is the function which performs actual operation.
+//		It is called with 'true', if it must create an object, and with false otherwise.
+//		It must return an 'not exists error' if the param is false, and the object does not exist.
+//		It must return an 'already exists error' if the param is true, and the object already exists.
+//	mode is the target mode.
+//		If mode == O_OPEN_OR_CREATE, OpenOrCreate makes several attempts to open to create an object,
+//		and analyzes the return error. It tries to open the object first.
 func OpenOrCreate(creator func(bool) error, mode int) (bool, error) {
 	switch mode {
 	case ipc.O_OPEN_ONLY:
@@ -25,11 +39,11 @@ func OpenOrCreate(creator func(bool) error, mode int) (bool, error) {
 		const attempts = 16
 		var err error
 		for attempt := 0; attempt < attempts; attempt++ {
-			if err = creator(true); !os.IsExist(err) {
-				return true, err
-			}
 			if err = creator(false); !os.IsNotExist(err) {
 				return false, err
+			}
+			if err = creator(true); !os.IsExist(err) {
+				return true, err
 			}
 		}
 		return false, err

@@ -14,6 +14,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,16 @@ const (
 	testMqName = "go-ipc.mq"
 	mqProgPath = "./internal/test/"
 )
+
+// buffered is an object with internal buffer of the given capacity.
+type buffered interface {
+	Cap() (int, error)
+}
+
+// blocker is an object, which can work in blocking and non-blocking modes.
+type blocker interface {
+	SetBlocking(bool) error
+}
 
 type mqCtor func(name string, perm os.FileMode) (Messenger, error)
 type mqOpener func(name string, flags int) (Messenger, error)
@@ -70,7 +81,7 @@ func testCreateMqExcl(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	}
 	_, err = ctor(testMqName, 0666)
 	a.Error(err)
-	if d, ok := mq.(ipc.Destroyer); ok {
+	if d, ok := mq.(common.Destroyer); ok {
 		a.NoError(d.Destroy())
 	} else {
 		a.NoError(mq.Close())
@@ -218,7 +229,7 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(ipc.Blocker); ok {
+	if blocker, ok := mq.(blocker); ok {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
@@ -253,7 +264,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if tmq, ok := mq.(TimedMessenger); ok {
 		data := make([]byte, 8)
 		tm := time.Millisecond * 200
-		if buf, ok := mq.(ipc.Buffered); ok {
+		if buf, ok := mq.(buffered); ok {
 			cap, err := buf.Cap()
 			if !a.NoError(err) {
 				return
@@ -319,7 +330,7 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(ipc.Blocker); ok {
+	if blocker, ok := mq.(blocker); ok {
 		a.NoError(blocker.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {

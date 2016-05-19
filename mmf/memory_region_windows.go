@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mmf
 
 import (
 	"fmt"
@@ -8,7 +8,9 @@ import (
 	"runtime"
 	"unsafe"
 
+	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/windows"
 )
@@ -40,20 +42,55 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
 	var name *uint16
-	// check for a named region for windows native shared memory via a pagefile
-	if windows.Handle(obj.Fd()) == windows.InvalidHandle {
+	// check for a named region for windows native shared memory via a pagefile.
+	isForPaging := windows.Handle(obj.Fd()) == windows.InvalidHandle
+	if isForPaging {
 		if name, err = windows.UTF16PtrFromString(obj.Name()); err != nil {
 			return nil, err
 		}
 	}
-	handle, err := windows.CreateFileMapping(windows.Handle(obj.Fd()), nil, prot, maxSizeHigh, maxSizeLow, name)
-	if err != nil {
-		return nil, os.NewSyscallError("CreateFileMapping", err)
+
+	var handle windows.Handle
+	creator := func(create bool) error {
+		var err error
+		// We need some special handling here for windows native memory.
+		// Consider the following situation:
+		//	object := NewWindowsNativeMemoryObject("object")
+		//	region1, _ :=  ipc.NewMemoryRegion(object, ipc.MEM_READ_ONLY, 0, size)
+		//	region2, _ :=  ipc.NewMemoryRegion(object, ipc.MEM_READWRITE, 0, size)
+		// 1) the first call creates a mapping file object with PAGE_READONLY protection.
+		// 2) the second call fails to create mapping for the same object, as it has been reated readonly.
+		// Although the object itself does not permit writing, the first call makes it readonly.
+		// Thus, we create a mapping object with PAGE_READWRITE permission, and pass actual permission
+		// to MapViewOfFile.
+		// We leave prot as is for usual file mapping, as the caller is responsible for
+		// prot for original file.
+		if create || !isForPaging {
+			locProt := prot
+			if isForPaging {
+				locProt = windows.PAGE_READWRITE
+			}
+			handle, err = windows.CreateFileMapping(
+				windows.Handle(obj.Fd()),
+				nil,
+				locProt,
+				maxSizeHigh,
+				maxSizeLow,
+				name)
+		} else {
+			handle, err = openFileMapping(flags, 0, obj.Name())
+		}
+		return err
 	}
+
+	if _, err = common.OpenOrCreate(creator, ipc.O_OPEN_OR_CREATE); err != nil {
+		return nil, err
+	}
+
 	// if we use windows native shared memory, we can't close this handle right now.
 	// it will be closed, when Close is called.
 	mapHandle := handle
-	if windows.Handle(obj.Fd()) != windows.InvalidHandle {
+	if !isForPaging {
 		defer windows.CloseHandle(handle)
 		handle = windows.InvalidHandle
 	}

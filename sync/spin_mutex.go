@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
@@ -38,7 +38,7 @@ func (spin *spinMutex) TryLock() bool {
 // SpinMutex is a synchronization object which performs busy wait loop.
 type SpinMutex struct {
 	*spinMutex
-	region *ipc.MemoryRegion
+	region *mmf.MemoryRegion
 	name   string
 }
 
@@ -63,7 +63,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 	if resultErr != nil {
 		return nil, resultErr
 	}
-	var region *ipc.MemoryRegion
+	var region *mmf.MemoryRegion
 	defer func() {
 		obj.Close()
 		if resultErr == nil {
@@ -76,7 +76,7 @@ func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = ipc.NewMemoryRegion(obj, ipc.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
 		return nil, resultErr
 	}
 	if created {

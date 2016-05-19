@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-package ipc
+package mmf
 
 import (
 	"io"
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	testFolder = "internal/test/testdata/"
+	testFolder = "./testdata/"
 	testFile   = testFolder + "test.bin"
 )
 
@@ -28,7 +28,9 @@ func TestMmfOpen(t *testing.T) {
 		return
 	}
 	mr, err := NewMemoryRegion(file, MEM_READ_ONLY, 0, int(stat.Size()))
-	a.NoError(err)
+	if !a.NoError(err) {
+		return
+	}
 	a.NoError(mr.Close())
 	mr, err = NewMemoryRegion(file, MEM_READ_ONLY, 0, 0)
 	a.NoError(err)
