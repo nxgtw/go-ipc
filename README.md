@@ -3,11 +3,11 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
 ### Features
 * Pure Go implementation, no cgo is required.
 * Works on linux, OSX, freebsd, and windows.
-* Suport of the following mechanisms:
+* Support of the following mechanisms:
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
     - shared memory (all supported platforms)
-    - messsage queues (linux, OSX, freebsd)
+    - message queues (linux, OSX, freebsd)
     - locking primitives: (all supported platforms)
 
 ## Install
