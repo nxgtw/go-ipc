@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/mq"
 )
 
@@ -71,7 +70,7 @@ func notifywait(name string, timeout int, typ string) error {
 	if typ != "linux" {
 		return fmt.Errorf("notifywait is supported for 'linux' mq, not '%s'", typ)
 	}
-	mq, err := mq.OpenLinuxMessageQueue(name, ipc.O_READWRITE)
+	mq, err := mq.OpenLinuxMessageQueue(name, os.O_RDWR)
 	if err != nil {
 		return err
 	}

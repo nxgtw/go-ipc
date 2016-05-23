@@ -9,14 +9,14 @@ import (
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
 
-func createLocker(typ, name string, mode int) (locker sync.Locker, err error) {
+func createLocker(typ, name string, flag int) (locker sync.Locker, err error) {
 	switch typ {
 	case "m":
-		locker, err = ipc_sync.NewMutex(name, mode, 0666)
+		locker, err = ipc_sync.NewMutex(name, flag, 0666)
 	case "msysv":
-		locker, err = ipc_sync.NewSemaMutex(name, mode, 0666)
+		locker, err = ipc_sync.NewSemaMutex(name, flag, 0666)
 	case "spin":
-		locker, err = ipc_sync.NewSpinMutex(name, mode, 0666)
+		locker, err = ipc_sync.NewSpinMutex(name, flag, 0666)
 	default:
 		err = fmt.Errorf("unknown object type %q", typ)
 	}

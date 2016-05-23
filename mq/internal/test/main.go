@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mq"
 )
@@ -52,7 +51,7 @@ func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one argument")
 	}
-	msqQueue, err := openMqWithType(*objName, ipc.O_READ_ONLY, *typ)
+	msqQueue, err := openMqWithType(*objName, os.O_RDONLY, *typ)
 	if err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func send() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("send: must provide exactly one argument")
 	}
-	msgQueue, err := openMqWithType(*objName, ipc.O_WRITE_ONLY, *typ)
+	msgQueue, err := openMqWithType(*objName, os.O_WRONLY, *typ)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package sync
 
@@ -33,13 +33,10 @@ func NewSemaphore(name string, mode int, perm os.FileMode, initial int) (*Semaph
 
 // NewSemaphoreKey creates a new sysV semaphore for the given key.
 //	key - object key. each semaphore object is identifyed by a unique key.
-//	mode - object creation mode. must be one of the following:
-//		O_OPEN_OR_CREATE
-//		O_CREATE_ONLY
-//		O_OPEN_ONLY
-//	perm - object permissions
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
 //	initial - this value will be added to the semaphore's value, if it was created.
-func NewSemaphoreKey(key uint64, mode int, perm os.FileMode, initial int) (*Semaphore, error) {
+func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Semaphore, error) {
 	var id int
 	creator := func(create bool) error {
 		var creatorErr error
@@ -50,7 +47,7 @@ func NewSemaphoreKey(key uint64, mode int, perm os.FileMode, initial int) (*Sema
 		id, creatorErr = semget(common.Key(key), 1, flags)
 		return creatorErr
 	}
-	created, err := common.OpenOrCreate(creator, mode)
+	created, err := common.OpenOrCreate(creator, flag)
 	if err != nil {
 		return nil, err
 	}

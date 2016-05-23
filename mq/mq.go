@@ -8,6 +8,13 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"bitbucket.org/avd/go-ipc/internal/common"
+)
+
+const (
+	// O_NONBLOCK flag makes mq read/write operations nonblocking.
+	O_NONBLOCK = common.O_NONBLOCK
 )
 
 // Messenger is an interface which must be satisfied by any

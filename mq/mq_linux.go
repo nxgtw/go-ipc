@@ -10,7 +10,6 @@ import (
 	"time"
 	"unsafe"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
@@ -57,7 +56,7 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")
 	}
-	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL
+	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL | unix.O_CLOEXEC
 	attrs := &linuxMqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
 	id, err := mq_open(name, sysflags, uint32(perm), attrs)
 	if err != nil {
@@ -74,12 +73,8 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 // OpenLinuxMessageQueue opens an existing message queue.
 // Returns an error, if it does not exist.
 func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
-	sysflags, err := mqFlagsToOsFlags(flags)
+	id, err := mq_open(name, flags|unix.O_CLOEXEC, uint32(0), nil)
 	if err != nil {
-		return nil, err
-	}
-	var id int
-	if id, err = mq_open(name, sysflags, uint32(0), nil); err != nil {
 		return nil, err
 	}
 	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
@@ -117,11 +112,11 @@ func (mq *LinuxMessageQueue) SendTimeout(data []byte, timeout time.Duration) err
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) Send(data []byte) error {
 	timeout := time.Duration(-1)
-	if mq.flags&ipc.O_NONBLOCK != 0 {
+	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
 	err := mq.SendTimeoutPriority(data, 0, timeout)
-	if mq.flags&ipc.O_NONBLOCK != 0 && err != nil {
+	if mq.flags&O_NONBLOCK != 0 && err != nil {
 		if sysErr, ok := err.(syscall.Errno); ok {
 			if sysErr.Temporary() {
 				err = nil
@@ -183,7 +178,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) 
 // It blocks if the queue is empty.
 func (mq *LinuxMessageQueue) Receive(data []byte) error {
 	timeout := time.Duration(-1)
-	if mq.flags&ipc.O_NONBLOCK != 0 {
+	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
 	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore priority
@@ -220,9 +215,9 @@ func (mq *LinuxMessageQueue) Cap() (int, error) {
 // This applies to the current instance only.
 func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 	if block {
-		mq.flags &= ^ipc.O_NONBLOCK
+		mq.flags &= ^O_NONBLOCK
 	} else {
-		mq.flags |= ipc.O_NONBLOCK
+		mq.flags |= O_NONBLOCK
 	}
 	return nil
 }
@@ -300,7 +295,7 @@ func DestroyLinuxMessageQueue(name string) error {
 // This will apply for all send/receive operations on any instance of the
 // linux mq with the given name.
 func SetLinuxMqBlocking(name string, block bool) error {
-	mq, err := OpenLinuxMessageQueue(name, ipc.O_READWRITE)
+	mq, err := OpenLinuxMessageQueue(name, os.O_RDWR)
 	if err != nil {
 		return err
 	}
@@ -309,20 +304,4 @@ func SetLinuxMqBlocking(name string, block bool) error {
 		attrs.Flags |= unix.O_NONBLOCK
 	}
 	return mq_getsetattr(mq.ID(), attrs, nil)
-}
-
-func mqFlagsToOsFlags(flags int) (int, error) {
-	// by default, assume we're opening it for readwrite
-	if flags&(ipc.O_READWRITE|ipc.O_READ_ONLY|ipc.O_WRITE_ONLY) == 0 {
-		flags = ipc.O_READWRITE
-	}
-	sysflags, err := common.AccessModeToOsMode(flags)
-	if err != nil {
-		return 0, err
-	}
-	sysflags |= unix.O_CLOEXEC
-	if flags&(ipc.O_OPEN_OR_CREATE|ipc.O_CREATE_ONLY) != 0 {
-		return 0, fmt.Errorf("to create message queue, use CreateMessageQueue func")
-	}
-	return sysflags, nil
 }

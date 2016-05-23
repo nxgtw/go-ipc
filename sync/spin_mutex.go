@@ -43,23 +43,16 @@ type SpinMutex struct {
 }
 
 // NewSpinMutex creates a new spin mutex.
-// name - object name.
-// mode - object creation mode. must be one of the following:
-//		O_CREATE_ONLY
-//		O_OPEN_ONLY
-//		O_OPEN_OR_CREATE
-//	perm - file's mode and permission bits.
-func NewSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
-	if !checkMutexOpenMode(mode) {
-		return nil, fmt.Errorf("invalid open mode")
-	}
-	return newSpinMutex(name, mode, perm)
-}
-
-func newSpinMutex(name string, mode int, perm os.FileMode) (*SpinMutex, error) {
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 	const spinImplSize = int64(unsafe.Sizeof(spinMutex{}))
+	if !checkMutexFlags(flag) {
+		return nil, fmt.Errorf("invalid open flags")
+	}
 	name = spinName(name)
-	obj, created, resultErr := newMemoryObjectSize(name, mode, perm, spinImplSize)
+	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, spinImplSize)
 	if resultErr != nil {
 		return nil, resultErr
 	}

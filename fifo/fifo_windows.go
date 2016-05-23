@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/windows"
@@ -20,26 +19,24 @@ type NamedPipe struct {
 }
 
 // NewNamedPipe creates a new windows named pipe.
-func NewNamedPipe(name string, mode int, perm os.FileMode) (*NamedPipe, error) {
-	if _, err := common.CreateModeToOsMode(mode); err != nil {
-		return nil, err
-	}
-	_, err := common.AccessModeToOsMode(mode)
-	if err != nil {
-		return nil, err
-	}
-	if mode&ipc.O_READWRITE != 0 {
-		// we don't allow it and return an error to make the behaviour consistent with unix.
-		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+func NewNamedPipe(name string, flag int, perm os.FileMode) (*NamedPipe, error) {
+	if flag&os.O_RDWR != 0 {
+		// open man says "The result is undefined if this flag is applied to a FIFO."
+		// so, we don't allow it and return an error
+		return nil, fmt.Errorf("O_RDWR flag cannot be used for FIFO")
 	}
 	path := namedPipePath(name)
 	var pipeHandle windows.Handle
-	if mode&ipc.O_READ_ONLY != 0 {
-		if pipeHandle, err = createFifoServer(path, mode); err != nil {
+	var err error
+	if flag&os.O_WRONLY != 0 {
+		if pipeHandle, err = createFifoClient(path, flag); err != nil {
 			return nil, err
 		}
 	} else {
-		if pipeHandle, err = createFifoClient(path, mode); err != nil {
+		if pipeHandle, err = createFifoServer(path, flag); err != nil {
 			return nil, err
 		}
 	}
@@ -84,7 +81,7 @@ func namedPipePath(name string) string {
 	return prefix + name
 }
 
-func createFifoClient(path string, mode int) (windows.Handle, error) {
+func createFifoClient(path string, flag int) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return windows.InvalidHandle, err
@@ -105,7 +102,7 @@ func createFifoClient(path string, mode int) (windows.Handle, error) {
 		if fileHandle != windows.InvalidHandle {
 			break
 		}
-		if mode&ipc.O_NONBLOCK != 0 {
+		if flag&O_NONBLOCK != 0 {
 			return windows.InvalidHandle, err
 		}
 		if os.IsNotExist(err) {
@@ -115,7 +112,7 @@ func createFifoClient(path string, mode int) (windows.Handle, error) {
 		if !common.SyscallErrHasCode(os.NewSyscallError("CreateFile", err), cERROR_PIPE_BUSY) {
 			return windows.InvalidHandle, err
 		}
-		if mode&ipc.O_NONBLOCK != 0 {
+		if flag&O_NONBLOCK != 0 {
 			break
 		}
 		if ok, err := waitNamedPipe(path, cNMPWAIT_WAIT_FOREVER); !ok {
@@ -131,7 +128,7 @@ func createFifoClient(path string, mode int) (windows.Handle, error) {
 	return fileHandle, nil
 }
 
-func createFifoServer(path string, mode int) (windows.Handle, error) {
+func createFifoServer(path string, flag int) (windows.Handle, error) {
 	var pipeHandle = windows.InvalidHandle
 	namep, err := windows.UTF16PtrFromString(path)
 	if err != nil {
@@ -140,7 +137,7 @@ func createFifoServer(path string, mode int) (windows.Handle, error) {
 	creator := func(create bool) error {
 		var err error
 		if create {
-			pipeHandle, err = makeNamedPipe(path, mode)
+			pipeHandle, err = makeNamedPipe(path, flag)
 		} else {
 			pipeHandle, err = windows.CreateFile(
 				namep,
@@ -154,12 +151,12 @@ func createFifoServer(path string, mode int) (windows.Handle, error) {
 		return err
 	}
 	for {
-		_, err := common.OpenOrCreate(creator, mode&(ipc.O_CREATE_ONLY|ipc.O_OPEN_ONLY|ipc.O_OPEN_OR_CREATE))
+		_, err := common.OpenOrCreate(creator, flag)
 		if pipeHandle == windows.InvalidHandle {
 			return windows.InvalidHandle, err
 		}
 		connected := true
-		if mode&ipc.O_NONBLOCK == 0 {
+		if flag&O_NONBLOCK == 0 {
 			connected, err = connectNamedPipe(pipeHandle, nil)
 			if !connected && common.SyscallErrHasCode(err, cERROR_PIPE_CONNECTED) {
 				connected = true
@@ -175,9 +172,9 @@ func createFifoServer(path string, mode int) (windows.Handle, error) {
 	}
 }
 
-func makeNamedPipe(path string, mode int) (windows.Handle, error) {
+func makeNamedPipe(path string, flag int) (windows.Handle, error) {
 	var pipeMode uint32 = cPIPE_TYPE_MESSAGE | cPIPE_READMODE_MESSAGE
-	if mode&ipc.O_NONBLOCK != 0 {
+	if flag&O_NONBLOCK != 0 {
 		pipeMode |= cPIPE_NOWAIT
 	} else {
 		pipeMode |= cPIPE_WAIT

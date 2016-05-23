@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"unsafe"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
@@ -83,7 +82,7 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 		return err
 	}
 
-	if _, err = common.OpenOrCreate(creator, ipc.O_OPEN_OR_CREATE); err != nil {
+	if _, err = common.OpenOrCreate(creator, os.O_CREATE); err != nil {
 		return nil, err
 	}
 

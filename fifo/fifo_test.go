@@ -4,10 +4,10 @@ package fifo
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
@@ -65,7 +65,7 @@ func TestFifoCreate(t *testing.T) {
 	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
-	fifo, err := New(testFifoName, ipc.O_CREATE_ONLY|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, os.O_CREATE|os.O_EXCL|os.O_RDONLY|O_NONBLOCK, 0666)
 	if assert.NoError(t, err) {
 		assert.NoError(t, fifo.Destroy())
 		assert.Error(t, fifo.Destroy())
@@ -81,22 +81,24 @@ func TestFifoBlockReadSameProcess(t *testing.T) {
 	}
 	defer Destroy(testFifoName)
 	go func() {
-		fifo, err2 := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_WRITE_ONLY, 0666)
+		fifo, err2 := New(testFifoName, os.O_CREATE|os.O_WRONLY, 0666)
 		if !assert.NoError(t, err2) {
 			return
 		}
 		n, err2 := fifo.Write(testData)
 		assert.NoError(t, err2)
 		assert.Equal(t, len(testData), n)
+		assert.NoError(t, fifo.Close())
 	}()
 	buff := make([]byte, len(testData))
 	success := ipc_test.WaitForFunc(func() {
-		fifo, err2 := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY, 0666)
+		fifo, err2 := New(testFifoName, os.O_CREATE|os.O_RDONLY, 0666)
 		if !assert.NoError(t, err2) {
 			return
 		}
 		_, err2 = fifo.Read(buff)
 		assert.NoError(t, err2)
+		assert.NoError(t, fifo.Close())
 	}, time.Second*2)
 	if !assert.True(t, success) || !assert.Equal(t, testData, buff) {
 		return
@@ -109,7 +111,7 @@ func TestFifoBlockReadSameProcess(t *testing.T) {
 // 1) write data into a fifo in a separate process in blocking mode
 // 2) read that data in our process in blocking mode
 // 3) compare the results
-func TestFifoBlockRead(t *testing.T) {
+func TestFifoBlockReadAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, Destroy(testFifoName)) {
 		return
 	}
@@ -120,22 +122,25 @@ func TestFifoBlockRead(t *testing.T) {
 	ch := ipc_test.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
 	success := ipc_test.WaitForFunc(func() {
-		fifo, err2 := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY, 0666)
-		if !assert.NoError(t, err2) {
+		var fifo Fifo
+		fifo, err = New(testFifoName, os.O_CREATE|os.O_RDONLY, 0666)
+		if !assert.NoError(t, err) {
 			return
 		}
-		_, err2 = fifo.Read(buff)
-		assert.NoError(t, err2)
+		_, err = fifo.Read(buff)
+		assert.NoError(t, err)
 		assert.NoError(t, fifo.Close())
 	}, time.Second*2)
-	if !assert.True(t, success) || !assert.NoError(t, err) ||
-		!assert.Equal(t, testData, buff) {
+	if err != nil {
+		return
+	}
+	if !assert.True(t, success) || !assert.Equal(t, testData, buff) {
 		return
 	}
 	if !assert.Equal(t, testData, buff) {
 		return
 	}
-	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second)
+	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second*2)
 	if !assert.True(t, success) {
 		return
 	}
@@ -153,7 +158,7 @@ func TestFifoBlockWrite(t *testing.T) {
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
 	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
-	fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_WRITE_ONLY, 0666)
+	fifo, err := New(testFifoName, os.O_CREATE|os.O_WRONLY, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -181,10 +186,10 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	defer func() { appKillChan <- true }()
 	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	// wait for app to launch and start reading from the fifo
-	fifo, err := New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	for n := 0; err != nil && n < 10; n++ {
 		<-time.After(time.Millisecond * 200)
-		fifo, err = New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
+		fifo, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}
 	if !assert.NoError(t, err) {
 		return
@@ -207,7 +212,7 @@ func TestFifoNonBlock1(t *testing.T) {
 	}
 	var err error
 	done := ipc_test.WaitForFunc(func() {
-		_, err = New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
+		_, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}, time.Second*2)
 	a.True(done)
 	a.Error(err)
@@ -220,7 +225,7 @@ func TestFifoNonBlock2(t *testing.T) {
 	}
 	var err error
 	done := ipc_test.WaitForFunc(func() {
-		_, err = New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
+		_, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}, time.Second*2)
 	a.True(done)
 	a.Error(err)
@@ -231,13 +236,13 @@ func TestFifoNonBlock3(t *testing.T) {
 	if !a.NoError(Destroy(testFifoName)) {
 		return
 	}
-	fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_READ_ONLY|ipc.O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, os.O_CREATE|os.O_RDONLY|O_NONBLOCK, 0666)
 	if !a.NoError(err) {
-		a.NoError(fifo.Close())
 		return
 	}
-	fifo2, err := New(testFifoName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY, 0666)
+	fifo2, err := New(testFifoName, os.O_WRONLY, 0666)
 	if !a.NoError(err) {
+		a.NoError(fifo.Close())
 		return
 	}
 	a.NoError(fifo.Close())
@@ -251,7 +256,7 @@ func TestFifoNonBlock4(t *testing.T) {
 	if !a.NoError(Destroy(testFifoName)) {
 		return
 	}
-	fifo, err := New(testFifoName, ipc.O_OPEN_OR_CREATE|ipc.O_WRITE_ONLY|ipc.O_NONBLOCK, 0666)
+	fifo, err := New(testFifoName, os.O_CREATE|os.O_WRONLY|O_NONBLOCK, 0666)
 	if !a.Error(err) {
 		fifo.Destroy()
 	}

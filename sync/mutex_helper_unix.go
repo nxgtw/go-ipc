@@ -12,8 +12,8 @@ var (
 	_ IPCLocker = (*SemaMutex)(nil)
 )
 
-func newMutex(name string, mode int, perm os.FileMode) (IPCLocker, error) {
-	return NewSemaMutex(name, mode, perm)
+func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+	return NewSemaMutex(name, flag, perm)
 }
 
 func destroyMutex(name string) error {

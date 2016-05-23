@@ -9,17 +9,14 @@ import (
 
 // NewMutex creates a new interprocess mutex.
 // It uses the default implementation on the current platform.
-//	name - object name
-//	mode - object creation mode. must be one of the following:
-//		O_OPEN_OR_CREATE
-//		O_CREATE_ONLY
-//		O_OPEN_ONLY
-//	perm - object permissions
-func NewMutex(name string, mode int, perm os.FileMode) (IPCLocker, error) {
-	if !checkMutexOpenMode(mode) {
-		return nil, fmt.Errorf("invalid open mode")
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+func NewMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+	if !checkMutexFlags(flag) {
+		return nil, fmt.Errorf("invalid open flags")
 	}
-	return newMutex(name, mode, perm)
+	return newMutex(name, flag, perm)
 }
 
 // DestroyMutex permanently removes mutex with the given name.

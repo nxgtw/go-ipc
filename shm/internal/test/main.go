@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 )
@@ -36,7 +35,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	obj, err := NewShmObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666, *objType)
+	obj, err := NewShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -63,7 +62,7 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666, *objType)
+	object, err := NewShmObject(*objName, os.O_RDONLY, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -87,7 +86,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666, *objType)
+	object, err := NewShmObject(*objName, os.O_RDONLY, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,7 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, 0666, *objType)
+	object, err := NewShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
 	if err != nil {
 		return err
 	}

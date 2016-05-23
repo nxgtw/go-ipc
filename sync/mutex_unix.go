@@ -1,14 +1,10 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package sync
 
-import (
-	"os"
-
-	"bitbucket.org/avd/go-ipc"
-)
+import "os"
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
@@ -16,8 +12,8 @@ type SemaMutex struct {
 }
 
 // NewSemaMutex creates a new mutex.
-func NewSemaMutex(name string, mode int, perm os.FileMode) (*SemaMutex, error) {
-	s, err := NewSemaphore(name, mode, perm, 1)
+func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
+	s, err := NewSemaphore(name, flag, perm, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +46,7 @@ func (m *SemaMutex) Destroy() error {
 
 // DestroySemaMutex permanently removes mutex with the given name.
 func DestroySemaMutex(name string) error {
-	m, err := NewSemaMutex(name, ipc.O_OPEN_ONLY, 0666)
+	m, err := NewSemaMutex(name, 0, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil

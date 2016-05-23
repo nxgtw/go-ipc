@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd netbsd openbsd
+// +build darwin freebsd
 
 package shm
 
@@ -11,9 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 func doDestroyMemoryObject(path string) error {
@@ -38,26 +36,13 @@ func shmName(name string) (string, error) {
 	return "/" + name, nil
 }
 
-func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
-	var f *os.File
-	amode, err := common.AccessModeToOsMode(mode)
+func shmOpen(path string, flag int, perm os.FileMode) (*os.File, error) {
+	flag |= syscall.O_CLOEXEC
+	fd, err := shm_open(path, flag, int(perm))
 	if err != nil {
 		return nil, err
 	}
-	opener := func(create bool) error {
-		sysMode := amode | syscall.O_CLOEXEC
-		if create {
-			sysMode |= (syscall.O_CREAT | syscall.O_EXCL)
-		}
-		fd, err := shm_open(path, sysMode, int(perm))
-		if err != nil {
-			return err
-		}
-		f = os.NewFile(fd, path)
-		return nil
-	}
-	_, err = common.OpenOrCreate(opener, mode&(ipc.O_CREATE_ONLY|ipc.O_OPEN_OR_CREATE|ipc.O_OPEN_ONLY))
-	return f, err
+	return os.NewFile(fd, path), nil
 }
 
 // syscalls

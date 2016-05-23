@@ -12,8 +12,8 @@ var (
 	_ IPCLocker = (*FutexMutex)(nil)
 )
 
-func newMutex(name string, mode int, perm os.FileMode) (IPCLocker, error) {
-	return NewFutexMutex(name, mode, perm)
+func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+	return NewFutexMutex(name, flag, perm)
 }
 
 func destroyMutex(name string) error {

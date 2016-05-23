@@ -20,19 +20,16 @@ type IPCFutex struct {
 }
 
 // NewIPCFutex creates a new futex, placing it in a shared memory region with the given name.
-// name - shared memory region name.
-// mode - object creation mode. must be one of the following:
-//		O_CREATE_ONLY
-//		O_OPEN_ONLY
-//		O_OPEN_OR_CREATE
-//	perm - file's mode and permission bits.
+//	name - shared memory region name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
 //	initial - initial futex value. it is set only if the futex was created.
-func NewIPCFutex(name string, mode int, perm os.FileMode, initial uint32) (*IPCFutex, error) {
-	if !checkMutexOpenMode(mode) {
-		return nil, fmt.Errorf("invalid open mode")
+func NewIPCFutex(name string, flag int, perm os.FileMode, initial uint32) (*IPCFutex, error) {
+	if !checkMutexFlags(flag) {
+		return nil, fmt.Errorf("invalid open flags")
 	}
 	name = futexName(name)
-	obj, created, resultErr := newMemoryObjectSize(name, mode, perm, futexSize)
+	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, futexSize)
 	if resultErr != nil {
 		return nil, resultErr
 	}

@@ -33,15 +33,11 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_READWRITE, 0666)
+	lk, err := ctor(testLockerName, os.O_RDWR, 0666)
 	a.Error(err)
-	lk, err = ctor(testLockerName, ipc.O_CREATE_ONLY|ipc.O_READ_ONLY, 0666)
+	lk, err = ctor(testLockerName, os.O_WRONLY, 0666)
 	a.Error(err)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_OR_CREATE|ipc.O_WRITE_ONLY, 0666)
-	a.Error(err)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY|ipc.O_WRITE_ONLY, 0666)
-	a.Error(err)
-	lk, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err = ctor(testLockerName, os.O_CREATE, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -52,7 +48,7 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
+	lk, err = ctor(testLockerName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -66,7 +62,7 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -77,14 +73,14 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
+	lk, err = ctor(testLockerName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
-	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	_, err = ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	a.Error(err)
 }
 
@@ -95,7 +91,7 @@ func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -106,7 +102,7 @@ func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_OR_CREATE, 0666)
+	lk, err = ctor(testLockerName, os.O_CREATE, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -120,7 +116,7 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_OPEN_OR_CREATE, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -131,14 +127,14 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	lk, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
+	lk, err = ctor(testLockerName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
 	defer func(lk IPCLocker) {
 		a.NoError(lk.Close())
 	}(lk)
-	_, err = ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	_, err = ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.Error(err) {
 		return
 	}
@@ -152,7 +148,7 @@ func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		}
 	}
 
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -161,7 +157,7 @@ func testLockerOpenMode5(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		if !a.NoError(dtor(testLockerName)) {
 			return
 		}
-		_, err = ctor(testLockerName, ipc.O_OPEN_ONLY, 0666)
+		_, err = ctor(testLockerName, 0, 0666)
 		a.Error(err)
 	}
 }
@@ -173,7 +169,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) || !a.NotNil(lk) {
 		return
 	}
@@ -211,7 +207,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -222,7 +218,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, mmf.MEM_READWRITE, 128, 0)
+	region, err := createMemoryRegionSimple(os.O_CREATE|os.O_RDWR, mmf.MEM_READWRITE, 128, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -280,7 +276,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 			return
 		}
 	}
-	lk, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	lk, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -291,7 +287,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 			a.NoError(lk.Close())
 		}
 	}(lk)
-	region, err := createMemoryRegionSimple(ipc.O_OPEN_OR_CREATE|ipc.O_READWRITE, mmf.MEM_READWRITE, 8, 0)
+	region, err := createMemoryRegionSimple(os.O_CREATE|os.O_RDWR, mmf.MEM_READWRITE, 8, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -336,7 +332,7 @@ func testLockerLockTimeout(t *testing.T, typ string, ctor lockerCtor, dtor locke
 	if !a.NoError(dtor(testLockerName)) {
 		return
 	}
-	m, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	m, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) || !a.NotNil(m) {
 		return
 	}
@@ -362,7 +358,7 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 	if !a.NoError(dtor(testLockerName)) {
 		return
 	}
-	m, err := ctor(testLockerName, ipc.O_CREATE_ONLY, 0666)
+	m, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) || !a.NotNil(m) {
 		return
 	}
@@ -372,7 +368,7 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 		t.Skipf("timed locker of type %q is not supported on %s(%s)", typ, runtime.GOOS, runtime.GOARCH)
 		return
 	}
-	before := time.Now()
+
 	timeout := time.Millisecond * 50
 	tl.Lock()
 	ch := make(chan struct{})
@@ -388,6 +384,4 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 	case <-time.After(timeout * 3):
 		t.Error("failed to lock timed mutex")
 	}
-	runTime := int64(time.Now().Sub(before))
-	a.InEpsilon(runTime, int64(timeout), 0.05)
 }

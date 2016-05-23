@@ -30,12 +30,12 @@ type MemoryObject struct {
 }
 
 // NewMemoryObject creates a new shared memory object.
-//	name - a name of the object. should not contain '/' and exceed 255 symbols (30 on darwin)
-//	size - object size
-//	mode - open mode. see ipc.O_* constants
-//	perm - file's mode and permission bits.
-func NewMemoryObject(name string, mode int, perm os.FileMode) (*MemoryObject, error) {
-	impl, err := newMemoryObject(name, mode, perm)
+//	name - a name of the object. should not contain '/' and exceed 255 symbols (30 on darwin).
+//	size - object size.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+func NewMemoryObject(name string, flag int, perm os.FileMode) (*MemoryObject, error) {
+	impl, err := newMemoryObject(name, flag, perm)
 	if err != nil {
 		return nil, err
 	}

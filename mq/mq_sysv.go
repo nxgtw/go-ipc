@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package mq
 
@@ -9,7 +9,6 @@ import (
 	"os"
 	"unsafe"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
@@ -65,7 +64,7 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 		return nil, err
 	}
 	result := &SystemVMessageQueue{id: id, name: name}
-	if flags&ipc.O_NONBLOCK != 0 {
+	if flags&O_NONBLOCK != 0 {
 		result.flags |= common.IpcNoWait
 	}
 	return result, nil

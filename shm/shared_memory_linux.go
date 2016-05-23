@@ -14,8 +14,6 @@ import (
 	"sync"
 
 	"golang.org/x/sys/unix"
-
-	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 const (
@@ -48,13 +46,8 @@ func doDestroyMemoryObject(path string) error {
 }
 
 // glibc/sysdeps/posix/shm_open.c
-func shmOpen(path string, mode int, perm os.FileMode) (*os.File, error) {
-	osMode, err := common.OpenModeToOsMode(mode)
-	if err != nil {
-		return nil, err
-	}
-	file, err := os.OpenFile(path, osMode, perm)
-	return file, err
+func shmOpen(path string, flag int, perm os.FileMode) (*os.File, error) {
+	return os.OpenFile(path, flag, perm)
 }
 
 // glibc/sysdeps/posix/shm-directory.h

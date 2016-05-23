@@ -7,6 +7,12 @@ import (
 	"os"
 
 	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/common"
+)
+
+const (
+	// O_NONBLOCK flag makes Fifo open operation nonblocking.
+	O_NONBLOCK = common.O_NONBLOCK
 )
 
 // Fifo represents a First-In-First-Out object
@@ -18,13 +24,10 @@ type Fifo interface {
 
 // New creates or opens a new FIFO object
 //	name - object name.
-//	mode - access mode. combination of the following flags:
-//		O_OPEN_ONLY or O_CREATE_ONLY or O_OPEN_OR_CREATE
-//		O_READ_ONLY or O_WRITE_ONLY
-//		O_NONBLOCK.
-//	perm - file permissions.
-func New(name string, mode int, perm os.FileMode) (Fifo, error) {
-	return newFifo(name, mode, perm)
+//	flag - flag is a combination of open flags from 'os' package along with O_NONBLOCK flag.
+//	perm - object's permission bits.
+func New(name string, flag int, perm os.FileMode) (Fifo, error) {
+	return newFifo(name, flag, perm)
 }
 
 // Destroy permanently removes the FIFO.

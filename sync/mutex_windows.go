@@ -21,7 +21,10 @@ type EventMutex struct {
 }
 
 // NewEventMutex creates a new event-basedmutex.
-func NewEventMutex(name string, mode int, perm os.FileMode) (*EventMutex, error) {
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package
+//	perm - object's permission bits.
+func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error) {
 	var handle windows.Handle
 	creator := func(create bool) error {
 		var err error
@@ -39,7 +42,7 @@ func NewEventMutex(name string, mode int, perm os.FileMode) (*EventMutex, error)
 		}
 		return err
 	}
-	_, err := common.OpenOrCreate(creator, mode)
+	_, err := common.OpenOrCreate(creator, flag)
 	if err != nil {
 		return nil, err
 	}

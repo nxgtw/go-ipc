@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
@@ -28,13 +27,10 @@ type FutexMutex struct {
 // This implementation is based on a paper 'Futexes Are Tricky' by Ulrich Drepper,
 // this document can be found in 'docs' folder.
 //	name - object name.
-//	mode - object creation mode. must be one of the following:
-//		O_CREATE_ONLY
-//		O_OPEN_ONLY
-//		O_OPEN_OR_CREATE
-//	perm - file's mode and permission bits.
-func NewFutexMutex(name string, mode int, perm os.FileMode) (*FutexMutex, error) {
-	futex, err := NewIPCFutex(name, mode, perm, cFutexMutexUnlocked)
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error) {
+	futex, err := NewIPCFutex(name, flag, perm, cFutexMutexUnlocked)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +80,7 @@ func (f *FutexMutex) Destroy() error {
 
 // DestroyFutexMutex permanently removes mutex with the given name.
 func DestroyFutexMutex(name string) error {
-	m, err := NewFutexMutex(name, ipc.O_OPEN_ONLY, 0666)
+	m, err := NewFutexMutex(name, 0, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil

@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/shm"
 )
@@ -34,28 +33,26 @@ type TimedIPCLocker interface {
 	LockTimeout(timeout time.Duration) bool
 }
 
-func checkMutexOpenMode(mode int) bool {
-	return mode == ipc.O_OPEN_OR_CREATE || mode == ipc.O_CREATE_ONLY || mode == ipc.O_OPEN_ONLY
+func checkMutexFlags(flags int) bool {
+	return flags & ^(os.O_CREATE|os.O_EXCL) == 0
 }
 
 // newMemoryObjectSize opens or creates a shared memory object with the given name.
 // If the object was created, it truncates it to 'size'.
 // Otherwise, checks, that the existing object is at least 'size' bytes long.
 // Returns an object, true, if it was created, and an error.
-func newMemoryObjectSize(name string, mode int, perm os.FileMode, size int64) (*shm.MemoryObject, bool, error) {
+func newMemoryObjectSize(name string, flag int, perm os.FileMode, size int64) (*shm.MemoryObject, bool, error) {
 	var obj *shm.MemoryObject
 	creator := func(create bool) error {
 		var err error
-		creatorMode := ipc.O_READWRITE
+		creatorFlag := os.O_RDWR
 		if create {
-			creatorMode |= ipc.O_CREATE_ONLY
-		} else {
-			creatorMode |= ipc.O_OPEN_ONLY
+			creatorFlag |= (os.O_CREATE | os.O_EXCL)
 		}
-		obj, err = shm.NewMemoryObject(name, creatorMode, perm)
+		obj, err = shm.NewMemoryObject(name, creatorFlag, perm)
 		return err
 	}
-	created, resultErr := common.OpenOrCreate(creator, mode)
+	created, resultErr := common.OpenOrCreate(creator, flag)
 	if resultErr != nil {
 		return nil, false, resultErr
 	}

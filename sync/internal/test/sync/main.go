@@ -13,7 +13,6 @@ import (
 	"time"
 	"unsafe"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
@@ -44,7 +43,7 @@ func create() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	if _, err := createLocker(*objType, *objName, ipc.O_CREATE_ONLY); err != nil {
+	if _, err := createLocker(*objType, *objName, os.O_CREATE|os.O_EXCL); err != nil {
 		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
 		return err
 	}
@@ -63,7 +62,7 @@ func inc64() error {
 	if flag.NArg() != 3 {
 		return fmt.Errorf("test: must provide exactly two arguments")
 	}
-	memObject, err := shm.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READWRITE, 0666)
+	memObject, err := shm.NewMemoryObject(flag.Arg(1), os.O_RDWR, 0666)
 	if err != nil {
 		return err
 	}
@@ -77,7 +76,7 @@ func inc64() error {
 		return err
 	}
 	defer region.Close()
-	locker, err := createLocker(*objType, *objName, ipc.O_OPEN_ONLY)
+	locker, err := createLocker(*objType, *objName, 0)
 	if err != nil {
 		return err
 	}
@@ -104,7 +103,7 @@ func test() error {
 	if flag.NArg() != 4 {
 		return fmt.Errorf("test: must provide exactly three arguments")
 	}
-	memObject, err := shm.NewMemoryObject(flag.Arg(1), ipc.O_OPEN_ONLY|ipc.O_READ_ONLY, 0666)
+	memObject, err := shm.NewMemoryObject(flag.Arg(1), os.O_RDONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -122,7 +121,7 @@ func test() error {
 		return err
 	}
 	defer region.Close()
-	locker, err := createLocker(*objType, *objName, ipc.O_OPEN_ONLY)
+	locker, err := createLocker(*objType, *objName, 0)
 	if err != nil {
 		return err
 	}

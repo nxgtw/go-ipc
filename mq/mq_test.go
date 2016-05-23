@@ -110,7 +110,7 @@ func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	} else {
 		a.NoError(mq.Close())
 	}
-	_, err = opener(testMqName, ipc.O_READ_ONLY)
+	_, err = opener(testMqName, os.O_RDONLY)
 	a.Error(err)
 }
 
@@ -136,7 +136,7 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 		return
 	}
 	var received uint64
-	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
+	mqr, err := opener(testMqName, os.O_RDONLY)
 	if !a.NoError(err) {
 		return
 	}
@@ -170,7 +170,7 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(mq.Send(data))
 	}()
 	received := testStruct{}
-	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
+	mqr, err := opener(testMqName, os.O_RDONLY)
 	if !a.NoError(err) {
 		return
 	}
@@ -202,7 +202,7 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 		a.NoError(mq.Send(message))
 	}()
 	received := make([]byte, 1024)
-	mqr, err := opener(testMqName, ipc.O_READ_ONLY)
+	mqr, err := opener(testMqName, os.O_RDONLY)
 	if !a.NoError(err) {
 		return
 	}

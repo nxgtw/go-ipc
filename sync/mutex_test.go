@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func mutexCtor(name string, mode int, perm os.FileMode) (IPCLocker, error) {
-	return NewMutex(name, mode, perm)
+func mutexCtor(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+	return NewMutex(name, flag, perm)
 }
 
 func mutexDtor(name string) error {

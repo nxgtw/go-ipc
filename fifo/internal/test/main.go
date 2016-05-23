@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/fifo"
 	"bitbucket.org/avd/go-ipc/internal/test"
 )
@@ -32,9 +31,9 @@ byte array should be passed as a continuous string of 2-symbol hex byte values l
 
 func create() error {
 	if flag.NArg() != 1 {
-		return fmt.Errorf("destroy: must not provide any arguments")
+		return fmt.Errorf("create: must provide exactly one arguments")
 	}
-	mode := ipc.O_CREATE_ONLY | ipc.O_READWRITE
+	mode := os.O_CREATE | fifo.O_NONBLOCK | os.O_RDONLY
 	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
 		return err
@@ -58,9 +57,9 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	mode := ipc.O_OPEN_OR_CREATE | ipc.O_READ_ONLY
+	mode := os.O_CREATE | os.O_RDONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= fifo.O_NONBLOCK
 	}
 	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {
@@ -85,9 +84,9 @@ func test() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one arguments")
 	}
-	mode := ipc.O_OPEN_OR_CREATE | ipc.O_READ_ONLY
+	mode := os.O_CREATE | os.O_RDONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= fifo.O_NONBLOCK
 	}
 	var obj fifo.Fifo
 	var err error
@@ -126,9 +125,9 @@ func write() error {
 	if flag.NArg() != 2 {
 		return fmt.Errorf("test: must provide exactly one arguments")
 	}
-	mode := ipc.O_OPEN_OR_CREATE | ipc.O_WRITE_ONLY
+	mode := os.O_CREATE | os.O_WRONLY
 	if *nonBlock {
-		mode |= ipc.O_NONBLOCK
+		mode |= fifo.O_NONBLOCK
 	}
 	obj, err := fifo.New(*objName, mode, 0666)
 	if err != nil {

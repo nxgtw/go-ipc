@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package fifo
 
@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
 	"golang.org/x/sys/unix"
@@ -20,35 +19,28 @@ type UnixFifo struct {
 }
 
 // NewUnixFifo creates a new unix FIFO.
-func NewUnixFifo(name string, mode int, perm os.FileMode) (*UnixFifo, error) {
-	if _, err := common.CreateModeToOsMode(mode); err != nil {
-		return nil, err
-	}
-	osMode, err := common.AccessModeToOsMode(mode)
-	if err != nil {
-		return nil, err
-	}
-	if osMode&os.O_RDWR != 0 {
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm = object permissions.
+func NewUnixFifo(name string, flag int, perm os.FileMode) (*UnixFifo, error) {
+	if flag&os.O_RDWR != 0 {
 		// open man says "The result is undefined if this flag is applied to a FIFO."
 		// so, we don't allow it and return an error
-		return nil, fmt.Errorf("O_READWRITE flag cannot be used for FIFO")
+		return nil, fmt.Errorf("O_RDWR flag cannot be used for FIFO")
 	}
 	path := fifoPath(name)
-	if mode&(ipc.O_OPEN_OR_CREATE|ipc.O_CREATE_ONLY) != 0 {
-		err = unix.Mkfifo(path, uint32(perm))
-		if err != nil {
-			if mode&ipc.O_OPEN_OR_CREATE != 0 && os.IsExist(err) {
-				err = nil
-			} else {
-				return nil, err
-			}
+	var file *os.File
+	creator := func(create bool) error {
+		var err error
+		if create {
+			err = unix.Mkfifo(path, uint32(perm))
 		}
+		if err == nil {
+			file, err = os.OpenFile(path, common.FlagsForAccess(flag), perm)
+		}
+		return err
 	}
-	if mode&ipc.O_NONBLOCK != 0 {
-		osMode |= unix.O_NONBLOCK
-	}
-	file, err := os.OpenFile(path, osMode, perm)
-	if err != nil {
+	if _, err := common.OpenOrCreate(creator, flag); err != nil {
 		return nil, err
 	}
 	return &UnixFifo{file: file}, nil

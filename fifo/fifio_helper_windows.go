@@ -4,8 +4,8 @@ package fifo
 
 import "os"
 
-func newFifo(name string, mode int, perm os.FileMode) (Fifo, error) {
-	return NewNamedPipe(name, mode, perm)
+func newFifo(name string, flag int, perm os.FileMode) (Fifo, error) {
+	return NewNamedPipe(name, flag, perm)
 }
 
 func destroyFifo(name string) error {

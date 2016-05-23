@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd netbsd openbsd solaris
+// +build darwin freebsd
 
 package main
 

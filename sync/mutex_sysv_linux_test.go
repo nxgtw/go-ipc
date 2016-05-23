@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func sysvMutexCtor(name string, mode int, perm os.FileMode) (IPCLocker, error) {
-	return NewSemaMutex(name, mode, perm)
+func sysvMutexCtor(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+	return NewSemaMutex(name, flag, perm)
 }
 
 func sysvMutexDtor(name string) error {

@@ -1,6 +1,6 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package shm
 
@@ -15,13 +15,13 @@ type memoryObject struct {
 	file *os.File
 }
 
-func newMemoryObject(name string, mode int, perm os.FileMode) (impl *memoryObject, err error) {
+func newMemoryObject(name string, flag int, perm os.FileMode) (impl *memoryObject, err error) {
 	var path string
 	if path, err = shmName(name); err != nil {
 		return nil, err
 	}
 	var file *os.File
-	file, err = shmOpen(path, mode, perm)
+	file, err = shmOpen(path, flag, perm)
 	if err != nil {
 		return
 	}
