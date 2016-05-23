@@ -28,10 +28,12 @@ it is even not guaranteed, that it builds correctly on all platforms. The librar
 ## Contributing
 Any contributions are welcome.
 Feel free to:
+
   - create [`issues`](https://bitbucket.org/avd/go-ipc/issues/new)
   - open [`pull requests`](https://bitbucket.org/avd/go-ipc/pull-requests/new)
 
 Before opening a PR, be sure, that:
+
   - your PR has an issue associated with it.
   - your commit messages are adequate.
   - you added unit tests for your code.
