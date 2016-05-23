@@ -8,7 +8,7 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
   - memory mapped files (all supported platforms)
   - shared memory (all supported platforms)
   - messsage queues (linux, OSX, freebsd)
-  - locking primitives (all supported platforms)
+  - locking primitives: (all supported platforms)
 
 ## Install
 1. Install Go 1.6 or higher.
@@ -17,11 +17,19 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
 go get -u bitbucket.org/avd/go-ipc
 ```
 
+## Documentation
+Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
+
+## Build status
+This library is currently alfa. The 'master' branch is not guaranteed to contain stable code,
+it is even not guaranteed, that it builds correctly on all platforms. The library uses
+[Semantic Versioning 2.0.0](http://semver.org/), so it is recommended to checkout appropriate tag.
+
 ## Contributing
 Any contributions are welcome.
-Feel free to
-* [`create issues`](https://bitbucket.org/avd/go-ipc/issues/new)
-* [`open pull requests`](https://bitbucket.org/avd/go-ipc/pull-requests/new)
+Feel free to:
+  - [`create issues`](https://bitbucket.org/avd/go-ipc/issues/new)
+  - [`open pull requests`](https://bitbucket.org/avd/go-ipc/pull-requests/new)
 
 Before opening a PR, be sure, that:
   - your PR has an issue associated with it.
@@ -30,13 +38,7 @@ Before opening a PR, be sure, that:
   - you gofmt'ed the code.
   - it is recommended, that you used [`gometalinter`](https://github.com/alecthomas/gometalinter) to check your code.
 
-## Documentation
-Documentation can be found at [`godoc`](https://bitbucket.org/avd/go-ipc).
-
-## Build status
-This library is currently alfa. The 'master' branch is not guaranteed to contain stable code,
-it is even not guaranteed, that it builds correctly on all platforms. The library uses
-[Semantic Versioning 2.0.0](http://semver.org/), so you'd better to checkout appropriate tag.
+PR's containing documentation improvements and tests are especially welcome.
 
 ## LICENSE
 
