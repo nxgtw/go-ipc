@@ -74,7 +74,7 @@ func copyObjectData(value reflect.Value, memory []byte) {
 // If the object is a pointer it will be dereferenced. To alloc a pointer as is,
 // use uintptr or unsafe.Pointer.
 // If the object is a slice, only actual data is stored. the calling site
-// must save object's lenght and capacity.
+// must save object's length and capacity.
 func Alloc(memory []byte, object interface{}) error {
 	value := reflect.ValueOf(object)
 	if !value.IsValid() {

@@ -9,13 +9,17 @@ import (
 )
 
 const (
+	// O_NONBLOCK flag tell some functions not to block.
+	// Its value does not interfere with O_* constants from 'os' package.
 	O_NONBLOCK = syscall.O_NONBLOCK
 )
 
+// FlagsForOpen extracts os.O_CREATE and os.O_EXCL flag values.
 func FlagsForOpen(flag int) int {
 	return flag & (os.O_CREATE | os.O_EXCL)
 }
 
+// FlagsForAccess extracts os.O_RDONLY, os.O_WRONLY, os.O_RDWR, and O_NONBLOCK flag values.
 func FlagsForAccess(flag int) int {
 	return flag & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR | O_NONBLOCK)
 }
@@ -57,6 +61,7 @@ func OpenOrCreate(creator func(bool) error, flag int) (bool, error) {
 	}
 }
 
+// SyscallErrHasCode returns true, if given error is a syscall error with given code.
 func SyscallErrHasCode(err error, code syscall.Errno) bool {
 	if sysErr, ok := err.(*os.SyscallError); ok {
 		if errno, ok := sysErr.Err.(syscall.Errno); ok {

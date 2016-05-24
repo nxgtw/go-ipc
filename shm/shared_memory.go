@@ -66,7 +66,7 @@ func (obj *MemoryObject) Close() error {
 // Truncate resizes the shared memory object.
 // Darwin: it is possible to truncate an object only once after it was created.
 // Darwin: the size should be divisible by system page size,
-// otherwise the size is set to the nearest page size devider greater, then the given size.
+// otherwise the size is set to the nearest page size divider greater, then the given size.
 func (obj *MemoryObject) Truncate(size int64) error {
 	return obj.memoryObject.Truncate(size)
 }
