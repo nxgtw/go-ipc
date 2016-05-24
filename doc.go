@@ -7,4 +7,7 @@
 //	message queues (unix)
 //	shared memory (unix, windows)
 //	mutexes (unix, windows)
+// The library is currently alpha, so it lacks docs and examples,
+// I'll add them later. Also, its public API may change.
+// You can find some usage examples in test files of the subpackages.
 package ipc

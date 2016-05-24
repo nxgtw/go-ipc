@@ -21,7 +21,7 @@ go get -u bitbucket.org/avd/go-ipc
 Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
 
 ## Build status
-This library is currently alfa. The 'master' branch is not guaranteed to contain stable code,
+This library is currently alpha. The 'master' branch is not guaranteed to contain stable code,
 it is even not guaranteed, that it builds correctly on all platforms. The library uses
 [Semantic Versioning 2.0.0](http://semver.org/), so it is recommended to checkout the latest release.
 
