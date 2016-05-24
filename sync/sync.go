@@ -3,7 +3,6 @@
 package sync
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -11,6 +10,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/shm"
+	"github.com/pkg/errors"
 )
 
 // this is to ensure, that all implementations of ipc mutex
@@ -50,7 +50,7 @@ func newMemoryObjectSize(name string, flag int, perm os.FileMode, size int64) (*
 			creatorFlag |= (os.O_CREATE | os.O_EXCL)
 		}
 		obj, err = shm.NewMemoryObject(name, creatorFlag, perm)
-		return err
+		return errors.Cause(err)
 	}
 	created, resultErr := common.OpenOrCreate(creator, flag)
 	if resultErr != nil {
@@ -61,7 +61,7 @@ func newMemoryObjectSize(name string, flag int, perm os.FileMode, size int64) (*
 			return nil, false, resultErr
 		}
 	} else if obj.Size() < size {
-		return nil, false, fmt.Errorf("existing object is not big enough")
+		return nil, false, errors.New("existing object is not big enough")
 	}
 	return obj, created, nil
 }

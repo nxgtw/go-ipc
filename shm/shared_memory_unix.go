@@ -22,13 +22,11 @@ func newMemoryObject(name string, flag int, perm os.FileMode) (*memoryObject, er
 	if err != nil {
 		return nil, errors.Wrap(err, "shm name failed")
 	}
-	var file *os.File
-	file, err = shmOpen(path, flag, perm)
+	file, err := shmOpen(path, flag, perm)
 	if err != nil {
 		return nil, errors.Wrap(err, "shm open failed")
 	}
-	impl := &memoryObject{file: file}
-	return impl, nil
+	return &memoryObject{file: file}, nil
 }
 
 func (obj *memoryObject) Destroy() error {
