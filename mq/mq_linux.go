@@ -3,8 +3,6 @@
 package mq
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -13,6 +11,7 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -60,7 +59,7 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 	attrs := &linuxMqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
 	id, err := mq_open(name, sysflags, uint32(perm), attrs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "mq_open failed")
 	}
 	return &LinuxMessageQueue{
 		id:           id,
@@ -75,13 +74,13 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
 	id, err := mq_open(name, flags|unix.O_CLOEXEC, uint32(0), nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "mq_open failed")
 	}
 	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
 	attrs, err := result.getAttrs()
 	if err != nil {
 		result.Close()
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get mq attrs")
 	}
 	result.inputBuff = make([]byte, attrs.Msgsize)
 	return result, nil
@@ -154,7 +153,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Du
 	}
 	if len(data) < curMaxMsgSize {
 		if len(data) < actualMsgSize {
-			return 0, fmt.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
+			return 0, errors.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
 		}
 		copy(data, dataToReceive[:actualMsgSize])
 	}
@@ -194,7 +193,7 @@ func (mq *LinuxMessageQueue) ID() int {
 func (mq *LinuxMessageQueue) Close() error {
 	if mq.cancelSocket >= 0 {
 		if err := mq.NotifyCancel(); err != nil {
-			return err
+			return errors.Wrap(err, "failed to cancel notifications")
 		}
 	}
 	err := unix.Close(mq.ID())
@@ -206,7 +205,7 @@ func (mq *LinuxMessageQueue) Close() error {
 func (mq *LinuxMessageQueue) Cap() (int, error) {
 	attrs, err := mq.getAttrs()
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "failed to get mq attrs")
 	}
 	return attrs.Maxmsg, nil
 }
@@ -226,7 +225,7 @@ func (mq *LinuxMessageQueue) SetBlocking(block bool) error {
 func (mq *LinuxMessageQueue) Destroy() error {
 	name := mq.name
 	if err := mq.Close(); err != nil {
-		return err
+		return errors.Wrap(err, "mq close failed")
 	}
 	return DestroyLinuxMessageQueue(name)
 }
@@ -236,14 +235,14 @@ func (mq *LinuxMessageQueue) Destroy() error {
 // unless all of them are read.
 func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	if ch == nil {
-		return fmt.Errorf("cannot notify on a nil-chan")
+		return errors.Errorf("cannot notify on a nil-chan")
 	}
 	if mq.cancelSocket >= 0 {
-		return fmt.Errorf("notify has already been called")
+		return errors.Errorf("notify has already been called")
 	}
 	notifySocket, cancelSocket, err := initLinuxMqNotifications(ch)
 	if err != nil {
-		return fmt.Errorf("unable to init notifications subsystem")
+		return errors.Wrap(err, "unable to init notifications subsystem")
 	}
 	ndata := &notify_data{mq_id: mq.ID()}
 	pndata := unsafe.Pointer(ndata)
@@ -255,6 +254,7 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	}
 	if err = mq_notify(mq.ID(), ev); err != nil {
 		cancelLinuxMqNotifications(mq.cancelSocket)
+		err = errors.Wrap(err, "mq_notify failed")
 	} else {
 		mq.cancelSocket = cancelSocket
 	}
@@ -265,8 +265,12 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err = mq_notify(mq.ID(), nil); err == nil {
-		cancelLinuxMqNotifications(mq.cancelSocket)
+		if err = cancelLinuxMqNotifications(mq.cancelSocket); err != nil {
+			err = errors.Wrap(err, "failed to cancel notifications")
+		}
 		mq.cancelSocket = -1
+	} else {
+		err = errors.Wrap(err, "mq_notify failed")
 	}
 	return err
 }
@@ -275,7 +279,7 @@ func (mq *LinuxMessageQueue) NotifyCancel() error {
 func (mq *LinuxMessageQueue) getAttrs() (*linuxMqAttr, error) {
 	attrs := new(linuxMqAttr)
 	if err := mq_getsetattr(mq.ID(), nil, attrs); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "mq_getsetattr failed")
 	}
 	return attrs, nil
 }
@@ -286,6 +290,8 @@ func DestroyLinuxMessageQueue(name string) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
+		} else {
+			err = errors.Wrap(err, "mq_unlink failed")
 		}
 	}
 	return err
@@ -297,7 +303,7 @@ func DestroyLinuxMessageQueue(name string) error {
 func SetLinuxMqBlocking(name string, block bool) error {
 	mq, err := OpenLinuxMessageQueue(name, os.O_RDWR)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "mq open failed")
 	}
 	attrs := new(linuxMqAttr)
 	if !block {

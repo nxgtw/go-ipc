@@ -5,11 +5,12 @@
 package mq
 
 import (
-	"errors"
 	"os"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -44,11 +45,11 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 	}
 	k, err := common.KeyForName(name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to generate a key")
 	}
 	id, err := msgget(k, int(perm)|common.IpcCreate|common.IpcExcl)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "msgget failed")
 	}
 	return &SystemVMessageQueue{id: id, name: name}, nil
 }
@@ -57,11 +58,11 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to generate a key")
 	}
 	id, err := msgget(k, 0)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "msgget failed")
 	}
 	result := &SystemVMessageQueue{id: id, name: name}
 	if flags&O_NONBLOCK != 0 {
@@ -95,9 +96,13 @@ func (mq *SystemVMessageQueue) Destroy() error {
 	if err == nil {
 		if err = os.Remove(common.TmpFilename(mq.name)); os.IsNotExist(err) {
 			err = nil
+		} else {
+			err = errors.Wrap(err, "failed to remove temporary file")
 		}
 	} else if os.IsNotExist(err) {
 		err = nil
+	} else {
+		err = errors.Wrap(err, "msgctl failed")
 	}
 	return err
 }
@@ -123,10 +128,15 @@ func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
 func DestroySystemVMessageQueue(name string) error {
 	mq, err := OpenSystemVMessageQueue(name, 0)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if os.IsNotExist(errors.Cause(err)) {
 			err = nil
+		} else {
+			err = errors.Wrap(err, "open mq")
 		}
 		return err
 	}
-	return mq.Destroy()
+	if err = mq.Destroy(); err != nil {
+		err = errors.Wrap(err, "destroy faield")
+	}
+	return err
 }
