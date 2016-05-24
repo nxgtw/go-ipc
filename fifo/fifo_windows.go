@@ -9,6 +9,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
 
@@ -84,7 +85,7 @@ func namedPipePath(name string) string {
 func createFifoClient(path string, flag int) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return windows.InvalidHandle, err
+		return windows.InvalidHandle, errors.Wrap(err, "invalid filename")
 	}
 	var fileHandle windows.Handle
 	// unlike unix, we can't wait for a server to create a fifo,
@@ -103,27 +104,27 @@ func createFifoClient(path string, flag int) (windows.Handle, error) {
 			break
 		}
 		if flag&O_NONBLOCK != 0 {
-			return windows.InvalidHandle, err
+			return windows.InvalidHandle, errors.Wrap(err, "create file failed")
 		}
 		if os.IsNotExist(err) {
 			time.Sleep(delay)
 			continue
 		}
 		if !common.SyscallErrHasCode(os.NewSyscallError("CreateFile", err), cERROR_PIPE_BUSY) {
-			return windows.InvalidHandle, err
+			return windows.InvalidHandle, errors.Wrap(err, "create file failed")
 		}
 		if flag&O_NONBLOCK != 0 {
 			break
 		}
 		if ok, err := waitNamedPipe(path, cNMPWAIT_WAIT_FOREVER); !ok {
-			return windows.InvalidHandle, err
+			return windows.InvalidHandle, errors.Wrap(err, "waitNamedPipe failed")
 		}
 	}
 
 	newMode := uint32(cPIPE_READMODE_MESSAGE)
 	if ok, err := setNamedPipeHandleState(fileHandle, &newMode, nil, nil); !ok {
 		windows.CloseHandle(fileHandle)
-		return windows.InvalidHandle, err
+		return windows.InvalidHandle, errors.Wrap(err, "setNamedPipeHandleState failed")
 	}
 	return fileHandle, nil
 }
@@ -132,7 +133,7 @@ func createFifoServer(path string, flag int) (windows.Handle, error) {
 	var pipeHandle = windows.InvalidHandle
 	namep, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return windows.InvalidHandle, err
+		return windows.InvalidHandle, errors.Wrap(err, "invalid filename")
 	}
 	creator := func(create bool) error {
 		var err error
@@ -153,7 +154,7 @@ func createFifoServer(path string, flag int) (windows.Handle, error) {
 	for {
 		_, err := common.OpenOrCreate(creator, flag)
 		if pipeHandle == windows.InvalidHandle {
-			return windows.InvalidHandle, err
+			return windows.InvalidHandle, errors.Wrap(err, "open/create file failed")
 		}
 		connected := true
 		if flag&O_NONBLOCK == 0 {

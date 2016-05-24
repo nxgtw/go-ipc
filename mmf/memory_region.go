@@ -3,12 +3,12 @@
 package mmf
 
 import (
-	"errors"
 	"os"
 	"runtime"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"github.com/pkg/errors"
 )
 
 // Constants for memory regions.
@@ -47,11 +47,11 @@ type Mappable interface {
 
 // NewMemoryRegion creates a new shared memory region.
 // 	object - an object to mmap.
-// 	mode - open mode. see MEM_* constants
-// 	offset - offset in bytes from the beginning of the mmaped file
+// 	flag - open flags. see MEM_* constants.
+// 	offset - offset in bytes from the beginning of the mmaped file.
 // 	size - mapping size.
-func NewMemoryRegion(object Mappable, mode int, offset int64, size int) (*MemoryRegion, error) {
-	impl, err := newMemoryRegion(object, mode, offset, size)
+func NewMemoryRegion(object Mappable, flag int, offset int64, size int) (*MemoryRegion, error) {
+	impl, err := newMemoryRegion(object, flag, offset, size)
 	if err != nil {
 		return nil, err
 	}

@@ -5,13 +5,13 @@
 package mmf
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -25,25 +25,25 @@ type memoryRegion struct {
 	pageOffset int64
 }
 
-func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryRegion, error) {
-	prot, flags, err := memProtAndFlagsFromMode(mode)
+func newMemoryRegion(obj Mappable, flag int, offset int64, size int) (*memoryRegion, error) {
+	prot, flags, err := memProtAndFlagsFromMode(flag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "memory region flags check failed")
 	}
 	if size, err = checkMmapSize(obj, size); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "size check failed")
 	}
 	calculatedSize, err := fileSizeFromFd(obj)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "file size check failed")
 	}
 	if calculatedSize > 0 && int64(size)+offset > calculatedSize {
-		return nil, fmt.Errorf("invalid mapping length")
+		return nil, errors.New("invalid mapping length")
 	}
 	pageOffset := calcMmapOffsetFixup(offset)
 	var data []byte
 	if data, err = unix.Mmap(int(obj.Fd()), offset-pageOffset, size+int(pageOffset), prot, flags); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "mmap failed")
 	}
 	return &memoryRegion{data: data, size: size, pageOffset: pageOffset}, nil
 }
@@ -54,7 +54,7 @@ func (region *memoryRegion) Close() error {
 		region.data = nil
 		region.pageOffset = 0
 		region.size = 0
-		return err
+		return errors.Wrap(err, "munmap failed")
 	}
 	return nil
 }
@@ -68,7 +68,10 @@ func (region *memoryRegion) Flush(async bool) error {
 	if async {
 		flag = unix.MS_ASYNC
 	}
-	return msync(region.data, flag)
+	if err := msync(region.data, flag); err != nil {
+		return errors.Wrap(err, "mync failed")
+	}
+	return nil
 }
 
 func (region *memoryRegion) Size() int {
@@ -90,7 +93,7 @@ func memProtAndFlagsFromMode(mode int) (prot, flags int, err error) {
 		prot = unix.PROT_READ | unix.PROT_WRITE
 		flags = unix.MAP_PRIVATE
 	default:
-		err = fmt.Errorf("invalid mem region flags")
+		err = errors.Errorf("invalid memory region flags %d", mode)
 	}
 	return
 }

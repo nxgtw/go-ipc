@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"unsafe"
 
+	"github.com/pkg/errors"
+
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 
@@ -33,10 +35,10 @@ type memoryRegion struct {
 func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryRegion, error) {
 	prot, flags, err := memProtAndFlagsFromMode(mode)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "memory region flags check failed")
 	}
 	if size, err = checkMmapSize(obj, size); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "size check failed")
 	}
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
@@ -45,7 +47,7 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	isForPaging := windows.Handle(obj.Fd()) == windows.InvalidHandle
 	if isForPaging {
 		if name, err = windows.UTF16PtrFromString(obj.Name()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "invalid object name")
 		}
 	}
 
@@ -83,7 +85,7 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	}
 
 	if _, err = common.OpenOrCreate(creator, os.O_CREATE); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "create mapping file failed")
 	}
 
 	// if we use windows native shared memory, we can't close this handle right now.
@@ -99,7 +101,7 @@ func newMemoryRegion(obj Mappable, mode int, offset int64, size int) (*memoryReg
 	highOffset := uint32(offset >> 32)
 	addr, err := windows.MapViewOfFile(mapHandle, flags, highOffset, lowOffset, uintptr(int64(size)+pageOffset))
 	if err != nil {
-		return nil, os.NewSyscallError("MapViewOfFile", err)
+		return nil, errors.Wrap(os.NewSyscallError("MapViewOfFile", err), "failed to mmap file view")
 	}
 	totalSize := size + int(pageOffset)
 	return &memoryRegion{
@@ -114,12 +116,14 @@ func (region *memoryRegion) Close() error {
 	runtime.SetFinalizer(region, nil)
 	err := windows.UnmapViewOfFile(uintptr(allocator.ByteSliceData(region.data)))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "UnmapViewOfFile failed")
 	}
 	if region.fileHandle != windows.InvalidHandle {
-		err = windows.CloseHandle(region.fileHandle)
+		if err = windows.CloseHandle(region.fileHandle); err != nil {
+			return errors.Wrap(err, "CloseHandle failed")
+		}
 	}
-	return err
+	return nil
 }
 
 func (region *memoryRegion) Data() []byte {
@@ -131,7 +135,11 @@ func (region *memoryRegion) Size() int {
 }
 
 func (region *memoryRegion) Flush(async bool) error {
-	return windows.FlushViewOfFile(uintptr(allocator.ByteSliceData(region.data)), uintptr(len(region.data)))
+	err := windows.FlushViewOfFile(uintptr(allocator.ByteSliceData(region.data)), uintptr(len(region.data)))
+	if err != nil {
+		return errors.Wrap(err, "FlushViewOfFile failed")
+	}
+	return nil
 }
 
 func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
@@ -148,7 +156,7 @@ func memProtAndFlagsFromMode(mode int) (prot uint32, flags uint32, err error) {
 		prot = windows.PAGE_WRITECOPY
 		flags = windows.FILE_MAP_COPY
 	default:
-		err = fmt.Errorf("invalid mem region flags")
+		err = fmt.Errorf("invalid mem region flags %d", mode)
 	}
 	return
 }
