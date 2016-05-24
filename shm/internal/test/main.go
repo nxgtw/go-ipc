@@ -35,7 +35,7 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	obj, err := NewShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
+	obj, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func destroy() error {
 	if flag.NArg() != 1 {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
-	return DestroyShmObject(*objName, *objType)
+	return destroyShmObject(*objName, *objType)
 }
 
 func read() error {
@@ -62,7 +62,7 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, os.O_RDONLY, 0666, *objType)
+	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, os.O_RDONLY, 0666, *objType)
+	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	object, err := NewShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
+	object, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
 	if err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
-func NewShmObject(name string, mode int, perm os.FileMode, typ string) (shm.SharedMemoryObject, error) {
+func newShmObject(name string, mode int, perm os.FileMode, typ string) (shm.SharedMemoryObject, error) {
 	switch typ {
 	case "default", "":
 		return shm.NewMemoryObject(name, mode, perm)
@@ -20,7 +20,7 @@ func NewShmObject(name string, mode int, perm os.FileMode, typ string) (shm.Shar
 	}
 }
 
-func DestroyShmObject(name string, typ string) error {
+func destroyShmObject(name string, typ string) error {
 	switch typ {
 	case "default", "":
 		return shm.DestroyMemoryObject(name)
