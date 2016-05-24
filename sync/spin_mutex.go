@@ -3,7 +3,6 @@
 package sync
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -12,6 +11,8 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
+
+	"github.com/pkg/errors"
 )
 
 type spinMutex struct {
@@ -49,12 +50,12 @@ type SpinMutex struct {
 func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 	const spinImplSize = int64(unsafe.Sizeof(spinMutex{}))
 	if !checkMutexFlags(flag) {
-		return nil, fmt.Errorf("invalid open flags")
+		return nil, errors.New("invalid open flags")
 	}
 	name = spinName(name)
 	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, spinImplSize)
 	if resultErr != nil {
-		return nil, resultErr
+		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
 	var region *mmf.MemoryRegion
 	defer func() {
@@ -70,11 +71,11 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		}
 	}()
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
-		return nil, resultErr
+		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	if created {
 		if resultErr = allocator.Alloc(region.Data(), spinMutex{}); resultErr != nil {
-			return nil, resultErr
+			return nil, errors.Wrap(resultErr, "failed to place mutex instance into shared memory")
 		}
 	}
 	m := (*spinMutex)(allocator.ByteSliceData(region.Data()))
@@ -91,12 +92,15 @@ func (spin *SpinMutex) Close() error {
 // Destroy removes the mutex object.
 func (spin *SpinMutex) Destroy() error {
 	if err := spin.Close(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to close spin mutex")
 	}
 	spin.region = nil
 	err := shm.DestroyMemoryObject(spin.name)
 	spin.name = ""
-	return err
+	if err != nil {
+		return errors.Wrap(err, "failed to destroy shm object")
+	}
+	return nil
 }
 
 // DestroySpinMutex removes a mutex object with the given name

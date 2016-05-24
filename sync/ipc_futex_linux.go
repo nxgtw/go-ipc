@@ -3,13 +3,14 @@
 package sync
 
 import (
-	"fmt"
 	"os"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
+
+	"github.com/pkg/errors"
 )
 
 // IPCFutex is a linux futex, placed into a shared memory region.
@@ -26,12 +27,12 @@ type IPCFutex struct {
 //	initial - initial futex value. it is set only if the futex was created.
 func NewIPCFutex(name string, flag int, perm os.FileMode, initial uint32) (*IPCFutex, error) {
 	if !checkMutexFlags(flag) {
-		return nil, fmt.Errorf("invalid open flags")
+		return nil, errors.New("invalid open flags")
 	}
 	name = futexName(name)
 	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, futexSize)
 	if resultErr != nil {
-		return nil, resultErr
+		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
 	var region *mmf.MemoryRegion
 	defer func() {
@@ -47,7 +48,7 @@ func NewIPCFutex(name string, flag int, perm os.FileMode, initial uint32) (*IPCF
 		}
 	}()
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(futexSize)); resultErr != nil {
-		return nil, resultErr
+		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	result := &IPCFutex{
 		futex:  NewFutex(allocator.ByteSliceData(region.Data())),
@@ -85,7 +86,7 @@ func (f *IPCFutex) Close() error {
 // Destroy removes the futex object.
 func (f *IPCFutex) Destroy() error {
 	if err := f.Close(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to close shm region")
 	}
 	f.region = nil
 	f.futex = nil

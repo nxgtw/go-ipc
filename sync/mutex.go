@@ -3,8 +3,9 @@
 package sync
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 // NewMutex creates a new interprocess mutex.
@@ -14,7 +15,7 @@ import (
 //	perm - object's permission bits.
 func NewMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
 	if !checkMutexFlags(flag) {
-		return nil, fmt.Errorf("invalid open flags")
+		return nil, errors.Errorf("invalid open flags")
 	}
 	return newMutex(name, flag, perm)
 }

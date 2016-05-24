@@ -3,12 +3,12 @@
 package sync
 
 import (
-	"fmt"
 	"os"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
 
@@ -44,7 +44,7 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 	}
 	_, err := common.OpenOrCreate(creator, flag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to open/create event mutex")
 	}
 	return &EventMutex{handle: handle}, nil
 }
@@ -56,7 +56,7 @@ func (m *EventMutex) Lock() {
 		if err != nil {
 			panic(err)
 		} else {
-			panic(fmt.Errorf("invalid wait state for a mutex: %d", ev))
+			panic(errors.Errorf("invalid wait state for a mutex: %d", ev))
 		}
 	}
 }
@@ -74,7 +74,7 @@ func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
 		if err != nil {
 			panic(err)
 		} else {
-			panic(fmt.Errorf("invalid wait state for a mutex: %d", ev))
+			panic(errors.Errorf("invalid wait state for a mutex: %d", ev))
 		}
 	}
 }

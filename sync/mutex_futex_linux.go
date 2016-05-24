@@ -9,6 +9,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,7 +33,7 @@ type FutexMutex struct {
 func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error) {
 	futex, err := NewIPCFutex(name, flag, perm, cFutexMutexUnlocked)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create ipc futex")
 	}
 	return &FutexMutex{futex: futex}, nil
 }
@@ -82,10 +83,10 @@ func (f *FutexMutex) Destroy() error {
 func DestroyFutexMutex(name string) error {
 	m, err := NewFutexMutex(name, 0, 0666)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil
+		if os.IsNotExist(errors.Cause(err)) {
+			return nil
 		}
-		return err
+		return errors.Wrap(err, "failed to open mutex")
 	}
 	return m.Destroy()
 }

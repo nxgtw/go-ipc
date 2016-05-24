@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"github.com/pkg/errors"
 )
 
 // Semaphore is a sysV semaphore.
@@ -21,7 +22,7 @@ type Semaphore struct {
 func NewSemaphore(name string, mode int, perm os.FileMode, initial int) (*Semaphore, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to generate a key for the name")
 	}
 	result, err := NewSemaphoreKey(uint64(k), mode, perm, initial)
 	if err != nil {
@@ -49,13 +50,13 @@ func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Sema
 	}
 	created, err := common.OpenOrCreate(creator, flag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to open/create sysv semaphore")
 	}
 	result := &Semaphore{id: id}
 	if created && initial > 0 {
 		if err = result.Add(initial); err != nil {
 			result.Destroy()
-			return nil, err
+			return nil, errors.Wrap(err, "failed to add initial semaphore value")
 		}
 	}
 	return result, nil
@@ -74,9 +75,13 @@ func (s *Semaphore) Destroy() error {
 	if err == nil && len(s.name) > 0 {
 		if err = os.Remove(common.TmpFilename(s.name)); os.IsNotExist(err) {
 			err = nil
+		} else if err != nil {
+			err = errors.Wrap(err, "failed to remove temporary file")
 		}
 	} else if os.IsNotExist(err) {
 		err = nil
+	} else {
+		err = errors.Wrap(err, "semctl failed")
 	}
 	return err
 }

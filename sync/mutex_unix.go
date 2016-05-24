@@ -4,7 +4,11 @@
 
 package sync
 
-import "os"
+import (
+	"os"
+
+	"github.com/pkg/errors"
+)
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
@@ -15,7 +19,7 @@ type SemaMutex struct {
 func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	s, err := NewSemaphore(name, flag, perm, 1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create a semaphore")
 	}
 	return &SemaMutex{s: s}, nil
 }
@@ -48,10 +52,10 @@ func (m *SemaMutex) Destroy() error {
 func DestroySemaMutex(name string) error {
 	m, err := NewSemaMutex(name, 0, 0666)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil
+		if os.IsNotExist(errors.Cause(err)) {
+			return nil
 		}
-		return err
+		return errors.Wrap(err, "failed to open sema mutex")
 	}
 	return m.Destroy()
 }
