@@ -6,13 +6,13 @@ package shm
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -60,7 +60,7 @@ func shmName(name string) (string, error) {
 	var dir string
 	var err error
 	if dir, err = shmDirectory(); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "error building shared memory name")
 	}
 	return dir + name, nil
 }

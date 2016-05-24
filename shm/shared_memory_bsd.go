@@ -18,7 +18,7 @@ func doDestroyMemoryObject(path string) error {
 	err := shm_unlink(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			err = nil
 		}
 	}
 	return err
