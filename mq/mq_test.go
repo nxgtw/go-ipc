@@ -42,7 +42,7 @@ var mqProgFiles []string
 
 func init() {
 	var err error
-	mqProgFiles, err = ipc_testing.LocatePackageFiles(mqProgPath)
+	mqProgFiles, err = testutil.LocatePackageFiles(mqProgPath)
 	if err != nil {
 		panic(err)
 	}
@@ -228,8 +228,8 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(blocker); ok {
-		a.NoError(blocker.SetBlocking(false))
+	if b, ok := mq.(blocker); ok {
+		a.NoError(b.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
 			data := make([]byte, 8)
@@ -329,8 +329,8 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if blocker, ok := mq.(blocker); ok {
-		a.NoError(blocker.SetBlocking(false))
+	if b, ok := mq.(blocker); ok {
+		a.NoError(b.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
 			data := make([]byte, 8)
@@ -369,7 +369,7 @@ func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ stri
 	go func() {
 		a.NoError(mq.Send(data))
 	}()
-	result := ipc_testing.RunTestApp(args, nil)
+	result := testutil.RunTestApp(args, nil)
 	if !a.NoError(result.Err) {
 		t.Logf("program output is: %s", result.Output)
 	}
@@ -392,7 +392,7 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 		data[i] = byte(i)
 	}
 	args := argsForMqSendCommand(testMqName, -1, typ, "", data)
-	result := ipc_testing.RunTestApp(args, nil)
+	result := testutil.RunTestApp(args, nil)
 	if !a.NoError(result.Err) {
 		t.Logf("program output is %s", result.Output)
 	}
@@ -419,7 +419,7 @@ func argsForMqSendCommand(name string, timeout int, typ, options string, data []
 		"-options="+options,
 		"-timeout="+strconv.Itoa(timeout),
 		"send",
-		ipc_testing.BytesToString(data),
+		testutil.BytesToString(data),
 	)
 }
 
@@ -430,7 +430,7 @@ func argsForMqTestCommand(name string, timeout int, typ, options string, data []
 		"-options="+options,
 		"-timeout="+strconv.Itoa(timeout),
 		"test",
-		ipc_testing.BytesToString(data),
+		testutil.BytesToString(data),
 	)
 }
 

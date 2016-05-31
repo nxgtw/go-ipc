@@ -4,7 +4,7 @@
 // Currently it implements the following mechanisms:
 //	fifo (unix, windows)
 //	memory mapped files (unix, windows)
-//	message queues (unix)
+//	system message queues (unix)
 //	shared memory (unix, windows)
 //	mutexes (unix, windows)
 // The library is currently alpha, so it lacks docs and examples,

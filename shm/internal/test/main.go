@@ -35,12 +35,11 @@ func create() error {
 	if err != nil {
 		return err
 	}
-	obj, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
+	obj, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType, size)
 	if err != nil {
 		return err
 	}
-	defer obj.Close()
-	return obj.Truncate(int64(size))
+	return obj.Close()
 }
 
 func destroy() error {
@@ -62,7 +61,7 @@ func read() error {
 	if err != nil {
 		return err
 	}
-	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType)
+	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType, length)
 	if err != nil {
 		return err
 	}
@@ -73,7 +72,7 @@ func read() error {
 	}
 	defer region.Close()
 	if len(region.Data()) > 0 {
-		fmt.Println(ipc_testing.BytesToString(region.Data()))
+		fmt.Println(testutil.BytesToString(region.Data()))
 	}
 	return nil
 }
@@ -86,15 +85,15 @@ func test() error {
 	if err != nil {
 		return err
 	}
-	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType)
+	data, err := testutil.StringToBytes(flag.Arg(2))
+	if err != nil {
+		return err
+	}
+	object, err := newShmObject(*objName, os.O_RDONLY, 0666, *objType, len(data))
 	if err != nil {
 		return err
 	}
 	defer object.Close()
-	data, err := ipc_testing.StringToBytes(flag.Arg(2))
-	if err != nil {
-		return err
-	}
 	region, err := mmf.NewMemoryRegion(object, mmf.MEM_READ_ONLY, int64(offset), len(data))
 	defer region.Close()
 	if err != nil {
@@ -116,15 +115,15 @@ func write() error {
 	if err != nil {
 		return err
 	}
-	object, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType)
+	data, err := testutil.StringToBytes(flag.Arg(2))
+	if err != nil {
+		return err
+	}
+	object, err := newShmObject(*objName, os.O_CREATE|os.O_RDWR, 0666, *objType, len(data))
 	if err != nil {
 		return err
 	}
 	defer object.Close()
-	data, err := ipc_testing.StringToBytes(flag.Arg(2))
-	if err != nil {
-		return err
-	}
 	region, err := mmf.NewMemoryRegion(object, mmf.MEM_READWRITE, int64(offset), len(data))
 	if err != nil {
 		return err

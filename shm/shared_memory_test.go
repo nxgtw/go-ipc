@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 
 	"github.com/stretchr/testify/assert"
@@ -26,12 +26,12 @@ var (
 )
 
 func init() {
-	shmTestData = make([]byte, 4097)
+	shmTestData = make([]byte, 2048+1024)
 	for i := range shmTestData {
 		shmTestData[i] = byte(i)
 	}
 	var err error
-	shmProgFiles, err = ipc_test.LocatePackageFiles(shmProgPath)
+	shmProgFiles, err = testutil.LocatePackageFiles(shmProgPath)
 	if err != nil {
 		panic(err)
 	}
@@ -58,12 +58,12 @@ func argsForShmReadCommand(name, typ string, offset int64, lenght int) []string 
 }
 
 func argsForShmTestCommand(name, typ string, offset int64, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := testutil.BytesToString(data)
 	return append(shmProgFiles, "-object="+name, "-type="+typ, "test", fmt.Sprintf("%d", offset), strBytes)
 }
 
 func argsForShmWriteCommand(name, typ string, offset int64, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := testutil.BytesToString(data)
 	return append(shmProgFiles, "-object="+name, "-type="+typ, "write", fmt.Sprintf("%d", offset), strBytes)
 }
 
@@ -277,7 +277,7 @@ func TestWriteMemoryAnotherProcess(t *testing.T) {
 	}()
 	copy(region.Data(), shmTestData)
 	assert.NoError(t, region.Flush(false))
-	result := ipc_test.RunTestApp(argsForShmTestCommand(defaultObjectName, "", 128, shmTestData), nil)
+	result := testutil.RunTestApp(argsForShmTestCommand(defaultObjectName, "", 128, shmTestData), nil)
 	assert.NoError(t, result.Err)
 }
 
@@ -296,7 +296,7 @@ func TestReadMemoryAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, object.Truncate(int64(len(shmTestData)))) {
 		return
 	}
-	result := ipc_test.RunTestApp(argsForShmWriteCommand(defaultObjectName, "", 0, shmTestData), nil)
+	result := testutil.RunTestApp(argsForShmWriteCommand(defaultObjectName, "", 0, shmTestData), nil)
 	if !assert.NoError(t, result.Err) {
 		t.Log(result.Output)
 		return

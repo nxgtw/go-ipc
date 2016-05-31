@@ -91,7 +91,9 @@ func (mq *SystemVMessageQueue) Receive(data []byte) error {
 
 // Destroy closes the queue and removes it permanently.
 func (mq *SystemVMessageQueue) Destroy() error {
-	mq.Close()
+	if err := mq.Close(); err != nil {
+		return errors.Wrap(err, "mq close failed")
+	}
 	err := msgctl(mq.id, common.IpcRmid, nil)
 	if err == nil {
 		if err = os.Remove(common.TmpFilename(mq.name)); os.IsNotExist(err) {

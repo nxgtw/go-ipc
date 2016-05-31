@@ -85,7 +85,7 @@ func createEvent(name string, eventAttrs *windows.SecurityAttributes, manualRese
 	allocator.Use(unsafe.Pointer(namep))
 	if h == 0 {
 		err = os.NewSyscallError("CreateEvent", err)
-	} else if uintptr(err.(syscall.Errno)) == 0 {
+	} else if err == syscall.Errno(0) {
 		err = nil
 	}
 	return windows.Handle(h), err

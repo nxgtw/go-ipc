@@ -7,7 +7,7 @@ package sync
 import (
 	"strconv"
 
-	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	testutil "bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 )
 
@@ -20,7 +20,7 @@ var testProgFiles []string
 
 func init() {
 	var err error
-	testProgFiles, err = ipc_test.LocatePackageFiles(testProgPath)
+	testProgFiles, err = testutil.LocatePackageFiles(testProgPath)
 	if err != nil {
 		panic(err)
 	}
@@ -81,6 +81,6 @@ func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, dat
 		"test",
 		shmName,
 		strconv.Itoa(n),
-		ipc_test.BytesToString(data),
+		testutil.BytesToString(data),
 	)
 }

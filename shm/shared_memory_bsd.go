@@ -7,7 +7,6 @@ package shm
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"syscall"
 	"unsafe"
 
@@ -27,7 +26,7 @@ func doDestroyMemoryObject(path string) error {
 func shmName(name string) (string, error) {
 	const maxNameLen = 30
 	// workaround from http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
-	if runtime.GOOS == "darwin" {
+	if isDarwin() {
 		newName := fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
 		if len(newName) <= maxNameLen {
 			name = newName

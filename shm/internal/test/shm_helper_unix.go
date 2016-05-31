@@ -11,7 +11,7 @@ import (
 	"bitbucket.org/avd/go-ipc/shm"
 )
 
-func newShmObject(name string, mode int, perm os.FileMode, typ string) (*shm.MemoryObject, error) {
+func newShmObject(name string, mode int, perm os.FileMode, typ string, size int) (*shm.MemoryObject, error) {
 	switch typ {
 	case "default", "":
 		return shm.NewMemoryObject(name, mode, perm)

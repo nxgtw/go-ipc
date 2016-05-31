@@ -71,7 +71,7 @@ func read() error {
 	if n, err = obj.Read(buffer); err == nil {
 		if n == length {
 			if length > 0 {
-				fmt.Println(ipc_testing.BytesToString(buffer))
+				fmt.Println(testutil.BytesToString(buffer))
 			}
 		} else {
 			err = fmt.Errorf("wanted %d bytes, but got %d", length, n)
@@ -90,7 +90,7 @@ func test() error {
 	}
 	var obj fifo.Fifo
 	var err error
-	completed := ipc_testing.WaitForFunc(func() {
+	completed := testutil.WaitForFunc(func() {
 		obj, err = fifo.New(*objName, mode, 0666)
 	}, time.Second*2)
 	if !completed {
@@ -100,11 +100,11 @@ func test() error {
 		return err
 	}
 	defer obj.Close()
-	data, err := ipc_testing.StringToBytes(flag.Arg(1))
+	data, err := testutil.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
-	completed = ipc_testing.WaitForFunc(func() {
+	completed = testutil.WaitForFunc(func() {
 		buffer := make([]byte, len(data))
 		if _, err = obj.Read(buffer); err == nil {
 			for i, value := range data {
@@ -134,7 +134,7 @@ func write() error {
 		return err
 	}
 	defer obj.Close()
-	data, err := ipc_testing.StringToBytes(flag.Arg(1))
+	data, err := testutil.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}

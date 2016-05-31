@@ -120,7 +120,7 @@ func UninterruptedSyscallTimeout(f func(time.Duration) error, timeout time.Durat
 		}
 		if timeout >= 0 {
 			// we were interrupted by a signal. recalculate timeout
-			elapsed := time.Now().Sub(opStart)
+			elapsed := time.Since(opStart)
 			if timeout > elapsed {
 				timeout = timeout - elapsed
 			} else {

@@ -42,7 +42,6 @@ type MemoryRegion struct {
 // that can be used as a file descriptor for mmap.
 type Mappable interface {
 	Fd() uintptr
-	Name() string
 }
 
 // NewMemoryRegion creates a new shared memory region.

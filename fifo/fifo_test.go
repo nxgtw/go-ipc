@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ipc_test "bitbucket.org/avd/go-ipc/internal/test"
+	"bitbucket.org/avd/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,12 +44,12 @@ func argsForFifoReadCommand(name string, nonblock bool, lenght int) []string {
 }
 
 func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := testutil.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "test", strBytes}
 }
 
 func argsForFifoWriteCommand(name string, nonblock bool, data []byte) []string {
-	strBytes := ipc_test.BytesToString(data)
+	strBytes := testutil.BytesToString(data)
 	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "write", strBytes}
 }
 
@@ -91,7 +91,7 @@ func TestFifoBlockReadSameProcess(t *testing.T) {
 		assert.NoError(t, fifo.Close())
 	}()
 	buff := make([]byte, len(testData))
-	success := ipc_test.WaitForFunc(func() {
+	success := testutil.WaitForFunc(func() {
 		fifo, err2 := New(testFifoName, os.O_CREATE|os.O_RDONLY, 0666)
 		if !assert.NoError(t, err2) {
 			return
@@ -119,9 +119,9 @@ func TestFifoBlockReadAnotherProcess(t *testing.T) {
 	buff := make([]byte, len(testData))
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := ipc_test.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
+	ch := testutil.RunTestAppAsync(argsForFifoWriteCommand(testFifoName, false, testData), appKillChan)
 	var err error
-	success := ipc_test.WaitForFunc(func() {
+	success := testutil.WaitForFunc(func() {
 		var fifo Fifo
 		fifo, err = New(testFifoName, os.O_CREATE|os.O_RDONLY, 0666)
 		if !assert.NoError(t, err) {
@@ -140,7 +140,7 @@ func TestFifoBlockReadAnotherProcess(t *testing.T) {
 	if !assert.Equal(t, testData, buff) {
 		return
 	}
-	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second*2)
+	appResult, success := testutil.WaitForAppResultChan(ch, time.Second*2)
 	if !assert.True(t, success) {
 		return
 	}
@@ -157,7 +157,7 @@ func TestFifoBlockWrite(t *testing.T) {
 	defer Destroy(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	ch := testutil.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	fifo, err := New(testFifoName, os.O_CREATE|os.O_WRONLY, 0666)
 	if !assert.NoError(t, err) {
 		return
@@ -167,7 +167,7 @@ func TestFifoBlockWrite(t *testing.T) {
 	if !assert.NoError(t, err) || !assert.Equal(t, len(testData), n) {
 		return
 	}
-	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second*5)
+	appResult, success := testutil.WaitForAppResultChan(ch, time.Second*5)
 	assert.True(t, success)
 	if !assert.NoError(t, appResult.Err) {
 		t.Log(appResult.Output)
@@ -184,7 +184,7 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	defer Destroy(testFifoName)
 	appKillChan := make(chan bool, 1)
 	defer func() { appKillChan <- true }()
-	ch := ipc_test.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
+	ch := testutil.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	// wait for app to launch and start reading from the fifo
 	fifo, err := New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	for n := 0; err != nil && n < 10; n++ {
@@ -198,7 +198,7 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	if written, err := fifo.Write(testData); !assert.NoError(t, err) || !assert.Equal(t, written, len(testData)) {
 		return
 	}
-	appResult, success := ipc_test.WaitForAppResultChan(ch, time.Second)
+	appResult, success := testutil.WaitForAppResultChan(ch, time.Second)
 	if !assert.True(t, success) {
 		return
 	}
@@ -211,7 +211,7 @@ func TestFifoNonBlock1(t *testing.T) {
 		return
 	}
 	var err error
-	done := ipc_test.WaitForFunc(func() {
+	done := testutil.WaitForFunc(func() {
 		_, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}, time.Second*2)
 	a.True(done)
@@ -224,7 +224,7 @@ func TestFifoNonBlock2(t *testing.T) {
 		return
 	}
 	var err error
-	done := ipc_test.WaitForFunc(func() {
+	done := testutil.WaitForFunc(func() {
 		_, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}, time.Second*2)
 	a.True(done)

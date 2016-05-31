@@ -142,7 +142,7 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 		data[i] = byte(i)
 	}
 	args := argsForMqNotifyWaitCommand(testMqName, 2000, "linux", "")
-	resultChan := ipc_testing.RunTestAppAsync(args, nil)
+	resultChan := testutil.RunTestAppAsync(args, nil)
 	endChan := make(chan struct{})
 	go func() {
 		// as the app needs some time for startup,

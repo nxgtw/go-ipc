@@ -78,25 +78,31 @@ func TestMmfFileCopy(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	inRegion, err := NewMemoryRegion(inFile, MEM_READ_ONLY, 0, 0)
-	if !a.NoError(err) {
-		return
-	}
-	outFile, err := os.Create(testFolder + "tmp.bin")
+	outFile, err := os.Create(os.TempDir() + "/tmp.bin")
 	if !a.NoError(err) {
 		return
 	}
 	defer func() {
-		outFile.Close()
-		os.Remove(testFolder + "tmp.bin")
+		a.NoError(outFile.Close())
+		a.NoError(os.Remove(os.TempDir() + "/tmp.bin"))
 	}()
 	if !a.NoError(outFile.Truncate(stat.Size())) {
 		return
 	}
+	inRegion, err := NewMemoryRegion(inFile, MEM_READ_ONLY, 0, 0)
+	if !a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(inRegion.Close())
+	}()
 	outRegion, err := NewMemoryRegion(outFile, MEM_READWRITE, 0, 0)
 	if !a.NoError(err) {
 		return
 	}
+	defer func() {
+		a.NoError(outRegion.Close())
+	}()
 	rd := NewMemoryRegionReader(inRegion)
 	wr := NewMemoryRegionWriter(outRegion)
 	written, err := io.Copy(wr, rd)

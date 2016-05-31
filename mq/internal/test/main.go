@@ -56,7 +56,7 @@ func test() error {
 		return err
 	}
 	defer msqQueue.Close()
-	expected, err := ipc_testing.StringToBytes(flag.Arg(1))
+	expected, err := testutil.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func send() error {
 		return err
 	}
 	defer msgQueue.Close()
-	toSend, err := ipc_testing.StringToBytes(flag.Arg(1))
+	toSend, err := testutil.StringToBytes(flag.Arg(1))
 	if err != nil {
 		return err
 	}
