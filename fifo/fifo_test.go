@@ -130,7 +130,7 @@ func TestFifoBlockReadAnotherProcess(t *testing.T) {
 		_, err = fifo.Read(buff)
 		assert.NoError(t, err)
 		assert.NoError(t, fifo.Close())
-	}, time.Second*2)
+	}, time.Second*20)
 	if err != nil {
 		return
 	}
@@ -187,7 +187,7 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	ch := testutil.RunTestAppAsync(argsForFifoTestCommand(testFifoName, false, testData), appKillChan)
 	// wait for app to launch and start reading from the fifo
 	fifo, err := New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
-	for n := 0; err != nil && n < 10; n++ {
+	for n := 0; err != nil && n < 50; n++ {
 		<-time.After(time.Millisecond * 200)
 		fifo, err = New(testFifoName, os.O_WRONLY|O_NONBLOCK, 0666)
 	}
