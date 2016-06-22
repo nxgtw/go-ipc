@@ -50,14 +50,14 @@ type TimedMessenger interface {
 	ReceiveTimeout(data []byte, timeout time.Duration) error
 }
 
-// TimedMessenger is a Messenger, which orders messages according to their prioroty.
+// PriorityMessenger is a Messenger, which orders messages according to their priority.
 // Semantic is similar to linux native mq:
 // Messages are placed on the queue in decreasing order of priority, with newer messages of the same
 // priority being placed after older messages with the same priority.
 type PriorityMessenger interface {
 	Messenger
 	Buffered
-	// SendPriority sends the data. The message will be inserted in the mq according to its prioroty.
+	// SendPriority sends the data. The message will be inserted in the mq according to its priority.
 	SendPriority(data []byte, prio int) error
 	// ReceivePriority reads a message and returns its priority.
 	ReceivePriority(data []byte) (int, error)

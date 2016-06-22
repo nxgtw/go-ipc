@@ -128,7 +128,7 @@ func (mq *FastMq) Send(data []byte) error {
 	return mq.SendPriority(data, 2)
 }
 
-// Send sends a message with the given priority. It blocks if the queue is full.
+// SendPriority sends a message with the given priority. It blocks if the queue is full.
 func (mq *FastMq) SendPriority(data []byte, prio int) error {
 	return mq.SendPriorityTimeout(data, prio, -1)
 }
@@ -173,7 +173,7 @@ func (mq *FastMq) ReceivePriority(data []byte) (int, error) {
 	return mq.ReceivePriorityTimeout(data, -1)
 }
 
-// ReceivePriority receives a message and returns its priority. It blocks if the queue is empty,
+// ReceivePriorityTimeout receives a message and returns its priority. It blocks if the queue is empty,
 // waiting for not longer, then the timeout.
 func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, error) {
 

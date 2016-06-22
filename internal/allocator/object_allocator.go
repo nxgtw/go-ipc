@@ -99,8 +99,7 @@ func Alloc(memory []byte, object interface{}) error {
 
 // ByteSliceTointSlice returns an int slice, which uses the same memory, that the byte slice uses.
 func ByteSliceTointSlice(memory []byte, length, capacity int) []int {
-	data := (*reflect.SliceHeader)((unsafe.Pointer)(&memory)).Data
-	return IntSliceFromUnsafePointer(unsafe.Pointer(data), length, capacity)
+	return IntSliceFromUnsafePointer(unsafe.Pointer((*reflect.SliceHeader)((unsafe.Pointer)(&memory)).Data), length, capacity)
 }
 
 // ByteSliceFromUnsafePointer returns a slice of bytes with given length and capacity.
@@ -115,7 +114,7 @@ func IntSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) []in
 	return *(*[]int)(RawSliceFromUnsafePointer(memory, length, capacity))
 }
 
-// IntSliceFromUnsafePointer returns a pointer to the slice of ints with given length and capacity.
+// RawSliceFromUnsafePointer returns a pointer to the slice of ints with given length and capacity.
 // Memory pointed by the unsafe.Pointer is used for the slice.
 func RawSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) unsafe.Pointer {
 	sl := reflect.SliceHeader{

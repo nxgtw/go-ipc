@@ -26,7 +26,7 @@ var (
 // MemoryRegion is a mmapped area of a memory object.
 // Warning. The internal object has a finalizer set,
 // so the region will be unmapped during the gc.
-// Thus, you should be carefull getting internal data.
+// Thus, you should be careful getting internal data.
 // For example, the following code may crash:
 // 	func f() {
 // 		region := NewMemoryRegion(...)
