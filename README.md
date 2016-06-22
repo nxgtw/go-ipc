@@ -10,7 +10,7 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
     - shared memory (all supported platforms)
-    - system message queues (linux, sysv)[![Coverage Status](https://coveralls.io/repos/bitbucket/avd/go-ipc/badge.svg?branch=master)](https://coveralls.io/bitbucket/avd/go-ipc?branch=master)
+    - system message queues (linux, sysv)
     - cross-platform priority message queue
     - locking primitives: (all supported platforms)
 
