@@ -1,7 +1,8 @@
 # go-ipc: A library for inter-process communication written in pure Go.
 This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd, and windows.
 
-[![wercker status](https://app.wercker.com/status/129bec18234e65c4d2bfb97d96af6eee/s/master "wercker status")](https://app.wercker.com/project/bykey/129bec18234e65c4d2bfb97d96af6eee) [![GoDoc](https://godoc.org/bitbucket.org/avd/go-ipc?status.svg)](https://godoc.org/bitbucket.org/avd/go-ipc) [![Go Report Card](https://goreportcard.com/badge/bitbucket.org/avd/go-ipc)](https://goreportcard.com/report/bitbucket.org/avd/go-ipc)
+[![wercker status](https://app.wercker.com/status/129bec18234e65c4d2bfb97d96af6eee/s/master "wercker status")](https://app.wercker.com/project/bykey/129bec18234e65c4d2bfb97d96af6eee) [![GoDoc](https://godoc.org/bitbucket.org/avd/go-ipc?status.svg)](https://godoc.org/bitbucket.org/avd/go-ipc) [![Go Report Card](https://goreportcard.com/badge/bitbucket.org/avd/go-ipc)](https://goreportcard.com/report/bitbucket.org/avd/go-ipc) 
+
 
 * Pure Go implementation, no cgo is required.
 * Works on linux, OSX, freebsd, and windows.
@@ -9,7 +10,7 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
     - shared memory (all supported platforms)
-    - system message queues (linux, sysv)
+    - system message queues (linux, sysv)[![Coverage Status](https://coveralls.io/repos/bitbucket/avd/go-ipc/badge.svg?branch=master)](https://coveralls.io/bitbucket/avd/go-ipc?branch=master)
     - cross-platform priority message queue
     - locking primitives: (all supported platforms)
 
