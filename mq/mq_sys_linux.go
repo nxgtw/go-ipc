@@ -148,7 +148,7 @@ func mq_open(name string, flags int, mode uint32, attrs *linuxMqAttr) (int, erro
 	allocator.Use(bytes)
 	allocator.Use(attrsP)
 	if err != syscall.Errno(0) {
-		return -1, err
+		return -1, os.NewSyscallError("MQ_OPEN", err)
 	}
 	return int(id), nil
 }
@@ -166,7 +166,7 @@ func mq_timedsend(id int, data []byte, prio int, timeout *unix.Timespec) error {
 	allocator.Use(rawData)
 	allocator.Use(timeoutPtr)
 	if err != syscall.Errno(0) {
-		return err
+		return os.NewSyscallError("MQ_TIMEDSEND", err)
 	}
 	return nil
 }
@@ -186,7 +186,7 @@ func mq_timedreceive(id int, data []byte, prio *int, timeout *unix.Timespec) (in
 	allocator.Use(timeoutPtr)
 	allocator.Use(prioPtr)
 	if err != syscall.Errno(0) {
-		return 0, 0, err
+		return 0, 0, os.NewSyscallError("MQ_TIMEDRECEIVE", err)
 	}
 	return int(msgSize), int(maxMsgSize), nil
 }
@@ -196,7 +196,7 @@ func mq_notify(id int, event *sigevent) error {
 	_, _, err := syscall.Syscall(unix.SYS_MQ_NOTIFY, uintptr(id), uintptr(eventPtr), uintptr(0))
 	allocator.Use(eventPtr)
 	if err != syscall.Errno(0) {
-		return err
+		return os.NewSyscallError("MQ_NOTIFY", err)
 	}
 	return nil
 }
@@ -211,7 +211,7 @@ func mq_getsetattr(id int, attrs, oldAttrs *linuxMqAttr) error {
 	allocator.Use(attrsPtr)
 	allocator.Use(oldAttrsPtr)
 	if err != syscall.Errno(0) {
-		return err
+		return os.NewSyscallError("MQ_GETSETATTR", err)
 	}
 	return nil
 }
@@ -225,7 +225,7 @@ func mq_unlink(name string) error {
 	_, _, err = syscall.Syscall(unix.SYS_MQ_UNLINK, uintptr(bytes), uintptr(0), uintptr(0))
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
-		return err
+		return os.NewSyscallError("MQ_UNLINK", err)
 	}
 	return nil
 }

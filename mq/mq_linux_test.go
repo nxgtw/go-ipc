@@ -6,7 +6,6 @@ package mq
 
 import (
 	"os"
-	//	"runtime"
 	"testing"
 	"time"
 
@@ -14,12 +13,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func linuxMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateLinuxMessageQueue(name, perm, 1, DefaultLinuxMqMessageSize)
+func linuxMqCtor(name string, flag int, perm os.FileMode) (Messenger, error) {
+	return CreateLinuxMessageQueue(name, flag, perm, 1, DefaultLinuxMqMessageSize)
 }
 
 func linuxMqOpener(name string, flags int) (Messenger, error) {
-	return OpenLinuxMessageQueue(name, flags)
+	return OpenLinuxMessageQueue(name, flags|os.O_RDWR)
+}
+
+func linuxMqCtorPrio(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (PriorityMessenger, error) {
+	return CreateLinuxMessageQueue(name, flag, perm, maxQueueSize, maxMsgSize)
+}
+
+func linuxMqOpenerPrio(name string, flags int) (PriorityMessenger, error) {
+	return OpenLinuxMessageQueue(name, flags|os.O_RDWR)
 }
 
 func linuxMqDtor(name string) error {
@@ -80,7 +87,7 @@ func TestLinuxMqGetAttrs(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, os.O_EXCL|os.O_RDWR, 0666, 5, 121)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -97,7 +104,7 @@ func TestLinuxMqNotifyOnce(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, os.O_EXCL|os.O_RDWR, 0666, 5, 121)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -116,7 +123,7 @@ func TestLinuxMqNotifyTwice(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 5, 121)
+	mq, err := CreateLinuxMessageQueue(testMqName, os.O_EXCL|os.O_RDWR, 0666, 5, 121)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -132,7 +139,7 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
-	mq, err := CreateLinuxMessageQueue(testMqName, 0666, 4, 16)
+	mq, err := CreateLinuxMessageQueue(testMqName, os.O_EXCL|os.O_RDWR, 0666, 4, 16)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -166,4 +173,13 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 	if !assert.NoError(t, result.Err) {
 		t.Logf("program output is %q", result.Output)
 	}
+}
+
+func TestLinuxMqPrio1(t *testing.T) {
+	testPrioMq1(t, linuxMqCtorPrio, linuxMqOpenerPrio, linuxMqDtor)
+}
+
+func BenchmarkLinuxMq1(b *testing.B) {
+	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024}
+	benchmarkPrioMq1(b, linuxMqCtorPrio, linuxMqOpenerPrio, linuxMqDtor, params)
 }

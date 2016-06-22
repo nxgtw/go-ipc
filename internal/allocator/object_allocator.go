@@ -97,27 +97,33 @@ func Alloc(memory []byte, object interface{}) error {
 	return nil
 }
 
-// ByteSliceTointSlice returns an int slice, which uses the same memory,
-// that the byte slice.
-func ByteSliceTointSlice(memory []byte, lenght, capacity int) []int {
+// ByteSliceTointSlice returns an int slice, which uses the same memory, that the byte slice uses.
+func ByteSliceTointSlice(memory []byte, length, capacity int) []int {
 	data := (*reflect.SliceHeader)((unsafe.Pointer)(&memory)).Data
-	sl := reflect.SliceHeader{
-		Len:  lenght,
-		Cap:  capacity,
-		Data: data,
-	}
-	return *(*[]int)(unsafe.Pointer(&sl))
+	return IntSliceFromUnsafePointer(unsafe.Pointer(data), length, capacity)
 }
 
-// ByteSliceFromUnsafePointer returns a slice of bytes with given length and caapcity.
+// ByteSliceFromUnsafePointer returns a slice of bytes with given length and capacity.
 // Memory pointed by the unsafe.Pointer is used for the slice.
 func ByteSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) []byte {
+	return *(*[]byte)(RawSliceFromUnsafePointer(memory, length, capacity))
+}
+
+// IntSliceFromUnsafePointer returns a slice of ints with given length and capacity.
+// Memory pointed by the unsafe.Pointer is used for the slice.
+func IntSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) []int {
+	return *(*[]int)(RawSliceFromUnsafePointer(memory, length, capacity))
+}
+
+// IntSliceFromUnsafePointer returns a pointer to the slice of ints with given length and capacity.
+// Memory pointed by the unsafe.Pointer is used for the slice.
+func RawSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) unsafe.Pointer {
 	sl := reflect.SliceHeader{
 		Len:  length,
 		Cap:  capacity,
 		Data: uintptr(memory),
 	}
-	return *(*[]byte)(unsafe.Pointer(&sl))
+	return unsafe.Pointer(&sl)
 }
 
 // ObjectData returns objects underlying byte representation.

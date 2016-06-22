@@ -140,7 +140,7 @@ func TestFifoBlockReadAnotherProcess(t *testing.T) {
 	if !assert.Equal(t, testData, buff) {
 		return
 	}
-	appResult, success := testutil.WaitForAppResultChan(ch, time.Second*2)
+	appResult, success := testutil.WaitForAppResultChan(ch, time.Second*5)
 	if !assert.True(t, success) {
 		return
 	}
@@ -198,7 +198,7 @@ func TestFifoNonBlockWrite(t *testing.T) {
 	if written, err := fifo.Write(testData); !assert.NoError(t, err) || !assert.Equal(t, written, len(testData)) {
 		return
 	}
-	appResult, success := testutil.WaitForAppResultChan(ch, time.Second)
+	appResult, success := testutil.WaitForAppResultChan(ch, time.Second*5)
 	if !assert.True(t, success) {
 		return
 	}

@@ -11,7 +11,11 @@ var (
 )
 
 func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
-	return NewEventMutex(name, flag, perm)
+	l, err := NewEventMutex(name, flag, perm)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func destroyMutex(name string) error {

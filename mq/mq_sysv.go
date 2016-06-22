@@ -38,8 +38,10 @@ var (
 )
 
 // CreateSystemVMessageQueue creates new queue with the given name and permissions.
-// 'execute' permission cannot be used.
-func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQueue, error) {
+//	name - unique mq name.
+//	flag - flag is a combination of os.O_EXCL and O_NONBLOCK.
+//	perm - object's permission bits.
+func CreateSystemVMessageQueue(name string, flag int, perm os.FileMode) (*SystemVMessageQueue, error) {
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")
 	}
@@ -47,14 +49,20 @@ func CreateSystemVMessageQueue(name string, perm os.FileMode) (*SystemVMessageQu
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate a key")
 	}
-	id, err := msgget(k, int(perm)|common.IpcCreate|common.IpcExcl)
+	sysFlags := int(perm) | common.IpcCreate
+	if flag&os.O_EXCL != 0 {
+		sysFlags |= common.IpcExcl
+	}
+	id, err := msgget(k, sysFlags)
 	if err != nil {
 		return nil, errors.Wrap(err, "msgget failed")
 	}
-	return &SystemVMessageQueue{id: id, name: name}, nil
+	return &SystemVMessageQueue{id: id, name: name, flags: flag}, nil
 }
 
 // OpenSystemVMessageQueue opens existing message queue.
+//	name - unique mq name.
+//	flag - 0 and O_NONBLOCK.
 func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
@@ -64,28 +72,27 @@ func OpenSystemVMessageQueue(name string, flags int) (*SystemVMessageQueue, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "msgget failed")
 	}
-	result := &SystemVMessageQueue{id: id, name: name}
-	if flags&O_NONBLOCK != 0 {
-		result.flags |= common.IpcNoWait
-	}
+	result := &SystemVMessageQueue{id: id, name: name, flags: flags}
 	return result, nil
 }
 
-// Send sends a message.
-// It blocks if the queue is full.
+// Send sends a message. It blocks if the queue is full.
 func (mq *SystemVMessageQueue) Send(data []byte) error {
-	f := func() error { return msgsnd(mq.id, cDefaultMessageType, data, mq.flags) }
-	err := common.UninterruptedSyscall(f)
-	if err != nil && mq.flags&common.IpcNoWait != 0 && common.IsTimeoutErr(err) {
-		err = nil
+	var sysFlags int
+	if mq.flags&O_NONBLOCK != 0 {
+		sysFlags |= common.IpcNoWait
 	}
-	return err
+	f := func() error { return msgsnd(mq.id, cDefaultMessageType, data, sysFlags) }
+	return common.UninterruptedSyscall(f)
 }
 
-// Receive receives a message.
-// It blocks if the queue is empty.
+// Receive receives a message. It blocks if the queue is empty.
 func (mq *SystemVMessageQueue) Receive(data []byte) error {
-	f := func() error { return msgrcv(mq.id, data, cSysVAnyMessage, mq.flags) }
+	var sysFlags int
+	if mq.flags&O_NONBLOCK != 0 {
+		sysFlags |= common.IpcNoWait
+	}
+	f := func() error { return msgrcv(mq.id, data, cSysVAnyMessage, sysFlags) }
 	return common.UninterruptedSyscall(f)
 }
 
@@ -119,9 +126,9 @@ func (mq *SystemVMessageQueue) Close() error {
 // SetBlocking sets whether the send/receive operations on the queue block.
 func (mq *SystemVMessageQueue) SetBlocking(block bool) error {
 	if block {
-		mq.flags &= ^common.IpcNoWait
+		mq.flags &= ^O_NONBLOCK
 	} else {
-		mq.flags |= common.IpcNoWait
+		mq.flags |= O_NONBLOCK
 	}
 	return nil
 }

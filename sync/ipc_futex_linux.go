@@ -30,7 +30,7 @@ func NewIPCFutex(name string, flag int, perm os.FileMode, initial uint32) (*IPCF
 		return nil, errors.New("invalid open flags")
 	}
 	name = futexName(name)
-	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, futexSize)
+	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, futexSize)
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}

@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux windows
 
 package mq
 
@@ -24,18 +24,8 @@ const (
 	mqProgPath = "./internal/test/"
 )
 
-// buffered is an object with internal buffer of the given capacity.
-type buffered interface {
-	Cap() (int, error)
-}
-
-// blocker is an object, which can work in blocking and non-blocking modes.
-type blocker interface {
-	SetBlocking(bool) error
-}
-
-type mqCtor func(name string, perm os.FileMode) (Messenger, error)
-type mqOpener func(name string, flags int) (Messenger, error)
+type mqCtor func(name string, flag int, perm os.FileMode) (Messenger, error)
+type mqOpener func(name string, flag int) (Messenger, error)
 type mqDtor func(name string) error
 
 var mqProgFiles []string
@@ -59,12 +49,11 @@ func testCreateMq(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if a.NoError(err) {
+		a.NoError(mq.Close())
 		if dtor != nil {
 			a.NoError(dtor(testMqName))
-		} else {
-			a.NoError(mq.Close())
 		}
 	}
 }
@@ -74,11 +63,11 @@ func testCreateMqExcl(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) || !a.NotNil(mq) {
 		return
 	}
-	_, err = ctor(testMqName, 0666)
+	_, err = ctor(testMqName, os.O_EXCL, 0666)
 	a.Error(err)
 	if d, ok := mq.(ipc.Destroyer); ok {
 		a.NoError(d.Destroy())
@@ -92,7 +81,7 @@ func testCreateMqInvalidPerm(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	_, err := ctor(testMqName, 0777)
+	_, err := ctor(testMqName, os.O_EXCL, 0777)
 	a.Error(err)
 }
 
@@ -101,16 +90,15 @@ func testOpenMq(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) || !a.NotNil(mq) {
 		return
 	}
+	a.NoError(mq.Close())
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
-	} else {
-		a.NoError(mq.Close())
 	}
-	_, err = opener(testMqName, os.O_RDONLY)
+	_, err = opener(testMqName, 0)
 	a.Error(err)
 }
 
@@ -120,15 +108,14 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		if dtor != nil {
 			a.NoError(dtor(testMqName))
-		} else {
-			a.NoError(mq.Close())
 		}
 	}()
 	data, _ := allocator.ObjectData(&message)
@@ -136,7 +123,7 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 		return
 	}
 	var received uint64
-	mqr, err := opener(testMqName, os.O_RDONLY)
+	mqr, err := opener(testMqName, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -145,6 +132,7 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 	a.NoError(err)
 	a.Equal(message, received)
 	allocator.UseValue(data)
+	a.NoError(mqr.Close())
 }
 
 func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor mqDtor) {
@@ -161,7 +149,7 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(dtor(testMqName))
 	}
 	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -170,7 +158,7 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(mq.Send(data))
 	}()
 	received := testStruct{}
-	mqr, err := opener(testMqName, os.O_RDONLY)
+	mqr, err := opener(testMqName, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -190,7 +178,7 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}
@@ -202,7 +190,7 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 		a.NoError(mq.Send(message))
 	}()
 	received := make([]byte, 1024)
-	mqr, err := opener(testMqName, os.O_RDONLY)
+	mqr, err := opener(testMqName, 0)
 	if !a.NoError(err) {
 		return
 	}
@@ -221,20 +209,21 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if b, ok := mq.(blocker); ok {
+	if b, ok := mq.(Blocker); ok {
 		a.NoError(b.SetBlocking(false))
 		endChan := make(chan bool, 1)
 		go func() {
 			data := make([]byte, 8)
 			for i := 0; i < 100; i++ {
-				a.NoError(mq.Send(data))
+				err := mq.Send(data)
+				a.True(err == nil || IsTemporary(err))
 			}
 			endChan <- true
 		}()
@@ -253,7 +242,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -263,7 +252,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if tmq, ok := mq.(TimedMessenger); ok {
 		data := make([]byte, 8)
 		tm := time.Millisecond * 200
-		if buf, ok := mq.(buffered); ok {
+		if buf, ok := mq.(Buffered); ok {
 			cap, err := buf.Cap()
 			if !a.NoError(err) {
 				return
@@ -293,7 +282,7 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -322,15 +311,16 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
 		a.NoError(dtor(testMqName))
 	}()
-	if b, ok := mq.(blocker); ok {
+	if b, ok := mq.(Blocker); ok {
 		a.NoError(b.SetBlocking(false))
+		_ = b
 		endChan := make(chan bool, 1)
 		go func() {
 			data := make([]byte, 8)
@@ -354,12 +344,15 @@ func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ stri
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer func() {
-		a.NoError(dtor(testMqName))
+		a.NoError(mq.Close())
+		if dtor != nil {
+			a.NoError(dtor(testMqName))
+		}
 	}()
 	data := make([]byte, 2048)
 	for i := range data {
@@ -380,7 +373,7 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	mq, err := ctor(testMqName, 0666)
+	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) {
 		return
 	}

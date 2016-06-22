@@ -5,8 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/mq"
@@ -15,26 +13,21 @@ import (
 func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messenger, error) {
 	switch typ {
 	case "default":
-		return mq.New(name, perm)
+		return mq.New(name, os.O_RDWR, perm)
 	case "sysv":
-		return mq.CreateSystemVMessageQueue(name, perm)
+		return mq.CreateSystemVMessageQueue(name, os.O_RDWR, perm)
+	case "fast":
+		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMessageSize
+		if first, second, err := parseTwoInts(opt); err == nil {
+			mqSize, msgSize = first, second
+		}
+		return mq.CreateFastMq(name, 0, perm, mqSize, msgSize)
 	case "linux":
 		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMessageSize
-		if len(opt) > 0 {
-			var err error
-			parts := strings.Split(opt, ",")
-			mqSize, err = strconv.Atoi(parts[0])
-			if err != nil {
-				return nil, err
-			}
-			if len(parts) > 1 {
-				msgSize, err = strconv.Atoi(parts[1])
-				if err != nil {
-					return nil, err
-				}
-			}
+		if first, second, err := parseTwoInts(opt); err == nil {
+			mqSize, msgSize = first, second
 		}
-		return mq.CreateLinuxMessageQueue(name, perm, mqSize, msgSize)
+		return mq.CreateLinuxMessageQueue(name, os.O_RDWR, perm, mqSize, msgSize)
 	default:
 		return nil, fmt.Errorf("unknown mq type %q", typ)
 	}
@@ -46,6 +39,8 @@ func openMqWithType(name string, flags int, typ string) (mq.Messenger, error) {
 		return mq.Open(name, flags)
 	case "sysv":
 		return mq.OpenSystemVMessageQueue(name, flags)
+	case "fast":
+		return mq.OpenFastMq(name, flags)
 	case "linux":
 		return mq.OpenLinuxMessageQueue(name, flags)
 	default:
@@ -59,6 +54,8 @@ func destroyMqWithType(name, typ string) error {
 		return mq.Destroy(name)
 	case "sysv":
 		return mq.DestroySystemVMessageQueue(name)
+	case "fast":
+		return mq.DestroyFastMq(name)
 	case "linux":
 		return mq.DestroyLinuxMessageQueue(name)
 	default:

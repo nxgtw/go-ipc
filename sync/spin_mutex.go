@@ -15,6 +15,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// this is to ensure, that all implementations of ipc mutex
+// satisfy the same minimal interface
+var (
+	_ IPCLocker = (*SpinMutex)(nil)
+)
+
 type spinMutex struct {
 	value uint32
 }
@@ -53,7 +59,7 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, errors.New("invalid open flags")
 	}
 	name = spinName(name)
-	obj, created, resultErr := newMemoryObjectSize(name, flag, perm, spinImplSize)
+	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, spinImplSize)
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}

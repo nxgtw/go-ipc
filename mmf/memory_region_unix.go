@@ -37,6 +37,8 @@ func newMemoryRegion(obj Mappable, flag int, offset int64, size int) (*memoryReg
 	if err != nil {
 		return nil, errors.Wrap(err, "file size check failed")
 	}
+	// we need this check on unix, because you can actually mmap more bytes,
+	// then the size of the object, which can cause unexpected problems.
 	if calculatedSize > 0 && int64(size)+offset > calculatedSize {
 		return nil, errors.New("invalid mapping length")
 	}

@@ -4,7 +4,6 @@ package mq
 
 import (
 	"os"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -16,16 +15,18 @@ import (
 )
 
 const (
-	// DefaultLinuxMqMaxSize is the default linux mq queue size
+	// DefaultLinuxMqMaxSize is the default linux mq queue size.
 	DefaultLinuxMqMaxSize = 8
-	// DefaultLinuxMqMessageSize is the linux mq message size
+	// DefaultLinuxMqMessageSize is the linux mq message size.
+	// Its max value can be set via procfs.
 	DefaultLinuxMqMessageSize = 8192
 )
 
-// this is to ensure, that linux implementation of ipc mq
-// satisfy the minimal queue interface
+// this is to ensure, that linux implementation of ipc mq satisfies queue interfaces.
 var (
-	_ Messenger = (*LinuxMessageQueue)(nil)
+	_ Messenger         = (*LinuxMessageQueue)(nil)
+	_ TimedMessenger    = (*LinuxMessageQueue)(nil)
+	_ PriorityMessenger = (*LinuxMessageQueue)(nil)
 )
 
 // LinuxMessageQueue is a linux-specific ipc mechanism based on message passing.
@@ -50,12 +51,19 @@ type linuxMqAttr struct {
 }
 
 // CreateLinuxMessageQueue creates new queue with the given name and permissions.
-// 'execute' permission cannot be used.
-func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
+//	name - unique mq name.
+//	flag - flag is a combination of os.O_EXCL and O_NONBLOCK.
+//	perm - object's permission bits.
+//	maxQueueSize - queue capacity.
+//	maxMsgSize - maximum message size.
+func CreateLinuxMessageQueue(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (*LinuxMessageQueue, error) {
 	if !checkMqPerm(perm) {
 		return nil, errors.New("invalid mq permissions")
 	}
-	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_EXCL | unix.O_CLOEXEC
+	sysflags := unix.O_CREAT | unix.O_RDWR | unix.O_CLOEXEC
+	if flag&os.O_EXCL != 0 {
+		sysflags |= unix.O_EXCL
+	}
 	attrs := &linuxMqAttr{Maxmsg: maxQueueSize, Msgsize: maxMsgSize}
 	id, err := mq_open(name, sysflags, uint32(perm), attrs)
 	if err != nil {
@@ -66,17 +74,30 @@ func CreateLinuxMessageQueue(name string, perm os.FileMode, maxQueueSize, maxMsg
 		name:         name,
 		cancelSocket: -1,
 		inputBuff:    make([]byte, maxMsgSize),
+		flags:        flag,
 	}, nil
 }
 
-// OpenLinuxMessageQueue opens an existing message queue.
-// Returns an error, if it does not exist.
-func OpenLinuxMessageQueue(name string, flags int) (*LinuxMessageQueue, error) {
-	id, err := mq_open(name, flags|unix.O_CLOEXEC, uint32(0), nil)
+// OpenLinuxMessageQueue opens an existing message queue. It returns an error, if it does not exist.
+//	name - unique mq name.
+//	flag - flag is a combination of (os.O_RDONLY or os.O_WRONLY or os.O_RDWR) and O_NONBLOCK.
+//		O_RDONLY
+//			Open the queue to receive messages only.
+//		O_WRONLY
+//			Open the queue to send messages only.
+//		O_RDWR
+//			Open the queue to both send and receive messages.
+func OpenLinuxMessageQueue(name string, flag int) (*LinuxMessageQueue, error) {
+	id, err := mq_open(name, common.FlagsForAccess(flag)|unix.O_CLOEXEC, uint32(0), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "mq_open failed")
 	}
-	result := &LinuxMessageQueue{id: id, name: name, cancelSocket: -1, flags: flags}
+	result := &LinuxMessageQueue{
+		id:           id,
+		name:         name,
+		cancelSocket: -1,
+		flags:        flag,
+	}
 	attrs, err := result.getAttrs()
 	if err != nil {
 		result.Close()
@@ -114,15 +135,7 @@ func (mq *LinuxMessageQueue) Send(data []byte) error {
 	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	err := mq.SendTimeoutPriority(data, 0, timeout)
-	if mq.flags&O_NONBLOCK != 0 && err != nil {
-		if sysErr, ok := err.(syscall.Errno); ok {
-			if sysErr.Temporary() {
-				err = nil
-			}
-		}
-	}
-	return err
+	return mq.SendTimeoutPriority(data, 0, timeout)
 }
 
 // ReceiveTimeoutPriority receives a message, returning its priority.
@@ -173,8 +186,7 @@ func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) 
 	return err
 }
 
-// Receive receives a message.
-// It blocks if the queue is empty.
+// Receive receives a message. It blocks if the queue is empty.
 func (mq *LinuxMessageQueue) Receive(data []byte) error {
 	timeout := time.Duration(-1)
 	if mq.flags&O_NONBLOCK != 0 {
@@ -201,7 +213,7 @@ func (mq *LinuxMessageQueue) Close() error {
 	return err
 }
 
-// Cap returns size of the mq buffer.
+// Cap returns the size of the mq buffer.
 func (mq *LinuxMessageQueue) Cap() (int, error) {
 	attrs, err := mq.getAttrs()
 	if err != nil {

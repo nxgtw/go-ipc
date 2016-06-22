@@ -9,6 +9,7 @@ import (
 
 	testutil "bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
+	"bitbucket.org/avd/go-ipc/shm"
 )
 
 const (
@@ -33,7 +34,7 @@ func init() {
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
-	object, _, err := newMemoryObjectSize(testMemObj, objMode, 0666, size)
+	object, _, err := shm.NewMemoryObjectSize(testMemObj, objMode, 0666, size)
 	if err != nil {
 		return nil, err
 	}

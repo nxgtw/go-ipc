@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-func sysVMqCtor(name string, perm os.FileMode) (Messenger, error) {
-	return CreateSystemVMessageQueue(name, perm)
+func sysVMqCtor(name string, flag int, perm os.FileMode) (Messenger, error) {
+	return CreateSystemVMessageQueue(name, flag, perm)
 }
 
 func sysVMqOpener(name string, flags int) (Messenger, error) {

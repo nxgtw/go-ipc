@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/test"
@@ -125,6 +127,24 @@ func runCommand() error {
 	default:
 		return fmt.Errorf("unknown command")
 	}
+}
+
+func parseTwoInts(opt string) (first int, second int, err error) {
+	if len(opt) == 0 {
+		return
+	}
+	parts := strings.Split(opt, ",")
+	first, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return
+	}
+	if len(parts) > 1 {
+		second, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 func main() {

@@ -6,7 +6,9 @@ import (
 	"os"
 	"runtime"
 
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
 )
 
 // SharedMemoryObject is an interface, which must be implemented
-// by ant implemetation of an object used for mapping into memory.
+// by any implemetation of an object used for mapping into memory.
 type SharedMemoryObject interface {
 	Size() int64
 	Truncate(size int64) error
@@ -44,6 +46,35 @@ func NewMemoryObject(name string, flag int, perm os.FileMode) (*MemoryObject, er
 		memObject.Close()
 	})
 	return result, nil
+}
+
+// NewMemoryObjectSize opens or creates a shared memory object with the given name.
+// If the object was created, it is truncated to 'size'.
+// Otherwise, checks, that the existing object is at least 'size' bytes long.
+// Returns an object, true, if it was created, and an error.
+func NewMemoryObjectSize(name string, flag int, perm os.FileMode, size int64) (SharedMemoryObject, bool, error) {
+	var obj *MemoryObject
+	creator := func(create bool) error {
+		var err error
+		creatorFlag := os.O_RDWR
+		if create {
+			creatorFlag |= (os.O_CREATE | os.O_EXCL)
+		}
+		obj, err = NewMemoryObject(name, creatorFlag, perm)
+		return errors.Cause(err)
+	}
+	created, resultErr := common.OpenOrCreate(creator, flag)
+	if resultErr != nil {
+		return nil, false, resultErr
+	}
+	if created {
+		if resultErr = obj.Truncate(size); resultErr != nil {
+			return nil, false, resultErr
+		}
+	} else if obj.Size() < size {
+		return nil, false, errors.New("existing object is not big enough")
+	}
+	return obj, created, nil
 }
 
 // Destroy closes the object and removes it permanently.

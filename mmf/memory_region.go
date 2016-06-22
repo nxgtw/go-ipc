@@ -111,6 +111,11 @@ type fileInfoGetter interface {
 	Stat() (os.FileInfo, error)
 }
 
+// SizedObject is an object, which allows to obtain its size.
+type SizedObject interface {
+	Size() int64
+}
+
 func fileSizeFromFd(f Mappable) (int64, error) {
 	if f.Fd() == ^uintptr(0) {
 		return 0, nil
@@ -121,6 +126,9 @@ func fileSizeFromFd(f Mappable) (int64, error) {
 			return 0, err
 		}
 		return fi.Size(), nil
+	}
+	if so, ok := f.(SizedObject); ok {
+		return so.Size(), nil
 	}
 	return 0, nil
 }
