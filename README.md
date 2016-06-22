@@ -9,7 +9,8 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
     - shared memory (all supported platforms)
-    - message queues (linux, OSX, freebsd)
+    - system message queues (linux, sysv)
+    - cross-platform priority message queue
     - locking primitives: (all supported platforms)
 
 ## Install
