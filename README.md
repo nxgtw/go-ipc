@@ -5,7 +5,7 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
 
 
 * Pure Go implementation, no cgo is required.
-* Works on linux, OSX, freebsd, and windows.
+* Works on Linux, OSX, FreeBSD, and Windows.
 * Support of the following mechanisms:
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
