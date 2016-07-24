@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc"
+	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -44,7 +45,7 @@ type FastMq struct {
 	region *mmf.MemoryRegion
 	flag   int
 	locker ipc_sync.IPCLocker
-	impl   sharedMq
+	impl   *sharedHeap
 }
 
 func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (*FastMq, error) {
@@ -75,7 +76,9 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 		return nil, errors.Wrap(err, "fast mq: failed to create new shm region")
 	}
 
-	if created { // cleanup previous mutex instances.
+	// cleanup previous mutex instances. it could be useful in a case,
+	// when previous mutex owner crashed, and the mutex is in incosistient state.
+	if created {
 		if err = ipc_sync.DestroyMutex(fastMqLockerName(name)); err != nil {
 			return nil, errors.Wrap(err, "fast mq: failed to access a locker")
 		}
@@ -86,7 +89,12 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 	}
 
 	// impl is an object placed into in mmaped area.
-	result.impl = newSharedHeap(result.region.Data(), maxQueueSize, maxMsgSize, created)
+	rawData := allocator.ByteSliceData(result.region.Data())
+	if created {
+		result.impl = newSharedHeap(rawData, maxQueueSize, maxMsgSize)
+	} else {
+		result.impl = openSharedHeap(rawData)
+	}
 	return result, err
 }
 
@@ -104,11 +112,31 @@ func CreateFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgS
 //	name - unique mq name.
 //	flag - 0 or O_NONBLOCK.
 func OpenFastMq(name string, flag int) (*FastMq, error) {
-	maxQueueSize, maxMsgSize, err := existingMqParams(name)
+	maxQueueSize, maxMsgSize, err := FastMqAttrs(name)
 	if err != nil {
 		return nil, err
 	}
 	return openFastMq(name, flag&O_NONBLOCK, 0666, maxQueueSize, maxMsgSize)
+}
+
+// FastMqAttrs returns capacity and max message size of the existing mq.
+func FastMqAttrs(name string) (int, int, error) {
+	obj, err := shm.NewMemoryObject(name, os.O_RDONLY, 0666)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to open shm object")
+	}
+	defer obj.Close()
+	minSize := minHeapSize()
+	if int(obj.Size()) < minSize {
+		return 0, 0, errors.New("shm object is too small")
+	}
+	region, err := mmf.NewMemoryRegion(obj, mmf.MEM_READ_ONLY, 0, minSize)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to create new shm region")
+	}
+	defer region.Close()
+	heap := openSharedHeap(allocator.ByteSliceData(region.Data()))
+	return heap.maxSize(), heap.maxMsgSize(), nil
 }
 
 // DestroyFastMq permanently removes a FastMq.
@@ -140,13 +168,13 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 		return errors.New("the message is too big")
 	}
 	// optimization: do lock the locker if the queue is full.
-	if mq.impl.full() && mq.flag&O_NONBLOCK != 0 {
+	if mq.impl.Len() == mq.impl.maxSize() && mq.flag&O_NONBLOCK != 0 {
 		return mqFullError
 	}
 	mq.locker.Lock()
 	// defer is not used due to performance reasons.
 
-	if mq.impl.full() {
+	if mq.impl.Len() == mq.impl.maxSize() {
 		mq.locker.Unlock()
 		if mq.flag&O_NONBLOCK != 0 {
 			return mqFullError
@@ -157,7 +185,7 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 		panic("blocking send is not implemented yet")
 	}
 
-	mq.impl.push(message{data: data, prio: prio})
+	mq.impl.pushMessage(message{data: data, prio: int32(prio)})
 	mq.locker.Unlock()
 	return nil
 }
@@ -178,14 +206,14 @@ func (mq *FastMq) ReceivePriority(data []byte) (int, error) {
 func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, error) {
 
 	// optimization: do lock the locker if the queue is empty.
-	if mq.impl.empty() && mq.flag&O_NONBLOCK != 0 {
+	if mq.impl.Len() == 0 && mq.flag&O_NONBLOCK != 0 {
 		return 0, mqEmptyError
 	}
 
 	mq.locker.Lock()
 	// defer is not used due to performance reasons.
 
-	if mq.impl.empty() {
+	if mq.impl.Len() == 0 {
 		mq.locker.Unlock()
 		if mq.flag&O_NONBLOCK != 0 {
 			return 0, mqEmptyError
@@ -195,14 +223,9 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 		}
 		panic("blocking receive is not implemented yet")
 	}
-
-	if len(data) < len(mq.impl.top().data) {
-		mq.locker.Unlock()
-		return 0, errors.New("the message is too long")
-	}
-	prio := mq.impl.pop(data)
+	prio, err := mq.impl.popMessage(data)
 	mq.locker.Unlock()
-	return prio, nil
+	return prio, err
 }
 
 // Cap returns the size of the mq buffer.

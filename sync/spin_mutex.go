@@ -15,8 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// this is to ensure, that all implementations of ipc mutex
-// satisfy the same minimal interface
+// all implementations must satisfy IPCLocker interface.
 var (
 	_ IPCLocker = (*SpinMutex)(nil)
 )

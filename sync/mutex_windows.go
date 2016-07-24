@@ -12,6 +12,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// all implementations must satisfy IPCLocker interface.
+var (
+	_ IPCLocker = (*EventMutex)(nil)
+)
+
 // EventMutex is a mutex built on named windows events.
 // It is not possible to use native windows named mutex, because
 // goroutines migrate between threads, and windows mutex must
@@ -22,7 +27,7 @@ type EventMutex struct {
 
 // NewEventMutex creates a new event-basedmutex.
 //	name - object name.
-//	flag - flag is a combination of open flags from 'os' package
+//	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error) {
 	var handle windows.Handle

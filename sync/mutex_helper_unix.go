@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux,sysv_mutex_linux
+// +build darwin linux,sysv_mutex_linux freebsd,sysv_mutex_freebsd
 
 package sync
 

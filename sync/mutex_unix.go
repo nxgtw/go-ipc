@@ -10,6 +10,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+// all implementations must satisfy IPCLocker interface.
+var (
+	_ IPCLocker = (*SpinMutex)(nil)
+)
+
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
 	s *Semaphore

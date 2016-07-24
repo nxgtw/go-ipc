@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build !sysv_mutex_linux
+// +build linux,!sysv_mutex_linux freebsd,!sysv_mutex_freebsd
 
 package sync
 

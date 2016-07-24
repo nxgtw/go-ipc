@@ -4,154 +4,101 @@ package mq
 
 import (
 	"container/heap"
-	"sync/atomic"
+	"errors"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"github.com/pkg/errors"
+	"bitbucket.org/avd/go-ipc/internal/array"
 )
 
 const (
-	sharedMqHdrSize = unsafe.Sizeof(sharedMqHdr{})
-	indexEntrySize  = unsafe.Sizeof(indexEntry{})
-	msgSlotSize     = unsafe.Sizeof(msgSlot{})
+	int32Size = int(unsafe.Sizeof(int32(0)))
 )
 
+type message struct {
+	prio int32
+	data []byte
+}
+
 type sharedHeap struct {
-	header   *sharedMqHdr
-	index    []indexEntry
-	slotsPtr unsafe.Pointer
+	array *array.SharedArray
 }
 
-type indexEntry struct {
-	msgLen  int32
-	msgPrio int32
-	slotIdx int32
-}
-
-type msgSlot struct {
-	entryIdx       int32
-	dummyDataArray [0]byte
-}
-
-func newSharedHeap(raw []byte, maxQueueSize, maxMsgSize int, needInit bool) *sharedHeap {
-	header := (*sharedMqHdr)(allocator.ByteSliceData(raw))
-	if needInit { // initialize shared data.
-		header.maxQueueSize = int32(maxQueueSize)
-		header.maxMsgSize = int32(maxMsgSize)
-		header.size = 0
-	}
-	rawIndexSlice := allocator.RawSliceFromUnsafePointer(
-		unsafe.Pointer(&header.dummyDataArray),
-		int(header.maxQueueSize),
-		int(header.maxQueueSize))
-	index := *(*[]indexEntry)(rawIndexSlice)
-	slotsPtr := uintptr(unsafe.Pointer(&header.dummyDataArray)) + uintptr(maxQueueSize)*indexEntrySize
+func newSharedHeap(raw unsafe.Pointer, maxQueueSize, maxMsgSize int) *sharedHeap {
 	return &sharedHeap{
-		header:   header,
-		index:    index,
-		slotsPtr: unsafe.Pointer(slotsPtr),
+		array: array.NewSharedArray(raw, maxQueueSize, maxMsgSize+int32Size),
 	}
 }
 
-func (mq *sharedHeap) full() bool {
-	return atomic.LoadInt32(&mq.header.size) == mq.header.maxQueueSize
-}
-
-func (mq *sharedHeap) empty() bool {
-	return atomic.LoadInt32(&mq.header.size) == 0
+func openSharedHeap(raw unsafe.Pointer) *sharedHeap {
+	return &sharedHeap{
+		array: array.OpenSharedArray(raw),
+	}
 }
 
 func (mq *sharedHeap) maxMsgSize() int {
-	return int(mq.header.maxMsgSize)
+	return mq.array.ElemSize() - int32Size
 }
 
 func (mq *sharedHeap) maxSize() int {
-	return int(mq.header.maxQueueSize)
+	return mq.array.Cap()
 }
 
-func (mq *sharedHeap) top() message {
-	topEntry := mq.index[0]
-	currentSlot := mq.slotAt(topEntry.slotIdx)
-	return message{prio: int(topEntry.msgPrio), data: slotData(currentSlot, topEntry.msgLen)}
+func (mq *sharedHeap) at(i int) message {
+	data := mq.array.At(i)
+	rawData := allocator.ByteSliceData(data)
+	return message{prio: *(*int32)(rawData), data: data[int32Size:]}
 }
 
-func (mq *sharedHeap) push(msg message) {
+func (mq *sharedHeap) pushMessage(msg message) {
 	heap.Push(mq, msg)
 }
 
-func (mq *sharedHeap) pop(data []byte) int {
-	topEntry := mq.index[0]
-	currentSlot := mq.slotAt(topEntry.slotIdx)
-	copy(data, slotData(currentSlot, topEntry.msgLen))
-	prio := topEntry.msgPrio
+func (mq *sharedHeap) popMessage(data []byte) (int, error) {
+	msg := mq.at(0)
+	if len(msg.data) > len(data) {
+		return 0, errors.New("the message is too long")
+	}
+	copy(data, msg.data)
 	heap.Pop(mq)
-	return int(prio)
+	return int(msg.prio), nil
 }
 
 // sort.Interface
 
 func (mq *sharedHeap) Len() int {
-	return int(mq.header.size)
+	return mq.array.Len()
 }
 
 func (mq *sharedHeap) Less(i, j int) bool {
 	// inverse less logic. as we want max-heap.
-	return mq.index[i].msgPrio > mq.index[j].msgPrio
+	return mq.at(i).prio > mq.at(j).prio
 }
 
 func (mq *sharedHeap) Swap(i, j int) {
-	if i == j {
-		return
-	}
-	lSlot, rSlot := mq.slotAt(int32(i)), mq.slotAt(int32(j))
-	lSlot.entryIdx, rSlot.entryIdx = int32(j), int32(i)
-	mq.index[i], mq.index[j] = mq.index[j], mq.index[i]
+	mq.array.Swap(i, j)
 }
 
 // heap.Interface
 
 func (mq *sharedHeap) Push(x interface{}) {
 	msg := x.(message)
-	last := &mq.index[mq.header.size]
-	last.msgPrio = int32(msg.prio)
-	last.msgLen = int32(len(msg.data))
-	last.slotIdx = mq.header.size
-	slot := mq.slotAt(mq.header.size)
-	slot.entryIdx = mq.header.size
-	data := slotData(slot, last.msgLen)
-	copy(data, msg.data)
-	atomic.AddInt32(&mq.header.size, 1)
+	prioData := allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&msg.prio), int32Size, int32Size)
+	mq.array.PushBack(prioData, msg.data)
 }
 
 func (mq *sharedHeap) Pop() interface{} {
-	atomic.AddInt32(&mq.header.size, -1)
-	lastIndexEntry := mq.index[mq.header.size]
-	if lastIndexEntry.slotIdx != mq.header.size {
-		currentSlot := mq.slotAt(lastIndexEntry.slotIdx)
-		lastSlot := mq.slotAt(mq.header.size)
-		lastSlotIndexEntry := mq.index[lastSlot.entryIdx]
-		copy(slotData(currentSlot, lastSlotIndexEntry.msgLen), slotData(lastSlot, lastSlotIndexEntry.msgLen))
-		lastSlotIndexEntry.slotIdx = lastIndexEntry.slotIdx
-	}
-	return nil // return value is not used by sharedHeap.pop.
-}
-
-func (mq *sharedHeap) slotAt(idx int32) *msgSlot {
-	raw := uintptr(mq.slotsPtr)
-	raw += uintptr(idx * (mq.header.maxMsgSize + int32(msgSlotSize)))
-	return (*msgSlot)(unsafe.Pointer(raw))
-}
-
-func slotData(slot *msgSlot, size int32) []byte {
-	return allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&slot.dummyDataArray), int(size), int(size))
+	mq.array.PopFront(nil)
+	return nil
 }
 
 func calcSharedHeapSize(maxQueueSize, maxMsgSize int) (int, error) {
 	if maxQueueSize == 0 || maxMsgSize == 0 {
 		return 0, errors.New("queue size cannot be zero")
 	}
-	return int(sharedMqHdrSize) + // mq header
-		maxQueueSize*int(indexEntrySize) + // mq index
-		maxQueueSize*(maxMsgSize+int(msgSlotSize)), nil // mq messages size
+	return array.CalcSharedArraySize(maxQueueSize, maxMsgSize+int32Size), nil
+}
+
+func minHeapSize() int {
+	return array.CalcSharedArraySize(0, 0)
 }

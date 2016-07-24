@@ -364,7 +364,7 @@ func testMqSendToAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ stri
 	}()
 	result := testutil.RunTestApp(args, nil)
 	if !a.NoError(result.Err) {
-		t.Logf("program output is: %s", result.Output)
+		t.Logf("program output is: '%s'", result.Output)
 	}
 }
 

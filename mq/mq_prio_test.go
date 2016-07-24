@@ -125,5 +125,7 @@ func benchmarkPrioMq1(b *testing.B, ctor prioMqCtor, opener prioMqOpener, dtor m
 	wgw.Wait()
 	atomic.StoreInt32(&done, 1)
 	wgr.Wait()
-	b.Logf("%d of %d (%2.2f%%) messages received for N = %d", received, sent, float64(received)/float64(sent)*100, b.N)
+	if sent > 0 {
+		b.Logf("%d of %d (%2.2f%%) messages received for N = %d", received, sent, float64(received)/float64(sent)*100, b.N)
+	}
 }

@@ -350,7 +350,7 @@ func testLockerLockTimeout(t *testing.T, typ string, ctor lockerCtor, dtor locke
 	before := time.Now()
 	timeout := time.Millisecond * 50
 	a.False(tl.LockTimeout(timeout))
-	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.05)
+	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.1)
 }
 
 func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
