@@ -124,7 +124,7 @@ func benchmarkPrioMq1(b *testing.B, ctor prioMqCtor, opener prioMqOpener, dtor m
 			}
 			defer inst.Close()
 			mess := make([]byte, params.msgSize)
-			for atomic.LoadInt32(&done) == 0 {
+			for j := 0; j < b.N; j++ {
 				if prio, err := inst.ReceivePriority(mess); err != nil {
 					if !(params.flag&O_NONBLOCK != 0 && IsTemporary(err)) {
 						b.Error(err)

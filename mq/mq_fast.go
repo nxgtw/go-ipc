@@ -232,13 +232,12 @@ func (mq *FastMq) ReceiveTimeout(data []byte, timeout time.Duration) error {
 // waiting for not longer, then the timeout.
 func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, error) {
 
-	// TODO(avd) temporarily commented out due to strange benchmark results.
 	// optimization: do lock the locker if the queue is empty.
-	/*if mq.Empty() {
+	if mq.Empty() {
 		if mq.flag&O_NONBLOCK != 0 {
 			return 0, mqEmptyError
 		}
-	}*/
+	}
 
 	mq.locker.Lock()
 	// defer is not used due to performance reasons.
