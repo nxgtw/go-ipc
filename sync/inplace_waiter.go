@@ -1,14 +1,22 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
+// +build linux freebsd
+
 package sync
 
 import (
+	"math"
 	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
+)
+
+const (
+	inplaceWaiterSize = int(unsafe.Sizeof(uint32(0)))
+	cFutexWakeAll     = math.MaxInt32
 )
 
 type inplaceWaiter uint32

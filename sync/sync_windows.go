@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"golang.org/x/sys/windows"
 )
 
@@ -24,7 +25,7 @@ var (
 	procCreateEvent  = modkernel32.NewProc("CreateEventW")
 )
 
-func createMutex(name string) (windows.Handle, error) {
+func sys_CreateMutex(name string) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return 0, err
@@ -37,7 +38,7 @@ func createMutex(name string) (windows.Handle, error) {
 	return windows.Handle(h), err
 }
 
-func openMutex(name string) (windows.Handle, error) {
+func sys_OpenMutex(name string) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return 0, err
@@ -50,7 +51,7 @@ func openMutex(name string) (windows.Handle, error) {
 	return windows.Handle(h), nil
 }
 
-func releaseMutex(handle windows.Handle) error {
+func sys_releaseMutex(handle windows.Handle) error {
 	result, _, err := procReleaseMutex.Call(uintptr(handle))
 	if result == 0 {
 		return os.NewSyscallError("ReleaseMutex", err)
@@ -58,7 +59,7 @@ func releaseMutex(handle windows.Handle) error {
 	return nil
 }
 
-func openEvent(name string, desiredAccess uint32, inheritHandle uint32) (windows.Handle, error) {
+func sys_OpenEvent(name string, desiredAccess uint32, inheritHandle uint32) (windows.Handle, error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return 0, err
@@ -71,7 +72,7 @@ func openEvent(name string, desiredAccess uint32, inheritHandle uint32) (windows
 	return windows.Handle(h), nil
 }
 
-func createEvent(name string, eventAttrs *windows.SecurityAttributes, manualReset uint32, initialState uint32) (handle windows.Handle, err error) {
+func sys_CreateEvent(name string, eventAttrs *windows.SecurityAttributes, manualReset uint32, initialState uint32) (handle windows.Handle, err error) {
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return 0, err
@@ -89,4 +90,26 @@ func createEvent(name string, eventAttrs *windows.SecurityAttributes, manualRese
 		err = nil
 	}
 	return windows.Handle(h), err
+}
+
+func openOrCreateEvent(name string, flag int, initial int) (windows.Handle, error) {
+	var handle windows.Handle
+	creator := func(create bool) error {
+		var err error
+		if create {
+			handle, err = sys_CreateEvent(name, nil, 0, uint32(initial))
+			if os.IsExist(err) {
+				windows.CloseHandle(handle)
+				return err
+			}
+		} else {
+			handle, err = sys_OpenEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
+		}
+		if handle != windows.Handle(0) {
+			return nil
+		}
+		return err
+	}
+	_, err := common.OpenOrCreate(creator, flag)
+	return handle, err
 }

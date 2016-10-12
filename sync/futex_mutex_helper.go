@@ -6,12 +6,6 @@ package sync
 
 import "os"
 
-// this is to ensure, that all implementations of ipc mutex
-// satisfy the same minimal interface
-var (
-	_ IPCLocker = (*FutexMutex)(nil)
-)
-
 func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
 	l, err := NewFutexMutex(name, flag, perm)
 	if err != nil {

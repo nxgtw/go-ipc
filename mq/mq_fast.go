@@ -35,17 +35,14 @@ var (
 )
 
 // FastMq is a priority message queue based on shared memory.
-// It does not support blocking send/receieve yet, and will panic,
-// if opened without O_NONBLOCK.
 // Currently it is the only implementation for windows.
-// It'll become default implementation for all platforms,
-// when bloking mode support is added.
 type FastMq struct {
 	name   string
 	region *mmf.MemoryRegion
 	flag   int
 	locker ipc_sync.IPCLocker
 	impl   *sharedHeap
+	cond   *ipc_sync.Cond
 }
 
 func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (*FastMq, error) {
@@ -86,6 +83,11 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 	result.locker, err = ipc_sync.NewMutex(fastMqLockerName(name), openFlags, perm)
 	if err != nil {
 		return nil, errors.Wrap(err, "fast mq: failed to create a locker")
+	}
+
+	result.cond, err = ipc_sync.NewCond(fastMqCondName(name), openFlags, perm, result.locker)
+	if err != nil {
+		return nil, errors.Wrap(err, "fast mq: failed to create a cond")
 	}
 
 	// impl is an object placed into in mmaped area.
@@ -148,6 +150,9 @@ func DestroyFastMq(name string) error {
 	if errMutex != nil {
 		return errors.Wrap(errMutex, "failed to destroy ipc locker")
 	}
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name)); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy condvar")
+	}
 	return nil
 }
 
@@ -161,6 +166,12 @@ func (mq *FastMq) SendPriority(data []byte, prio int) error {
 	return mq.SendPriorityTimeout(data, prio, -1)
 }
 
+// SendTimeout sends a message with the default priority 0. It blocks if the queue is full,
+// waiting for not longer, then the timeout.
+func (mq *FastMq) SendTimeout(data []byte, timeout time.Duration) error {
+	return mq.SendPriorityTimeout(data, 0, timeout)
+}
+
 // SendPriorityTimeout sends a message with the given priority. It blocks if the queue is full,
 // waiting for not longer, then the timeout.
 func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Duration) error {
@@ -168,25 +179,34 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 		return errors.New("the message is too big")
 	}
 	// optimization: do lock the locker if the queue is full.
-	if mq.impl.Len() == mq.impl.maxSize() && mq.flag&O_NONBLOCK != 0 {
+	if mq.Full() && mq.flag&O_NONBLOCK != 0 {
 		return mqFullError
 	}
 	mq.locker.Lock()
 	// defer is not used due to performance reasons.
 
-	if mq.impl.Len() == mq.impl.maxSize() {
-		mq.locker.Unlock()
+	if mq.Full() {
 		if mq.flag&O_NONBLOCK != 0 {
+			mq.locker.Unlock()
 			return mqFullError
 		}
 		if timeout >= 0 {
+			if !mq.cond.WaitTimeout(timeout) {
+				if mq.Full() {
+					mq.locker.Unlock()
+					return mqFullError
+				}
+			}
 		} else {
+			for mq.Full() {
+				mq.cond.Wait()
+			}
 		}
-		panic("blocking send is not implemented yet")
 	}
 
 	mq.impl.pushMessage(message{data: data, prio: int32(prio)})
 	mq.locker.Unlock()
+	mq.cond.Signal()
 	return nil
 }
 
@@ -201,30 +221,49 @@ func (mq *FastMq) ReceivePriority(data []byte) (int, error) {
 	return mq.ReceivePriorityTimeout(data, -1)
 }
 
+// ReceiveTimeout receives a message. It blocks if the queue is empty. It blocks if the queue is empty,
+// waiting for not longer, then the timeout.
+func (mq *FastMq) ReceiveTimeout(data []byte, timeout time.Duration) error {
+	_, err := mq.ReceivePriorityTimeout(data, timeout)
+	return err
+}
+
 // ReceivePriorityTimeout receives a message and returns its priority. It blocks if the queue is empty,
 // waiting for not longer, then the timeout.
 func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, error) {
 
+	// TODO(avd) temporarily commented out due to strange benchmark results.
 	// optimization: do lock the locker if the queue is empty.
-	if mq.impl.Len() == 0 && mq.flag&O_NONBLOCK != 0 {
-		return 0, mqEmptyError
-	}
+	/*if mq.Empty() {
+		if mq.flag&O_NONBLOCK != 0 {
+			return 0, mqEmptyError
+		}
+	}*/
 
 	mq.locker.Lock()
 	// defer is not used due to performance reasons.
 
-	if mq.impl.Len() == 0 {
-		mq.locker.Unlock()
+	if mq.Empty() {
 		if mq.flag&O_NONBLOCK != 0 {
+			mq.locker.Unlock()
 			return 0, mqEmptyError
 		}
 		if timeout >= 0 {
+			if !mq.cond.WaitTimeout(timeout) {
+				if mq.Empty() {
+					mq.locker.Unlock()
+					return 0, mqEmptyError
+				}
+			}
 		} else {
+			for mq.Empty() {
+				mq.cond.Wait()
+			}
 		}
-		panic("blocking receive is not implemented yet")
 	}
 	prio, err := mq.impl.popMessage(data)
 	mq.locker.Unlock()
+	mq.cond.Signal()
 	return prio, err
 }
 
@@ -253,6 +292,9 @@ func (mq *FastMq) Close() error {
 	if errLocker != nil {
 		return errors.Wrap(errLocker, "failed to close ipc locker")
 	}
+	if err := mq.cond.Close(); err != nil {
+		return errors.Wrap(err, "failed to close cond")
+	}
 	return nil
 }
 
@@ -265,11 +307,28 @@ func (mq *FastMq) Destroy() error {
 	if errClose != nil {
 		return errors.Wrap(errClose, "failed to close fastmq")
 	}
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name)); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy condvar")
+	}
 	return nil
+}
+
+// Full returns true, if the capacity liimt has been reached.
+func (mq *FastMq) Full() bool {
+	return mq.impl.Len() == mq.impl.maxSize()
+}
+
+// Empty returns true, if there are no messages in the queue.
+func (mq *FastMq) Empty() bool {
+	return mq.impl.Len() == 0
 }
 
 func fastMqLockerName(mqName string) string {
 	return mqName + ".locker"
+}
+
+func fastMqCondName(mqName string) string {
+	return mqName + ".cond"
 }
 
 func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err error) {
@@ -281,11 +340,21 @@ func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err err
 		mq.region.Close()
 	}
 	if mq.locker != nil {
-		mq.locker.Close()
 		if created {
 			if d, ok := mq.locker.(ipc.Destroyer); ok {
 				d.Destroy()
+			} else {
+				mq.locker.Close()
 			}
+		} else {
+			mq.locker.Close()
+		}
+	}
+	if mq.cond != nil {
+		if created {
+			mq.cond.Destroy()
+		} else {
+			mq.cond.Close()
 		}
 	}
 	if created {

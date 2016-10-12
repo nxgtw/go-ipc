@@ -11,10 +11,6 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/array"
 )
 
-const (
-	int32Size = int(unsafe.Sizeof(int32(0)))
-)
-
 type message struct {
 	prio int32
 	data []byte
@@ -26,7 +22,7 @@ type sharedHeap struct {
 
 func newSharedHeap(raw unsafe.Pointer, maxQueueSize, maxMsgSize int) *sharedHeap {
 	return &sharedHeap{
-		array: array.NewSharedArray(raw, maxQueueSize, maxMsgSize+int32Size),
+		array: array.NewSharedArray(raw, maxQueueSize, maxMsgSize+4),
 	}
 }
 
@@ -37,7 +33,7 @@ func openSharedHeap(raw unsafe.Pointer) *sharedHeap {
 }
 
 func (mq *sharedHeap) maxMsgSize() int {
-	return mq.array.ElemSize() - int32Size
+	return mq.array.ElemSize() - 4
 }
 
 func (mq *sharedHeap) maxSize() int {
@@ -47,7 +43,7 @@ func (mq *sharedHeap) maxSize() int {
 func (mq *sharedHeap) at(i int) message {
 	data := mq.array.At(i)
 	rawData := allocator.ByteSliceData(data)
-	return message{prio: *(*int32)(rawData), data: data[int32Size:]}
+	return message{prio: *(*int32)(rawData), data: data[4:]}
 }
 
 func (mq *sharedHeap) pushMessage(msg message) {
@@ -71,7 +67,7 @@ func (mq *sharedHeap) Len() int {
 }
 
 func (mq *sharedHeap) Less(i, j int) bool {
-	// inverse less logic. as we want max-heap.
+	// inverse less logic, as we want max-heap.
 	return mq.at(i).prio > mq.at(j).prio
 }
 
@@ -83,12 +79,12 @@ func (mq *sharedHeap) Swap(i, j int) {
 
 func (mq *sharedHeap) Push(x interface{}) {
 	msg := x.(message)
-	prioData := allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&msg.prio), int32Size, int32Size)
+	prioData := allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&msg.prio), 4, 4)
 	mq.array.PushBack(prioData, msg.data)
 }
 
 func (mq *sharedHeap) Pop() interface{} {
-	mq.array.PopFront(nil)
+	mq.array.PopBack(nil)
 	return nil
 }
 
@@ -96,7 +92,7 @@ func calcSharedHeapSize(maxQueueSize, maxMsgSize int) (int, error) {
 	if maxQueueSize == 0 || maxMsgSize == 0 {
 		return 0, errors.New("queue size cannot be zero")
 	}
-	return array.CalcSharedArraySize(maxQueueSize, maxMsgSize+int32Size), nil
+	return array.CalcSharedArraySize(maxQueueSize, maxMsgSize+4), nil
 }
 
 func minHeapSize() int {

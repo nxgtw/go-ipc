@@ -3,7 +3,6 @@
 package sync
 
 import (
-	"math"
 	"os"
 	"time"
 	"unsafe"
@@ -20,25 +19,23 @@ const (
 	cUMTX_OP_WAKE              = 0x3
 	cUMTX_OP_WAKE_PRIVATE      = 0x10
 	cUMTX_ABSTIME              = 0x01
-
-	cFutexWakeAll = math.MaxInt32
 )
 
 // FutexWait checks if the the value equals futex's value.
 // If it doesn't, Wait returns EWOULDBLOCK.
 // Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
 func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags int32) error {
-	var ptr unsafe.Pointer
-	if flags&cUMTX_ABSTIME != 0 {
-		ptr = unsafe.Pointer(common.AbsTimeoutToTimeSpec(timeout))
-	} else {
-		ptr = unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
-	}
-	fun := func() error {
+	fun := func(tm time.Duration) error {
+		var ptr unsafe.Pointer
+		if flags&cUMTX_ABSTIME != 0 {
+			ptr = unsafe.Pointer(common.AbsTimeoutToTimeSpec(tm))
+		} else {
+			ptr = unsafe.Pointer(common.TimeoutToTimeSpec(tm))
+		}
 		_, err := sys_umtx_op(addr, cUMTX_OP_WAIT_UINT|flags, value, nil, ptr)
 		return err
 	}
-	return common.UninterruptedSyscall(fun)
+	return common.UninterruptedSyscallTimeout(fun, timeout)
 }
 
 // FutexWake wakes count threads waiting on the futex.

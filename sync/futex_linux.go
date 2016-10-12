@@ -3,7 +3,6 @@
 package sync
 
 import (
-	"math"
 	"os"
 	"time"
 	"unsafe"
@@ -26,25 +25,23 @@ const (
 	// FUTEX_CLOCK_REALTIME is used to tell the kernel, that is must treat timeouts for
 	// FUTEX_WAIT_BITSET, FUTEX_WAIT_REQUEUE_PI, and FUTEX_WAIT as an absolute time based on CLOCK_REALTIME
 	FUTEX_CLOCK_REALTIME = 256
-
-	cFutexWakeAll = math.MaxInt32
 )
 
 // FutexWait checks if the the value equals futex's value.
 // If it doesn't, Wait returns EWOULDBLOCK.
 // Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
 func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags int32) error {
-	var ptr unsafe.Pointer
-	if flags&FUTEX_CLOCK_REALTIME != 0 {
-		ptr = unsafe.Pointer(common.AbsTimeoutToTimeSpec(timeout))
-	} else {
-		ptr = unsafe.Pointer(common.TimeoutToTimeSpec(timeout))
-	}
-	fun := func() error {
+	fun := func(tm time.Duration) error {
+		var ptr unsafe.Pointer
+		if flags&FUTEX_CLOCK_REALTIME != 0 {
+			ptr = unsafe.Pointer(common.AbsTimeoutToTimeSpec(tm))
+		} else {
+			ptr = unsafe.Pointer(common.TimeoutToTimeSpec(tm))
+		}
 		_, err := sys_futex(addr, cFUTEX_WAIT|flags, value, ptr, nil, 0)
 		return err
 	}
-	return common.UninterruptedSyscall(fun)
+	return common.UninterruptedSyscallTimeout(fun, timeout)
 }
 
 // FutexWake wakes count threads waiting on the futex.

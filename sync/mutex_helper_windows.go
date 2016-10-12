@@ -1,5 +1,7 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
+// +build windows
+
 package sync
 
 import "os"

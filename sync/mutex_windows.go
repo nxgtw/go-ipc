@@ -6,8 +6,6 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/internal/common"
-
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
@@ -30,24 +28,7 @@ type EventMutex struct {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error) {
-	var handle windows.Handle
-	creator := func(create bool) error {
-		var err error
-		if create {
-			handle, err = createEvent(name, nil, 0, 1)
-			if os.IsExist(err) {
-				windows.CloseHandle(handle)
-				return err
-			}
-		} else {
-			handle, err = openEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
-		}
-		if handle != windows.Handle(0) {
-			return nil
-		}
-		return err
-	}
-	_, err := common.OpenOrCreate(creator, flag)
+	handle, err := openOrCreateEvent(name, flag, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open/create event mutex")
 	}

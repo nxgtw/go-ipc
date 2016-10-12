@@ -12,7 +12,7 @@ import (
 
 // all implementations must satisfy IPCLocker interface.
 var (
-	_ IPCLocker = (*SpinMutex)(nil)
+	_ IPCLocker = (*SemaMutex)(nil)
 )
 
 // SemaMutex is a semaphore-based mutex for unix.

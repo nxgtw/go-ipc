@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -15,35 +16,50 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	cSpinUnlocked = 0
+	cSpinLocked   = 1
+)
+
 // all implementations must satisfy IPCLocker interface.
 var (
 	_ IPCLocker = (*SpinMutex)(nil)
 )
 
-type spinMutex struct {
-	value uint32
-}
+type spinMutex uint32
 
-// Lock locks the mutex waiting in a busy loop if needed.
-func (spin *spinMutex) Lock() {
-	for !spin.TryLock() {
+func (spin *spinMutex) lock() {
+	for !spin.tryLock() {
 		runtime.Gosched()
 	}
 }
 
-// Unlock releases the mutex.
-func (spin *spinMutex) Unlock() {
-	atomic.StoreUint32(&spin.value, 0)
+func (spin *spinMutex) lockTimeout(timeout time.Duration) bool {
+	var attempt uint64
+	start := time.Now()
+	for !spin.tryLock() {
+		runtime.Gosched()
+		if attempt%1000 == 0 { // do not call time.Since too often.
+			if timeout >= 0 && time.Since(start) >= timeout {
+				return false
+			}
+		}
+		attempt++
+	}
+	return true
 }
 
-// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
-func (spin *spinMutex) TryLock() bool {
-	return atomic.CompareAndSwapUint32(&spin.value, 0, 1)
+func (spin *spinMutex) unlock() {
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(spin)), cSpinUnlocked)
+}
+
+func (spin *spinMutex) tryLock() bool {
+	return atomic.CompareAndSwapUint32((*uint32)(unsafe.Pointer(spin)), cSpinUnlocked, cSpinLocked)
 }
 
 // SpinMutex is a synchronization object which performs busy wait loop.
 type SpinMutex struct {
-	*spinMutex
+	impl   *spinMutex
 	region *mmf.MemoryRegion
 	name   string
 }
@@ -53,7 +69,7 @@ type SpinMutex struct {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
-	const spinImplSize = int64(unsafe.Sizeof(spinMutex{}))
+	const spinImplSize = int64(unsafe.Sizeof(spinMutex(0)))
 	if !checkMutexFlags(flag) {
 		return nil, errors.New("invalid open flags")
 	}
@@ -79,13 +95,33 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	if created {
-		if resultErr = allocator.Alloc(region.Data(), spinMutex{}); resultErr != nil {
+		if resultErr = allocator.Alloc(region.Data(), spinMutex(cSpinUnlocked)); resultErr != nil {
 			return nil, errors.Wrap(resultErr, "failed to place mutex instance into shared memory")
 		}
 	}
 	m := (*spinMutex)(allocator.ByteSliceData(region.Data()))
-	impl := &SpinMutex{m, region, name}
+	impl := &SpinMutex{impl: m, region: region, name: name}
 	return impl, nil
+}
+
+// Lock locks the mutex waiting in a busy loop if needed.
+func (spin *SpinMutex) Lock() {
+	spin.impl.lock()
+}
+
+// LockTimeout locks the mutex waiting in a busy loop for not longer, than timeout.
+func (spin *SpinMutex) LockTimeout(timeout time.Duration) bool {
+	return spin.impl.lockTimeout(timeout)
+}
+
+// Unlock releases the mutex.
+func (spin *SpinMutex) Unlock() {
+	spin.impl.unlock()
+}
+
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+func (spin *SpinMutex) TryLock() bool {
+	return spin.impl.tryLock()
 }
 
 // Close indicates, that the object is no longer in use,

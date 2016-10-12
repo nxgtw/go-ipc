@@ -148,7 +148,12 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 	if dtor != nil {
 		a.NoError(dtor(testMqName))
 	}
-	message := testStruct{c: complex(2, -3), f: 11.22, s: struct{ a, b byte }{127, 255}}
+	message := testStruct{
+		arr: [...]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		c:   complex(2, -3),
+		f:   11.22,
+		s:   struct{ a, b byte }{127, 255},
+	}
 	mq, err := ctor(testMqName, 0, 0666)
 	if !a.NoError(err) {
 		return
@@ -270,7 +275,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 			a.True(sysErr.Temporary())
 		}
 		a.Condition(func() bool {
-			return time.Now().Sub(now) >= tm
+			return time.Since(now) >= tm
 		})
 	} else {
 		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)
@@ -299,7 +304,7 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 			a.True(sysErr.Temporary())
 		}
 		a.Condition(func() bool {
-			return time.Now().Sub(now) >= tm
+			return time.Since(now) >= tm
 		})
 	} else {
 		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)

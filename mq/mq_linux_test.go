@@ -179,7 +179,12 @@ func TestLinuxMqPrio1(t *testing.T) {
 	testPrioMq1(t, linuxMqCtorPrio, linuxMqOpenerPrio, linuxMqDtor)
 }
 
-func BenchmarkLinuxMq1(b *testing.B) {
-	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024}
+func BenchmarkLinuxMqNonBlock(b *testing.B) {
+	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024, flag: O_NONBLOCK}
+	benchmarkPrioMq1(b, linuxMqCtorPrio, linuxMqOpenerPrio, linuxMqDtor, params)
+}
+
+func BenchmarkLinuxMqBlock(b *testing.B) {
+	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024, flag: 0}
 	benchmarkPrioMq1(b, linuxMqCtorPrio, linuxMqOpenerPrio, linuxMqDtor, params)
 }

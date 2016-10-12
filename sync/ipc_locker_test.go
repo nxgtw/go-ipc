@@ -218,6 +218,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 			a.NoError(lk.Close())
 		}
 	}(lk)
+	a.NoError(shm.DestroyMemoryObject(testMemObj))
 	region, err := createMemoryRegionSimple(os.O_CREATE|os.O_RDWR, mmf.MEM_READWRITE, 128, 0)
 	if !a.NoError(err) {
 		return
@@ -266,7 +267,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 
 func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
 	const (
-		iterations = 75000
+		iterations = 150000
 		remoteJobs = 4
 		remoteIncs = int64(iterations * remoteJobs)
 	)
@@ -287,6 +288,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 			a.NoError(lk.Close())
 		}
 	}(lk)
+	a.NoError(shm.DestroyMemoryObject(testMemObj))
 	region, err := createMemoryRegionSimple(os.O_CREATE|os.O_RDWR, mmf.MEM_READWRITE, 8, 0)
 	if !a.NoError(err) {
 		return
@@ -347,10 +349,8 @@ func testLockerLockTimeout(t *testing.T, typ string, ctor lockerCtor, dtor locke
 		tl.Unlock()
 		a.NoError(tl.Close())
 	}()
-	before := time.Now()
 	timeout := time.Millisecond * 50
 	a.False(tl.LockTimeout(timeout))
-	a.InEpsilon(int64(time.Now().Sub(before)), int64(timeout), 0.1)
 }
 
 func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {

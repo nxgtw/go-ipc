@@ -37,8 +37,8 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if !checkMutexFlags(flag) {
 		return nil, errors.New("invalid open flags")
 	}
-	name = futexName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, int64(inplaceMutexSize))
+	internalName := futexName(name)
+	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(inplaceMutexSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -93,21 +93,16 @@ func (f *FutexMutex) Destroy() error {
 	}
 	f.region = nil
 	f.futex = nil
-	err := shm.DestroyMemoryObject(f.name)
-	f.name = ""
-	return err
+	return DestroyFutexMutex(futexName(f.name))
 }
 
 // DestroyFutexMutex permanently removes mutex with the given name.
 func DestroyFutexMutex(name string) error {
-	m, err := NewFutexMutex(name, 0, 0666)
+	err := shm.DestroyMemoryObject(futexName(name))
 	if err != nil {
-		if os.IsNotExist(errors.Cause(err)) {
-			return nil
-		}
-		return errors.Wrap(err, "failed to open mutex")
+		return errors.Wrap(err, "failed to destroy memory object")
 	}
-	return m.Destroy()
+	return nil
 }
 
 func futexName(name string) string {

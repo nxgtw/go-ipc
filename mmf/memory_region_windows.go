@@ -86,6 +86,7 @@ func (region *memoryRegion) Close() error {
 	if err != nil {
 		return errors.Wrap(err, "UnmapViewOfFile failed")
 	}
+	region.data = nil
 	return nil
 }
 

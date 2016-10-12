@@ -72,7 +72,7 @@ func NewMemoryObjectSize(name string, flag int, perm os.FileMode, size int64) (S
 			return nil, false, resultErr
 		}
 	} else if obj.Size() < size {
-		return nil, false, errors.New("existing object is not big enough")
+		return nil, false, errors.Errorf("existing object is smaller (%d), than needed(%d)", obj.Size(), size)
 	}
 	return obj, created, nil
 }

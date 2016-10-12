@@ -1,5 +1,5 @@
 # go-ipc: A library for inter-process communication written in pure Go.
-This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd, and windows.
+This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD, and Windows.
 
 [![wercker status](https://app.wercker.com/status/129bec18234e65c4d2bfb97d96af6eee/s/master "wercker status")](https://app.wercker.com/project/bykey/129bec18234e65c4d2bfb97d96af6eee) [![GoDoc](https://godoc.org/bitbucket.org/avd/go-ipc?status.svg)](https://godoc.org/bitbucket.org/avd/go-ipc) [![Go Report Card](https://goreportcard.com/badge/bitbucket.org/avd/go-ipc)](https://goreportcard.com/report/bitbucket.org/avd/go-ipc) 
 
@@ -10,9 +10,10 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
     - shared memory (all supported platforms)
-    - system message queues (linux, sysv)
-    - cross-platform priority message queue
-    - locking primitives: (all supported platforms)
+    - system message queues (Linux, FreeBSD, OSX)
+    - cross-platform priority message queue (all supported platforms)
+    - locking primitives (all supported platforms)
+    - conditional variables (Linux, FreeBSD, Windows, OSX)
 
 ## Install
 1. Install Go 1.6 or higher.
@@ -21,8 +22,14 @@ This package gives you access to os-native ipc mechanisms on linux, OSX, freebsd
 go get -u bitbucket.org/avd/go-ipc
 ```
 
+## System requirements
+1. Go 1.6 or higher.
+
 ## Documentation
 Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
+
+## Notes
+* Convars use futexes no Linux and FreeBSD. Currently spin locks are used on Windows and OSX.
 
 ## Build status
 This library is currently alpha. The 'master' branch is not guaranteed to contain stable code,

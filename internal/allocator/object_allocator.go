@@ -125,6 +125,11 @@ func RawSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) unsa
 	return unsafe.Pointer(&sl)
 }
 
+// AvdancePointer adds shift value to 'p' pointer.
+func AvdancePointer(p unsafe.Pointer, shift uintptr) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(p) + shift)
+}
+
 // ObjectData returns objects underlying byte representation.
 // The object must stored continuously in the memory, ie must not contain any references.
 // Slices of plain objects are allowed.

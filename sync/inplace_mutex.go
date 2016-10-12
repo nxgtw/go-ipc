@@ -8,19 +8,22 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
-	"golang.org/x/sys/unix"
 )
 
 const (
-	inplaceMutexSize             = int(unsafe.Sizeof(uint32(0)))
 	cFutexSpinCount              = 100
 	cFutexMutexUnlocked          = 0
 	cFutexMutexLockedNoWaiters   = 1
 	cFutexMutexLockedHaveWaiters = 2
+)
+
+const (
+	inplaceMutexSize = int(unsafe.Sizeof(InplaceMutex(0)))
 )
 
 // InplaceMutex must implement sync.Locker on all platforms.
@@ -106,7 +109,7 @@ func (f *InplaceMutex) lockTimeout(timeout time.Duration) error {
 	}
 	for old != cFutexMutexUnlocked {
 		if err := FutexWait(unsafe.Pointer(f), cFutexMutexLockedHaveWaiters, timeout, 0); err != nil {
-			if !common.SyscallErrHasCode(err, unix.EWOULDBLOCK) {
+			if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
 				return err
 			}
 		}

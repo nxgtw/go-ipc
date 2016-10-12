@@ -3,6 +3,7 @@
 package array
 
 import (
+	"math"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -10,51 +11,100 @@ import (
 
 const (
 	indexEntrySize = unsafe.Sizeof(indexEntry{})
-	slotSize       = unsafe.Sizeof(slot{})
 )
-
-// SharedArray is an array placed in the shared memory with fixed length and element size.
-type SharedArray struct {
-	data  *mappedArray
-	index []indexEntry
-}
 
 type indexEntry struct {
 	len     int32
 	slotIdx int32
 }
 
-type slot struct {
-	entryIdx       int32
-	dummyDataArray [0]byte
+type index struct {
+	entries []indexEntry
+	bitmap  []uint64
+	headIdx *int32
+}
+
+func bitmapSize(sz int) int {
+	bitmapSize := sz / 64
+	if sz%64 != 0 {
+		bitmapSize++
+	}
+	return bitmapSize
+}
+
+func indexSize(sz int) int {
+	return sz*int(indexEntrySize) + bitmapSize(sz)*8 + 4
+}
+
+func newIndex(raw unsafe.Pointer, sz int) index {
+	bitmapSz := bitmapSize(sz)
+	rawIndexSlice := allocator.RawSliceFromUnsafePointer(raw, sz, sz)
+	raw = allocator.AvdancePointer(raw, uintptr(sz)*indexEntrySize)
+	rawBitmapSlize := allocator.RawSliceFromUnsafePointer(raw, bitmapSz, bitmapSz)
+	raw = allocator.AvdancePointer(raw, 8*uintptr(bitmapSz))
+	return index{
+		entries: *(*[]indexEntry)(rawIndexSlice),
+		bitmap:  *(*[]uint64)(rawBitmapSlize),
+		headIdx: (*int32)(raw),
+	}
+}
+
+func lowestZeroBit(value uint64) uint8 {
+	for bitIdx := uint8(0); bitIdx < 64; bitIdx++ {
+		if value&1 == 0 {
+			return bitIdx
+		}
+		value >>= 1
+	}
+	return math.MaxUint8
+}
+
+func (idx *index) reserveFreeSlot(at int) {
+	for i, b := range idx.bitmap {
+		if b != math.MaxUint64 {
+			bitIdx := lowestZeroBit(b)
+			idx.entries[at].slotIdx = int32(i*64 + int(bitIdx))
+			idx.entries[at].len = 0
+			idx.bitmap[i] |= (1 << bitIdx)
+			return
+		}
+	}
+	panic("no free slots")
+}
+
+func (idx index) freeSlot(at int) {
+	slotIdx := idx.entries[at].slotIdx
+	bucketIdx, bitIdx := slotIdx/64, slotIdx%64
+	bucket := &idx.bitmap[bucketIdx]
+	*bucket = (*bucket) & ^(1 << uint32(bitIdx))
+}
+
+// SharedArray is an array placed in the shared memory with fixed length and element size.
+// It is possible to swap elements and pop them from any position. It never moves elements
+// in memory, so can be used to implements an array of futexes or spin locks.
+type SharedArray struct {
+	data *mappedArray
+	idx  index
 }
 
 // NewSharedArray initializes new shared array with size and element size.
 func NewSharedArray(raw unsafe.Pointer, size, elemSize int) *SharedArray {
 	data := newMappedArray(raw)
-	data.init(size, int(slotSize)+elemSize)
-	rawIndexSlice := allocator.RawSliceFromUnsafePointer(
-		data.atPointer(size),
-		size,
-		size)
-	index := *(*[]indexEntry)(rawIndexSlice)
+	data.init(size, elemSize)
+	idx := newIndex(allocator.AvdancePointer(raw, mappedArrayHdrSize+uintptr(size*elemSize)), size)
 	return &SharedArray{
-		data:  data,
-		index: index,
+		data: data,
+		idx:  idx,
 	}
 }
 
 // OpenSharedArray opens existing shared array.
 func OpenSharedArray(raw unsafe.Pointer) *SharedArray {
 	data := newMappedArray(raw)
-	rawIndexSlice := allocator.RawSliceFromUnsafePointer(
-		data.atPointer(data.cap()),
-		data.cap(),
-		data.cap())
-	index := *(*[]indexEntry)(rawIndexSlice)
+	idx := newIndex(allocator.AvdancePointer(raw, mappedArrayHdrSize+uintptr(data.cap()*data.elemLen())), data.cap())
 	return &SharedArray{
-		data:  data,
-		index: index,
+		data: data,
+		idx:  idx,
 	}
 }
 
@@ -70,21 +120,20 @@ func (arr *SharedArray) Len() int {
 
 // ElemSize returns size of the element.
 func (arr *SharedArray) ElemSize() int {
-	return arr.data.elemLen() - int(slotSize)
+	return arr.data.elemLen()
 }
 
 // PushBack add new element to the end of the array, merging given datas.
 // Returns number of bytes copied, less or equal, than the size of the element.
 func (arr *SharedArray) PushBack(datas ...[]byte) int {
-	curLen := int32(arr.Len())
-	if int(curLen) >= arr.Cap() {
+	curLen := arr.Len()
+	if curLen >= arr.Cap() {
 		panic("index out of range")
 	}
-	last := &arr.index[curLen]
-	last.slotIdx = curLen
-	sl := arr.slotAt(int(curLen))
-	sl.entryIdx = curLen
-	slData := slotData(sl, arr.ElemSize())
+	last := arr.entryAt(curLen)
+	arr.idx.reserveFreeSlot(arr.logicalIdxToPhys(curLen))
+	dataPtr := arr.data.atPointer(int(last.slotIdx))
+	slData := allocator.ByteSliceFromUnsafePointer(dataPtr, arr.ElemSize(), arr.ElemSize())
 	for _, data := range datas {
 		last.len += int32(copy(slData[last.len:], data))
 		if int(last.len) < len(data) {
@@ -100,9 +149,8 @@ func (arr *SharedArray) At(i int) []byte {
 	if i < 0 || i >= arr.Len() {
 		panic("index out of range")
 	}
-	entry := arr.index[i]
-	currentSlot := arr.slotAt(int(entry.slotIdx))
-	return slotData(currentSlot, int(entry.len))
+	entry := arr.entryAt(i)
+	return arr.data.at((int(entry.slotIdx)))[:int(entry.len):int(entry.len)]
 }
 
 // AtPointer returns pointer to the data at the position i.
@@ -110,31 +158,75 @@ func (arr *SharedArray) AtPointer(i int) unsafe.Pointer {
 	if i < 0 || i >= arr.Len() {
 		panic("index out of range")
 	}
-	entry := arr.index[i]
-	currentSlot := arr.slotAt(int(entry.slotIdx))
-	return unsafe.Pointer(&currentSlot.dummyDataArray)
+	entry := arr.entryAt(i)
+	return arr.data.atPointer(int(entry.slotIdx))
 }
 
 // PopFront removes the first element of the array, writing its data to 'data'.
 func (arr *SharedArray) PopFront(data []byte) {
-	if arr.Len() == 0 {
+	curLen := arr.Len()
+	if curLen == 0 {
 		panic("index out of range")
 	}
-	topEntry := arr.index[0]
-	currentSlot := arr.slotAt(int(topEntry.slotIdx))
 	if data != nil {
-		copy(data, slotData(currentSlot, int(topEntry.len)))
+		toCopy := arr.At(0)
+		copy(data, toCopy)
+	}
+	arr.idx.freeSlot(int(*arr.idx.headIdx))
+	arr.forwardHead()
+	arr.data.decLen()
+}
+
+func (arr *SharedArray) forwardHead() {
+	if arr.Len() == 1 {
+		*arr.idx.headIdx = 0
+	} else {
+		*arr.idx.headIdx = (*arr.idx.headIdx + 1) % int32(arr.Cap())
+	}
+}
+
+// PopBack removes the last element of the array, writing its data to 'data'.
+func (arr *SharedArray) PopBack(data []byte) {
+	curLen := arr.Len()
+	if curLen == 0 {
+		panic("index out of range")
+	}
+	if data != nil {
+		toCopy := arr.At(curLen - 1)
+		copy(data, toCopy)
+	}
+	arr.idx.freeSlot(arr.logicalIdxToPhys(curLen - 1))
+	if curLen == 1 {
+		*arr.idx.headIdx = 0
 	}
 	arr.data.decLen()
-	l := arr.Len()
-	lastIndexEntry := arr.index[l]
-	if int(lastIndexEntry.slotIdx) != l {
-		currentSlot := arr.slotAt(int(lastIndexEntry.slotIdx))
-		lastSlot := arr.slotAt(l)
-		lastSlotIndexEntry := arr.index[lastSlot.entryIdx]
-		copy(slotData(currentSlot, int(lastSlotIndexEntry.len)), slotData(lastSlot, int(lastSlotIndexEntry.len)))
-		lastSlotIndexEntry.slotIdx = lastIndexEntry.slotIdx
+}
+
+// PopAt removes i'th element of the array, writing its data to 'data'.
+func (arr *SharedArray) PopAt(idx int, data []byte) {
+	curLen := arr.Len()
+	if idx < 0 || idx >= curLen {
+		panic("index out of range")
 	}
+	if data != nil {
+		toCopy := arr.At(idx)
+		copy(data, toCopy)
+	}
+	arr.idx.freeSlot(arr.logicalIdxToPhys(idx))
+	if idx <= curLen/2 {
+		for i := idx; i > 0; i-- {
+			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i-1)]
+		}
+		arr.forwardHead()
+	} else {
+		for i := idx; i < curLen-1; i++ {
+			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i+1)]
+		}
+		if curLen == 1 {
+			*arr.idx.headIdx = 0
+		}
+	}
+	arr.data.decLen()
 }
 
 // Swap swaps two elements of the array.
@@ -146,22 +238,21 @@ func (arr *SharedArray) Swap(i, j int) {
 	if i == j {
 		return
 	}
-	lSlot, rSlot := arr.slotAt(i), arr.slotAt(j)
-	lSlot.entryIdx, rSlot.entryIdx = int32(j), int32(i)
-	arr.index[i], arr.index[j] = arr.index[j], arr.index[i]
+	i, j = arr.logicalIdxToPhys(i), arr.logicalIdxToPhys(j)
+	arr.idx.entries[i], arr.idx.entries[j] = arr.idx.entries[j], arr.idx.entries[i]
 }
 
-func (arr *SharedArray) slotAt(idx int) *slot {
-	return (*slot)(arr.data.atPointer(idx))
+func (arr *SharedArray) logicalIdxToPhys(log int) int {
+	return (log + int(*arr.idx.headIdx)) % arr.Cap()
+}
+
+func (arr *SharedArray) entryAt(log int) *indexEntry {
+	return &arr.idx.entries[arr.logicalIdxToPhys(log)]
 }
 
 // CalcSharedArraySize returns the size, needed to place shared array in memory.
 func CalcSharedArraySize(size, elemSize int) int {
 	return int(mappedArrayHdrSize) + // mq header
-		size*int(indexEntrySize) + // mq index
-		size*(elemSize+int(slotSize)) // mq messages size
-}
-
-func slotData(s *slot, size int) []byte {
-	return allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&s.dummyDataArray), size, size)
+		indexSize(size) + // mq index
+		size*elemSize // mq messages size
 }

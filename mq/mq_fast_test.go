@@ -47,30 +47,6 @@ func TestFastMqSendIntSameProcess(t *testing.T) {
 	testMqSendIntSameProcess(t, fastMqCtor, fastMqOpener, fastMqDtor)
 }
 
-/*
-The following tests require blocking, which is not implemented yet.
-
-func TestFastMqSendStructSameProcess(t *testing.T) {
-	testMqSendStructSameProcess(t, fastMqCtor, fastMqOpener, fastMqDtor)
-}
-
-func TestFastMqSendMessageLessThenBuffer(t *testing.T) {
-	testMqSendMessageLessThenBuffer(t, fastMqCtor, fastMqOpener, fastMqDtor)
-}
-
-func TestFastMqReceiveFromAnotherProcess(t *testing.T) {
-	testMqReceiveFromAnotherProcess(t, fastMqCtor, fastMqDtor, "fast")
-}
-
-func TestFastMqSendTimeout(t *testing.T) {
-	testMqSendTimeout(t, fastMqCtor, fastMqDtor)
-}
-
-func TestFastMqReceiveTimeout(t *testing.T) {
-	testMqReceiveTimeout(t, fastMqCtor, fastMqDtor)
-}
-*/
-
 func TestFastMqSendNonBlock(t *testing.T) {
 	testMqSendNonBlock(t, fastMqCtor, fastMqDtor)
 }
@@ -83,7 +59,12 @@ func TestFastMqPrio1(t *testing.T) {
 	testPrioMq1(t, fastMqCtorPrio, fastMqOpenerPrio, fastMqDtor)
 }
 
-func BenchmarkFastMq1(b *testing.B) {
-	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024}
+func BenchmarkFastMqNonBlock(b *testing.B) {
+	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024, flag: O_NONBLOCK}
+	benchmarkPrioMq1(b, fastMqCtorPrio, fastMqOpenerPrio, fastMqDtor, params)
+}
+
+func BenchmarkFastMqBlock(b *testing.B) {
+	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024, flag: 0}
 	benchmarkPrioMq1(b, fastMqCtorPrio, fastMqOpenerPrio, fastMqDtor, params)
 }

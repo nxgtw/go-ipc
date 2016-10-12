@@ -78,16 +78,6 @@ func IsInterruptedSyscallErr(err error) bool {
 	return SyscallErrHasCode(err, syscall.EINTR)
 }
 
-// IsTimeoutErr returns true, if the given error is a temporary syscall.
-func IsTimeoutErr(err error) bool {
-	if sysErr, ok := err.(*os.SyscallError); ok {
-		if errno, ok := sysErr.Err.(syscall.Errno); ok {
-			return errno.Timeout()
-		}
-	}
-	return false
-}
-
 // SyscallNameFromErr returns name of a syscall from a syscall errror.
 func SyscallNameFromErr(err error) string {
 	if sysErr, ok := err.(*os.SyscallError); ok {
@@ -139,4 +129,14 @@ func ftok(name string) (Key, error) {
 	// however, this is not always true, as the types of statfs.Ino and statfs.Dev
 	// may vary on different platforms
 	return Key(uint64(statfs.Ino)&0xFFFF | ((uint64(statfs.Dev) & 0xFF) << 16)), nil
+}
+
+// IsTimeoutErr returns true, if the given error is a temporary syscall error.
+func IsTimeoutErr(err error) bool {
+	if sysErr, ok := err.(*os.SyscallError); ok {
+		if errno, ok := sysErr.Err.(syscall.Errno); ok {
+			return errno.Timeout()
+		}
+	}
+	return false
 }

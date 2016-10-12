@@ -5,6 +5,9 @@
 package sync
 
 import (
+	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 
 	testutil "bitbucket.org/avd/go-ipc/internal/test"
@@ -13,24 +16,33 @@ import (
 )
 
 const (
-	testProgPath = "./internal/test/sync/"
-	testMemObj   = "go-ipc.sync-test.region"
+	lockerProgPath = "./internal/test/locker/"
+	condProgPath   = "./internal/test/cond/"
+	testMemObj     = "go-ipc.sync-test.region"
 )
 
-var testProgFiles []string
+var (
+	lockerProgFiles []string
+	condProgFiles   []string
+)
 
-func init() {
-	var err error
-	testProgFiles, err = testutil.LocatePackageFiles(testProgPath)
+func locate(path string) []string {
+	files, err := testutil.LocatePackageFiles(path)
 	if err != nil {
 		panic(err)
 	}
-	if len(testProgFiles) == 0 {
-		panic("no files to test mq")
+	if len(files) == 0 {
+		panic("no locker test files")
 	}
-	for i, name := range testProgFiles {
-		testProgFiles[i] = testProgPath + name
+	for i, name := range files {
+		files[i] = path + name
 	}
+	return files
+}
+
+func init() {
+	lockerProgFiles = locate(lockerProgPath)
+	condProgFiles = locate(condProgPath)
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
@@ -54,15 +66,15 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 // Sync test program
 
 func argsForSyncCreateCommand(name, t string) []string {
-	return append(testProgFiles, "-object="+name, "-type="+t, "create")
+	return append(lockerProgFiles, "-object="+name, "-type="+t, "create")
 }
 
 func argsForSyncDestroyCommand(name string) []string {
-	return append(testProgFiles, "-object="+name, "destroy")
+	return append(lockerProgFiles, "-object="+name, "destroy")
 }
 
 func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, logFile string) []string {
-	return append(testProgFiles,
+	return append(lockerProgFiles,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
@@ -74,7 +86,7 @@ func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, lo
 }
 
 func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, data []byte, log string) []string {
-	return append(testProgFiles,
+	return append(lockerProgFiles,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
@@ -84,4 +96,32 @@ func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, dat
 		strconv.Itoa(n),
 		testutil.BytesToString(data),
 	)
+}
+
+func argsForCondSignalCommand(name string) []string {
+	return append(condProgFiles,
+		"signal",
+		name,
+	)
+}
+
+func argsForCondBroadcastCommand(name string) []string {
+	return append(condProgFiles,
+		"broadcast",
+		name,
+	)
+}
+
+func argsForCondWaitCommand(condName, lockerName string) []string {
+	return append(condProgFiles,
+		"wait",
+		condName,
+		lockerName,
+	)
+}
+
+func startPprof() {
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // TestAppResult is a result of a 'go run' program launch
@@ -79,7 +81,6 @@ func runApp(command string, args []string, killChan <-chan bool) (*exec.Cmd, *by
 			}
 		}()
 	}
-	fmt.Printf("started new process [%d]\n", cmd.Process.Pid)
 	return cmd, buff, nil
 }
 
@@ -173,7 +174,7 @@ func LocatePackageFiles(path string) ([]string, error) {
 	}
 	result := waitForCommand(cmd, buff)
 	if result.Err != nil {
-		return nil, result.Err
+		return nil, errors.Wrapf(result.Err, "command error. output is %q", result.Output)
 	}
 	return buildFilesFromOutput(result.Output), nil
 }

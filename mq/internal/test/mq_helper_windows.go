@@ -12,7 +12,7 @@ import (
 func createMqWithType(name string, perm os.FileMode, typ, opt string) (mq.Messenger, error) {
 	switch typ {
 	case "default", "fast":
-		mqSize, msgSize := mq.DefaultLinuxMqMaxSize, mq.DefaultLinuxMqMessageSize
+		mqSize, msgSize := mq.DefaultFastMqMaxSize, mq.DefaultFastMqMessageSize
 		if first, second, err := parseTwoInts(opt); err == nil {
 			mqSize, msgSize = first, second
 		}
