@@ -39,8 +39,8 @@ func argsForFifoDestroyCommand(name string) []string {
 	return []string{fifoProgName, "-object=" + name, "destroy"}
 }
 
-func argsForFifoReadCommand(name string, nonblock bool, lenght int) []string {
-	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "read", fmt.Sprintf("%d", lenght)}
+func argsForFifoReadCommand(name string, nonblock bool, length int) []string {
+	return []string{fifoProgName, "-object=" + name, "-nonblock=" + boolStr(nonblock), "read", fmt.Sprintf("%d", length)}
 }
 
 func argsForFifoTestCommand(name string, nonblock bool, data []byte) []string {

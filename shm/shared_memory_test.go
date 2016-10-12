@@ -53,8 +53,8 @@ func argsForShmDestroyCommand(name, typ string) []string {
 	return append(shmProgFiles, "-object="+name, "-type="+typ, "destroy")
 }
 
-func argsForShmReadCommand(name, typ string, offset int64, lenght int) []string {
-	return append(shmProgFiles, "-object="+name, "-type="+typ, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", lenght))
+func argsForShmReadCommand(name, typ string, offset int64, length int) []string {
+	return append(shmProgFiles, "-object="+name, "-type="+typ, "read", fmt.Sprintf("%d", offset), fmt.Sprintf("%d", length))
 }
 
 func argsForShmTestCommand(name, typ string, offset int64, data []byte) []string {
