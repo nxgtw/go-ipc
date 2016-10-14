@@ -34,8 +34,8 @@ type FutexMutex struct {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error) {
-	if !checkMutexFlags(flag) {
-		return nil, errors.New("invalid open flags")
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
 	}
 	internalName := futexName(name)
 	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(inplaceMutexSize))
@@ -93,7 +93,7 @@ func (f *FutexMutex) Destroy() error {
 	}
 	f.region = nil
 	f.futex = nil
-	return DestroyFutexMutex(futexName(f.name))
+	return DestroyFutexMutex(f.name)
 }
 
 // DestroyFutexMutex permanently removes mutex with the given name.

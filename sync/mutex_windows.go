@@ -28,6 +28,9 @@ type EventMutex struct {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error) {
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
+	}
 	handle, err := openOrCreateEvent(name, flag, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open/create event mutex")

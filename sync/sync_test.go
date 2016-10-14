@@ -18,12 +18,14 @@ import (
 const (
 	lockerProgPath = "./internal/test/locker/"
 	condProgPath   = "./internal/test/cond/"
+	eventProgPath  = "./internal/test/event/"
 	testMemObj     = "go-ipc.sync-test.region"
 )
 
 var (
 	lockerProgFiles []string
 	condProgFiles   []string
+	eventProgFiles  []string
 )
 
 func locate(path string) []string {
@@ -43,6 +45,7 @@ func locate(path string) []string {
 func init() {
 	lockerProgFiles = locate(lockerProgPath)
 	condProgFiles = locate(condProgPath)
+	eventProgFiles = locate(eventProgPath)
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
@@ -63,7 +66,7 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 	return region, nil
 }
 
-// Sync test program
+// Locker test program
 
 func argsForSyncCreateCommand(name, t string) []string {
 	return append(lockerProgFiles, "-object="+name, "-type="+t, "create")
@@ -98,6 +101,8 @@ func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, dat
 	)
 }
 
+// Cond test program
+
 func argsForCondSignalCommand(name string) []string {
 	return append(condProgFiles,
 		"signal",
@@ -117,6 +122,23 @@ func argsForCondWaitCommand(condName, lockerName string) []string {
 		"wait",
 		condName,
 		lockerName,
+	)
+}
+
+// Event test program
+
+func argsForEventSetCommand(name string) []string {
+	return append(eventProgFiles,
+		"set",
+		name,
+	)
+}
+
+func argsForEventWaitCommand(name string, timeoutMS int) []string {
+	return append(eventProgFiles,
+		"-timeout="+strconv.Itoa(timeoutMS),
+		"wait",
+		name,
 	)
 }
 

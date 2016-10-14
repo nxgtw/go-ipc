@@ -2,11 +2,7 @@
 
 package sync
 
-import (
-	"os"
-
-	"github.com/pkg/errors"
-)
+import "os"
 
 // NewMutex creates a new interprocess mutex.
 // It uses the default implementation on the current platform.
@@ -14,9 +10,6 @@ import (
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
-	if !checkMutexFlags(flag) {
-		return nil, errors.Errorf("invalid open flags")
-	}
 	return newMutex(name, flag, perm)
 }
 

@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-//+build linux freebsd windows darwin
-
 package main
 
 import (
@@ -51,6 +49,11 @@ func wait() error {
 			return fmt.Errorf("WaitTimeout returned %v, but expected %v", ok, !*fail)
 		}
 	}
+	if err1, err2 := cond.Close(), l.Close(); err1 != nil {
+		return err1
+	} else if err2 != nil {
+		return err2
+	}
 	return nil
 }
 
@@ -64,6 +67,9 @@ func signal() error {
 		return nil
 	}
 	cond.Signal()
+	if err := cond.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -77,6 +83,9 @@ func broadcast() error {
 		return nil
 	}
 	cond.Broadcast()
+	if err := cond.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 

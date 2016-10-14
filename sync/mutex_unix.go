@@ -20,8 +20,11 @@ type SemaMutex struct {
 	s *Semaphore
 }
 
-// NewSemaMutex creates a new mutex.
+// NewSemaMutex creates a new semaphore-based mutex.
 func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
+	}
 	s, err := NewSemaphore(name, flag, perm, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create a semaphore")

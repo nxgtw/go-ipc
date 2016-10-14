@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	spinImplSize  = int64(unsafe.Sizeof(spinMutex(0)))
 	cSpinUnlocked = 0
 	cSpinLocked   = 1
 )
@@ -69,9 +70,8 @@ type SpinMutex struct {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
-	const spinImplSize = int64(unsafe.Sizeof(spinMutex(0)))
-	if !checkMutexFlags(flag) {
-		return nil, errors.New("invalid open flags")
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
 	}
 	name = spinName(name)
 	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, spinImplSize)
