@@ -261,3 +261,36 @@ func TestFifoNonBlock4(t *testing.T) {
 		fifo.Destroy()
 	}
 }
+
+func ExampleFifo(t *testing.T) {
+	testData := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	go func() {
+		fifo, err := New("fifo", os.O_CREATE|os.O_WRONLY, 0666)
+		if err != nil {
+			// handle fifo error
+			return
+		}
+		if written, err := fifo.Write(testData); err != nil || written != len(testData) {
+			// handle fifo error
+			return
+		}
+		fifo.Close()
+	}()
+	buff := make([]byte, len(testData))
+	fifo, err := New("fifo", os.O_CREATE|os.O_RDONLY, 0666)
+	if err != nil {
+		// handle fifo error
+		return
+	}
+	if read, err := fifo.Read(buff); err != nil || read != len(testData) {
+		// handle fifo error
+		return
+	}
+	fifo.Close()
+	// ensure we've received valid data
+	for i, b := range buff {
+		if b != testData[i] {
+			panic("wrong data")
+		}
+	}
+}
