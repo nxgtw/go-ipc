@@ -288,9 +288,9 @@ func ExampleEvent() {
 		return
 	}
 	go func() {
-		ev.Set()
+		event.Set()
 	}()
-	if ev.WaitTimeout(time.Millisecond * 250) {
+	if event.WaitTimeout(time.Millisecond * 250) {
 		// event has been set
 	} else {
 		// timeout elapsed
