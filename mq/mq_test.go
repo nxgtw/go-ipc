@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux windows
-
 package mq
 
 import (
@@ -273,6 +271,8 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		a.Error(err)
 		if sysErr, ok := err.(syscall.Errno); ok {
 			a.True(sysErr.Temporary())
+		} else {
+			t.Error("non-syscall error", err)
 		}
 		a.Condition(func() bool {
 			return time.Since(now) >= tm

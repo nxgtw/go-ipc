@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux windows
-
 package mq
 
 import (
