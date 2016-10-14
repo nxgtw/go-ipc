@@ -281,3 +281,19 @@ func TestEventWaitAnotherProcess2(t *testing.T) {
 		t.Errorf("timeout")
 	}
 }
+
+func ExampleEvent() {
+	event, err := NewEvent("event", os.O_CREATE|os.O_EXCL, 0666, false)
+	if err != nil {
+		return
+	}
+	go func() {
+		ev.Set()
+	}()
+	if ev.WaitTimeout(time.Millisecond * 250) {
+		// event has been set
+	} else {
+		// timeout elapsed
+	}
+	event.Destroy()
+}
