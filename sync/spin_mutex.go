@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	spinImplSize  = int64(unsafe.Sizeof(spinMutex(0)))
+	spinImplSize  = int(unsafe.Sizeof(spinMutex(0)))
 	cSpinUnlocked = 0
 	cSpinLocked   = 1
 )
@@ -51,7 +51,9 @@ func (spin *spinMutex) lockTimeout(timeout time.Duration) bool {
 }
 
 func (spin *spinMutex) unlock() {
-	atomic.StoreUint32((*uint32)(unsafe.Pointer(spin)), cSpinUnlocked)
+	if !atomic.CompareAndSwapUint32((*uint32)(unsafe.Pointer(spin)), cSpinLocked, cSpinUnlocked) {
+		panic("unlock of unlocked mutex")
+	}
 }
 
 func (spin *spinMutex) tryLock() bool {
@@ -74,30 +76,9 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, err
 	}
 	name = spinName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, spinImplSize)
-	if resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm object")
-	}
-	var region *mmf.MemoryRegion
-	defer func() {
-		obj.Close()
-		if resultErr == nil {
-			return
-		}
-		if region != nil {
-			region.Close()
-		}
-		if created {
-			obj.Destroy()
-		}
-	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm region")
-	}
-	if created {
-		if resultErr = allocator.Alloc(region.Data(), spinMutex(cSpinUnlocked)); resultErr != nil {
-			return nil, errors.Wrap(resultErr, "failed to place mutex instance into shared memory")
-		}
+	region, err := createWritableRegion(name, flag, perm, spinImplSize, spinMutex(cSpinUnlocked))
+	if err != nil {
+		return nil, err
 	}
 	m := (*spinMutex)(allocator.ByteSliceData(region.Data()))
 	impl := &SpinMutex{impl: m, region: region, name: name}
@@ -114,7 +95,7 @@ func (spin *SpinMutex) LockTimeout(timeout time.Duration) bool {
 	return spin.impl.lockTimeout(timeout)
 }
 
-// Unlock releases the mutex.
+// Unlock releases the mutex. It panics, if the mutex is not locked.
 func (spin *SpinMutex) Unlock() {
 	spin.impl.unlock()
 }

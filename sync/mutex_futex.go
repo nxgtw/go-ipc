@@ -6,9 +6,12 @@ package sync
 
 import (
 	"os"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -22,7 +25,7 @@ var (
 
 // FutexMutex is a mutex based on linux futex object.
 type FutexMutex struct {
-	futex  *InplaceMutex
+	futex  *inplaceMutex
 	region *mmf.MemoryRegion
 	name   string
 }
@@ -58,7 +61,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceMutexSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	futex := NewInplaceMutex(allocator.ByteSliceData(region.Data()))
+	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), futexWakeImpl, futexWaitImpl)
 	if created {
 		futex.Init()
 	}
@@ -75,7 +78,7 @@ func (f *FutexMutex) LockTimeout(timeout time.Duration) bool {
 	return f.futex.LockTimeout(timeout)
 }
 
-// Unlock releases the mutex. It panics on an error.
+// Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
 func (f *FutexMutex) Unlock() {
 	f.futex.Unlock()
 }
@@ -107,4 +110,19 @@ func DestroyFutexMutex(name string) error {
 
 func futexName(name string) string {
 	return "go-ipc.futex." + name
+}
+
+func futexWakeImpl(ptr *uint32) {
+	if _, err := FutexWake(unsafe.Pointer(ptr), 1, 0); err != nil {
+		panic(err)
+	}
+}
+
+func futexWaitImpl(ptr *uint32, timeout time.Duration) error {
+	if err := FutexWait(unsafe.Pointer(ptr), cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
+		if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
+			return err
+		}
+	}
+	return nil
 }

@@ -56,3 +56,7 @@ func TestSysvMutexLockTimeout(t *testing.T) {
 func TestSysvMutexLockTimeout2(t *testing.T) {
 	testLockerLockTimeout2(t, "msysv", sysvMutexCtor, sysvMutexDtor)
 }
+
+func TestSysvMutexPanicsOnDoubleUnlock(t *testing.T) {
+	testLockerTwiceUnlock(t, sysvMutexCtor, sysvMutexDtor)
+}

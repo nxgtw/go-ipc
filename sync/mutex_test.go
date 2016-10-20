@@ -54,3 +54,7 @@ func TestMutexLockTimeout(t *testing.T) {
 func TestMutexLockTimeout2(t *testing.T) {
 	testLockerLockTimeout2(t, "m", mutexCtor, mutexDtor)
 }
+
+func TestMutexPanicsOnDoubleUnlock(t *testing.T) {
+	testLockerTwiceUnlock(t, mutexCtor, mutexDtor)
+}
