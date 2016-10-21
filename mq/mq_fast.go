@@ -193,7 +193,6 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 		if timeout >= 0 {
 			if !mq.cond.WaitTimeout(timeout) {
 				if mq.Full() {
-					mq.locker.Unlock()
 					return mqFullError
 				}
 			}
@@ -240,7 +239,7 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 	}
 
 	mq.locker.Lock()
-	// defer is not used due to performance reasons.
+	// defer mq.locker.Unlock() is not used due to performance reasons.
 
 	if mq.Empty() {
 		if mq.flag&O_NONBLOCK != 0 {
@@ -250,7 +249,6 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 		if timeout >= 0 {
 			if !mq.cond.WaitTimeout(timeout) {
 				if mq.Empty() {
-					mq.locker.Unlock()
 					return 0, mqEmptyError
 				}
 			}

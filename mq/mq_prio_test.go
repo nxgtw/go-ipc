@@ -142,7 +142,7 @@ func benchmarkPrioMq1(b *testing.B, ctor prioMqCtor, opener prioMqOpener, dtor m
 	if params.flag&O_NONBLOCK == 0 { // wake up all readers
 		mess := make([]byte, params.msgSize)
 		for i := 0; i < params.readers; i++ {
-			if err := mq.SendPriority(mess, 0); err != nil {
+			if err := mq.SendPriority(mess, 0); err != nil && !IsTemporary(err) {
 				b.Error(err)
 			} else {
 				atomic.AddInt32(&sent, 1)

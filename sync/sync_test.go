@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"reflect"
 	"strconv"
 
 	testutil "bitbucket.org/avd/go-ipc/internal/test"
@@ -23,9 +25,10 @@ const (
 )
 
 var (
-	lockerProgFiles []string
-	condProgFiles   []string
-	eventProgFiles  []string
+	lockerProgArgs   []string
+	condProgArgs     []string
+	eventProgArgs    []string
+	defaultMutexType = "m"
 )
 
 func locate(path string) []string {
@@ -39,13 +42,31 @@ func locate(path string) []string {
 	for i, name := range files {
 		files[i] = path + name
 	}
+	if defaultMutexType == "msysv" {
+		files = append([]string{`-tags="sysv_mutex_linux"`}, files...)
+	}
 	return files
 }
 
+func detectMutexType() {
+	DestroyMutex(testLockerName)
+	m, err := NewMutex(testLockerName, os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	t := reflect.ValueOf(m)
+	if t.Elem().Type().Name() == "SemaMutex" {
+		defaultMutexType = "msysv"
+	}
+	m.Close()
+	DestroyMutex(testLockerName)
+}
+
 func init() {
-	lockerProgFiles = locate(lockerProgPath)
-	condProgFiles = locate(condProgPath)
-	eventProgFiles = locate(eventProgPath)
+	detectMutexType()
+	lockerProgArgs = locate(lockerProgPath)
+	condProgArgs = locate(condProgPath)
+	eventProgArgs = locate(eventProgPath)
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
@@ -69,15 +90,15 @@ func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64)
 // Locker test program
 
 func argsForSyncCreateCommand(name, t string) []string {
-	return append(lockerProgFiles, "-object="+name, "-type="+t, "create")
+	return append(lockerProgArgs, "-object="+name, "-type="+t, "create")
 }
 
 func argsForSyncDestroyCommand(name string) []string {
-	return append(lockerProgFiles, "-object="+name, "destroy")
+	return append(lockerProgArgs, "-object="+name, "destroy")
 }
 
 func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, logFile string) []string {
-	return append(lockerProgFiles,
+	return append(lockerProgArgs,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
@@ -89,7 +110,7 @@ func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, lo
 }
 
 func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, data []byte, log string) []string {
-	return append(lockerProgFiles,
+	return append(lockerProgArgs,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
@@ -104,21 +125,22 @@ func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, dat
 // Cond test program
 
 func argsForCondSignalCommand(name string) []string {
-	return append(condProgFiles,
+	return append(
+		condProgArgs,
 		"signal",
 		name,
 	)
 }
 
 func argsForCondBroadcastCommand(name string) []string {
-	return append(condProgFiles,
+	return append(condProgArgs,
 		"broadcast",
 		name,
 	)
 }
 
 func argsForCondWaitCommand(condName, lockerName string) []string {
-	return append(condProgFiles,
+	return append(condProgArgs,
 		"wait",
 		condName,
 		lockerName,
@@ -128,14 +150,14 @@ func argsForCondWaitCommand(condName, lockerName string) []string {
 // Event test program
 
 func argsForEventSetCommand(name string) []string {
-	return append(eventProgFiles,
+	return append(eventProgArgs,
 		"set",
 		name,
 	)
 }
 
 func argsForEventWaitCommand(name string, timeoutMS int) []string {
-	return append(eventProgFiles,
+	return append(eventProgArgs,
 		"-timeout="+strconv.Itoa(timeoutMS),
 		"wait",
 		name,
