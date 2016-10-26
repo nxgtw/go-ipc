@@ -17,3 +17,7 @@ func NewMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
 func DestroyMutex(name string) error {
 	return destroyMutex(name)
 }
+
+func mutexSharedStateName(name, typ string) string {
+	return "goipc.sms." + typ + "." + name
+}

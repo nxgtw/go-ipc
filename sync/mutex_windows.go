@@ -6,6 +6,9 @@ import (
 	"os"
 	"time"
 
+	"bitbucket.org/avd/go-ipc/mmf"
+	"bitbucket.org/avd/go-ipc/shm"
+
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
@@ -20,7 +23,10 @@ var (
 // goroutines migrate between threads, and windows mutex must
 // be released by the same thread it was locked.
 type EventMutex struct {
-	handle windows.Handle
+	handle  windows.Handle
+	state   *mmf.MemoryRegion
+	name    string
+	inplace *inplaceMutex
 }
 
 // NewEventMutex creates a new event-basedmutex.
@@ -31,11 +37,25 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, inplaceMutexSize, cInplaceMutexUnlocked)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
+	}
 	handle, err := openOrCreateEvent(name, flag, 1)
 	if err != nil {
+		region.Close()
+		if created {
+			shm.DestroyMemoryObject(mutexSharedStateName(name, "e"))
+		}
 		return nil, errors.Wrap(err, "failed to open/create event mutex")
 	}
-	return &EventMutex{handle: handle}, nil
+	result := &EventMutex{
+		handle: handle,
+		state:  region,
+		name:   name,
+	}
+	//	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), result.wake, result.wait)
+	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
@@ -77,11 +97,12 @@ func (m *EventMutex) Unlock() {
 
 // Close closes event's handle.
 func (m *EventMutex) Close() error {
+	m.Close()
 	return windows.CloseHandle(m.handle)
 }
 
-// DestroyEventMutex is a no-op on windows, as the mutex is destroyed,
-// when its last handle is closed.
+// DestroyEventMutex destroys shared mutex state.
+// The event object is destroyed, when its last handle is closed.
 func DestroyEventMutex(name string) error {
-	return nil
+	return shm.DestroyMemoryObject(mutexSharedStateName(name, "e"))
 }

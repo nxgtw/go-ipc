@@ -32,13 +32,17 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	s, err := NewSemaphore(name, flag, perm, 1)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create a semaphore")
-	}
-	region, err := createWritableRegion(semaMutexSharedStateName(name), flag, perm, inplaceMutexSize, cInplaceMutexUnlocked)
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, inplaceMutexSize, cInplaceMutexUnlocked)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
+	}
+	s, err := NewSemaphore(name, flag, perm, 1)
+	if err != nil {
+		region.Close()
+		if created {
+			shm.DestroyMemoryObject(mutexSharedStateName(name, "s"))
+		}
+		return nil, errors.Wrap(err, "failed to create a semaphore")
 	}
 	result := &SemaMutex{
 		s:     s,
@@ -59,17 +63,6 @@ func (m *SemaMutex) Unlock() {
 	m.inplace.Unlock()
 }
 
-func (m *SemaMutex) wake(ptr *uint32) {
-	if err := m.s.Add(1); err != nil {
-		panic(err)
-	}
-}
-
-/*
-func (m *SemaMutex) wait(ptr *uint32, timeout time.Duration) error {
-	return m.s.Add(-1)
-}*/
-
 // Close closes shared state of the mutex.
 func (m *SemaMutex) Close() error {
 	return m.state.Close()
@@ -80,23 +73,25 @@ func (m *SemaMutex) Destroy() error {
 	if err := m.Close(); err != nil {
 		return errors.Wrap(err, "failed to close shared state")
 	}
-	if err := shm.DestroyMemoryObject(semaMutexSharedStateName(m.name)); err != nil {
+	if err := shm.DestroyMemoryObject(mutexSharedStateName(m.name, "s")); err != nil {
 		return errors.Wrap(err, "failed to destroy shared state")
 	}
 	return m.s.Destroy()
 }
 
+func (m *SemaMutex) wake(ptr *uint32) {
+	if err := m.s.Add(1); err != nil {
+		panic(err)
+	}
+}
+
 // DestroySemaMutex permanently removes mutex with the given name.
 func DestroySemaMutex(name string) error {
-	if err := shm.DestroyMemoryObject(semaMutexSharedStateName(name)); err != nil {
+	if err := shm.DestroyMemoryObject(mutexSharedStateName(name, "s")); err != nil {
 		return errors.Wrap(err, "failed to destroy shared state")
 	}
 	if err := DestroySemaphore(name); err != nil && !os.IsNotExist(errors.Cause(err)) {
 		return err
 	}
 	return nil
-}
-
-func semaMutexSharedStateName(name string) string {
-	return "go-ipc.ssema" + name
 }

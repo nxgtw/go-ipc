@@ -76,7 +76,7 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, err
 	}
 	name = spinName(name)
-	region, err := createWritableRegion(name, flag, perm, spinImplSize, spinMutex(cSpinUnlocked))
+	region, _, err := createWritableRegion(name, flag, perm, spinImplSize, spinMutex(cSpinUnlocked))
 	if err != nil {
 		return nil, err
 	}

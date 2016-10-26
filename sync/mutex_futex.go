@@ -40,8 +40,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	internalName := futexName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(inplaceMutexSize))
+	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(inplaceMutexSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -101,15 +100,11 @@ func (f *FutexMutex) Destroy() error {
 
 // DestroyFutexMutex permanently removes mutex with the given name.
 func DestroyFutexMutex(name string) error {
-	err := shm.DestroyMemoryObject(futexName(name))
+	err := shm.DestroyMemoryObject(mutexSharedStateName(name, "f"))
 	if err != nil {
 		return errors.Wrap(err, "failed to destroy memory object")
 	}
 	return nil
-}
-
-func futexName(name string) string {
-	return "go-ipc.futex." + name
 }
 
 func futexWakeImpl(ptr *uint32) {

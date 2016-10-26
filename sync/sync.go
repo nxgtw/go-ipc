@@ -37,10 +37,10 @@ func ensureOpenFlags(flags int) error {
 	return nil
 }
 
-func createWritableRegion(name string, flag int, perm os.FileMode, size int, init interface{}) (*mmf.MemoryRegion, error) {
+func createWritableRegion(name string, flag int, perm os.FileMode, size int, init interface{}) (*mmf.MemoryRegion, bool, error) {
 	obj, created, resultErr := shm.NewMemoryObjectSize(name, flag, perm, int64(size))
 	if resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm object")
+		return nil, false, errors.Wrap(resultErr, "failed to create shm object")
 	}
 	var region *mmf.MemoryRegion
 	defer func() {
@@ -56,12 +56,12 @@ func createWritableRegion(name string, flag int, perm os.FileMode, size int, ini
 		}
 	}()
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, size); resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm region")
+		return nil, false, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	if created && init != nil {
 		if resultErr = allocator.Alloc(region.Data(), init); resultErr != nil {
-			return nil, errors.Wrap(resultErr, "failed to place object into shared memory")
+			return nil, false, errors.Wrap(resultErr, "failed to place an object into shared memory")
 		}
 	}
-	return region, nil
+	return region, created, nil
 }

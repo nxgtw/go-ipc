@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build linux,amd64
-
 package sync
 
 import (
@@ -12,6 +10,7 @@ import (
 
 // AddTimeout add the given value to the semaphore's value.
 // If the operation locks, it waits for not more, than timeout.
+// This call is supported on linux only.
 func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
 	f := func(curTimeout time.Duration) error {
 		b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
@@ -21,6 +20,7 @@ func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
+// This call is supported on linux only.
 func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
 	err := m.inplace.lockTimeout(timeout)
 	if err == nil {

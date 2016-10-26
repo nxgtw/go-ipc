@@ -11,6 +11,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	cSemUndo = 0x1000
+)
+
+type sembuf struct {
+	semnum uint16
+	semop  int16
+	semflg int16
+}
+
 // Semaphore is a sysV semaphore.
 type Semaphore struct {
 	name string
