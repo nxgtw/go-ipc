@@ -28,20 +28,23 @@ var (
 	_ sync.Locker = (*inplaceMutex)(nil)
 )
 
-type wakeFunc func(ptr *uint32)
-type waitFunc func(ptr *uint32, timeout time.Duration) error
+type waitWaker interface {
+	set(ptr *uint32)
+	wake()
+	wait(timeout time.Duration) error
+}
 
 // inplaceMutex is a mutex, which can be placed into a shared memory region.
 type inplaceMutex struct {
-	ptr      *uint32
-	wakeImpl wakeFunc
-	waitImpl waitFunc
+	ptr *uint32
+	ww  waitWaker
 }
 
 // NewinplaceMutex creates a new mutex based on a memory location.
 //	ptr - memory location for the state.
-func newInplaceMutex(ptr unsafe.Pointer, wake wakeFunc, wait waitFunc) *inplaceMutex {
-	return &inplaceMutex{ptr: (*uint32)(ptr), wakeImpl: wake, waitImpl: wait}
+func newInplaceMutex(ptr unsafe.Pointer, ww waitWaker) *inplaceMutex {
+	ww.set((*uint32)(ptr))
+	return &inplaceMutex{ptr: (*uint32)(ptr), ww: ww}
 }
 
 // Init writes initial value into futex's memory location.
@@ -93,7 +96,7 @@ func (im *inplaceMutex) Unlock() {
 		}
 		runtime.Gosched()
 	}
-	im.wakeImpl(im.ptr)
+	im.ww.wake()
 }
 
 func (im *inplaceMutex) lockTimeout(timeout time.Duration) error {
@@ -108,19 +111,10 @@ func (im *inplaceMutex) lockTimeout(timeout time.Duration) error {
 		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
 	}
 	for old != cInplaceMutexUnlocked {
-		if err := im.waitImpl(im.ptr, timeout); err != nil {
+		if err := im.ww.wait(timeout); err != nil {
 			return err
 		}
 		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
 	}
-	return nil
-}
-
-func defaultWake(ptr *uint32) {
-
-}
-
-func defaultWait(ptr *uint32, timeout time.Duration) error {
-	runtime.Gosched()
 	return nil
 }

@@ -33,6 +33,10 @@ func (w *inplaceWaiter) add(value int) {
 	atomic.AddUint32(w.addr(), uint32(value))
 }
 
+func (w *inplaceWaiter) set(value int) {
+	atomic.StoreUint32(w.addr(), uint32(value))
+}
+
 func (w *inplaceWaiter) wait(value uint32, timeout time.Duration) error {
 	err := FutexWait(unsafe.Pointer(w), value, timeout, 0)
 	if common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {

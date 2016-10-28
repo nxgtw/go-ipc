@@ -32,6 +32,24 @@ func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
 	panic(err)
 }
 
-func (m *SemaMutex) wait(ptr *uint32, timeout time.Duration) error {
-	return m.s.AddTimeout(-1, timeout)
+type semaTimedWaiter struct {
+	s *Semaphore
+}
+
+func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
+	return &semaTimedWaiter{s: s}
+}
+
+func (sw *semaTimedWaiter) set(*uint32) {
+
+}
+
+func (sw *semaTimedWaiter) wake() {
+	if err := sw.s.Add(1); err != nil {
+		panic(err)
+	}
+}
+
+func (sw *semaTimedWaiter) wait(timeout time.Duration) error {
+	return sw.s.AddTimeout(-1, timeout)
 }

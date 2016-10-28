@@ -49,7 +49,7 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 		state: region,
 		name:  name,
 	}
-	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), result.wake, result.wait)
+	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), newSemaWaiter(s))
 	return result, nil
 }
 
@@ -77,12 +77,6 @@ func (m *SemaMutex) Destroy() error {
 		return errors.Wrap(err, "failed to destroy shared state")
 	}
 	return m.s.Destroy()
-}
-
-func (m *SemaMutex) wake(ptr *uint32) {
-	if err := m.s.Add(1); err != nil {
-		panic(err)
-	}
 }
 
 // DestroySemaMutex permanently removes mutex with the given name.

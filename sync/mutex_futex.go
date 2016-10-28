@@ -60,7 +60,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceMutexSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), futexWakeImpl, futexWaitImpl)
+	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), new(futexWaiter))
 	if created {
 		futex.Init()
 	}
@@ -107,14 +107,22 @@ func DestroyFutexMutex(name string) error {
 	return nil
 }
 
-func futexWakeImpl(ptr *uint32) {
-	if _, err := FutexWake(unsafe.Pointer(ptr), 1, 0); err != nil {
+type futexWaiter struct {
+	ptr *uint32
+}
+
+func (fw *futexWaiter) set(ptr *uint32) {
+	fw.ptr = ptr
+}
+
+func (fw *futexWaiter) wake() {
+	if _, err := FutexWake(unsafe.Pointer(fw.ptr), 1, 0); err != nil {
 		panic(err)
 	}
 }
 
-func futexWaitImpl(ptr *uint32, timeout time.Duration) error {
-	if err := FutexWait(unsafe.Pointer(ptr), cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
+func (fw *futexWaiter) wait(timeout time.Duration) error {
+	if err := FutexWait(unsafe.Pointer(fw.ptr), cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
 		if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
 			return err
 		}

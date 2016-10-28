@@ -6,6 +6,24 @@ package sync
 
 import "time"
 
-func (m *SemaMutex) wait(ptr *uint32, timeout time.Duration) error {
-	return m.s.Add(-1)
+type semaWaiter struct {
+	s *Semaphore
+}
+
+func newSemaWaiter(s *Semaphore) *semaWaiter {
+	return &semaWaiter{s: s}
+}
+
+func (sw *semaWaiter) set(*uint32) {
+
+}
+
+func (sw *semaWaiter) wake() {
+	if err := sw.s.Add(1); err != nil {
+		panic(err)
+	}
+}
+
+func (sw *semaWaiter) wait(timeout time.Duration) error {
+	return sw.s.Add(-1)
 }

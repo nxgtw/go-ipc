@@ -66,14 +66,7 @@ func (e *event) set() {
 }
 
 func (e *event) wait() {
-	for {
-		if atomic.CompareAndSwapUint32(e.waiter.addr(), 1, 0) {
-			return
-		}
-		if err := e.waiter.wait(0, time.Duration(-1)); err != nil {
-			panic(err)
-		}
-	}
+	e.waitTimeout(-1)
 }
 
 func (e *event) waitTimeout(timeout time.Duration) bool {

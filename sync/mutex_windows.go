@@ -4,8 +4,11 @@ package sync
 
 import (
 	"os"
+	"syscall"
 	"time"
 
+	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -15,7 +18,8 @@ import (
 
 // all implementations must satisfy IPCLocker interface.
 var (
-	_ IPCLocker = (*EventMutex)(nil)
+	_          IPCLocker = (*EventMutex)(nil)
+	timeoutErr           = os.NewSyscallError("WaitForSingleObject", syscall.Errno(common.ERROR_TIMEOUT))
 )
 
 // EventMutex is a mutex built on named windows events.
@@ -54,31 +58,55 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 		state:  region,
 		name:   name,
 	}
-	//	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), result.wake, result.wait)
+	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), result.wake, result.wait)
 	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (m *EventMutex) Lock() {
-	ev, err := windows.WaitForSingleObject(m.handle, windows.INFINITE)
-	if ev != windows.WAIT_OBJECT_0 {
-		if err != nil {
-			panic(err)
-		} else {
-			panic(errors.Errorf("invalid wait state for a mutex: %d", ev))
-		}
-	}
+	m.inplace.Lock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
-	waitMillis := uint32(timeout.Nanoseconds() / 1e6)
+	err := m.inplace.lockTimeout(timeout)
+	if err == nil {
+		return true
+	}
+	if err == timeoutErr {
+		return false
+	}
+	panic(err)
+}
+
+// Unlock releases the mutex. It panics on an error.
+func (m *EventMutex) Unlock() {
+	m.inplace.Unlock()
+}
+
+// Close closes event's handle.
+func (m *EventMutex) Close() error {
+	m.Close()
+	return windows.CloseHandle(m.handle)
+}
+
+func (m *EventMutex) wake(ptr *uint32) {
+	if err := windows.SetEvent(m.handle); err != nil {
+		panic("failed to unlock mutex: " + err.Error())
+	}
+}
+
+func (m *EventMutex) wait(ptr *uint32, timeout time.Duration) error {
+	waitMillis := uint32(windows.INFINITE)
+	if timeout >= 0 {
+		waitMillis = uint32(timeout.Nanoseconds() / 1e6)
+	}
 	ev, err := windows.WaitForSingleObject(m.handle, waitMillis)
 	switch ev {
 	case windows.WAIT_OBJECT_0:
-		return true
+		return nil
 	case windows.WAIT_TIMEOUT:
-		return false
+		return timeoutErr
 	default:
 		if err != nil {
 			panic(err)
@@ -86,19 +114,6 @@ func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
 			panic(errors.Errorf("invalid wait state for a mutex: %d", ev))
 		}
 	}
-}
-
-// Unlock releases the mutex. It panics on an error.
-func (m *EventMutex) Unlock() {
-	if err := windows.SetEvent(m.handle); err != nil {
-		panic("failed to unlock mutex: " + err.Error())
-	}
-}
-
-// Close closes event's handle.
-func (m *EventMutex) Close() error {
-	m.Close()
-	return windows.CloseHandle(m.handle)
 }
 
 // DestroyEventMutex destroys shared mutex state.

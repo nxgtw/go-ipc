@@ -6,6 +6,8 @@ package sync
 
 import (
 	"os"
+	"runtime"
+	"sync/atomic"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -17,7 +19,7 @@ import (
 type event struct {
 	name   string
 	region *mmf.MemoryRegion
-	spin   *spinMutex
+	waiter *uint32
 }
 
 func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, error) {
@@ -25,7 +27,7 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 		return nil, err
 	}
 	internalName := eventName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, spinImplSize)
+	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, 4)
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -45,26 +47,36 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	spin := (*spinMutex)(allocator.ByteSliceData(region.Data()))
-	if created {
-		spin.unlock()
-		if !initial {
-			spin.lock()
-		}
+	waiter := (*uint32)(allocator.ByteSliceData(region.Data()))
+	if created && initial {
+		*waiter = 1
 	}
-	return &event{spin: spin, name: name, region: region}, nil
+	return &event{waiter: waiter, name: name, region: region}, nil
 }
 
 func (e *event) set() {
-	e.spin.unlock()
+	atomic.StoreUint32(e.waiter, 1)
 }
 
 func (e *event) wait() {
-	e.spin.lock()
+	for !atomic.CompareAndSwapUint32(e.waiter, 1, 0) {
+		runtime.Gosched()
+	}
 }
 
 func (e *event) waitTimeout(timeout time.Duration) bool {
-	return e.spin.lockTimeout(timeout)
+	var attempt uint64
+	start := time.Now()
+	for !atomic.CompareAndSwapUint32(e.waiter, 1, 0) {
+		runtime.Gosched()
+		if attempt%1000 == 0 { // do not call time.Since too often.
+			if timeout >= 0 && time.Since(start) >= timeout {
+				return false
+			}
+		}
+		attempt++
+	}
+	return true
 }
 
 func (e *event) close() error {
@@ -73,7 +85,7 @@ func (e *event) close() error {
 	}
 	err := e.region.Close()
 	e.region = nil
-	e.spin = nil
+	e.waiter = nil
 	return err
 }
 
