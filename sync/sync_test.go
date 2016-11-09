@@ -139,9 +139,10 @@ func argsForCondBroadcastCommand(name string) []string {
 	)
 }
 
-func argsForCondWaitCommand(condName, lockerName string) []string {
+func argsForCondWaitCommand(condName, lockerName, waitEvent string) []string {
 	return append(condProgArgs,
 		"wait",
+		waitEvent,
 		condName,
 		lockerName,
 	)

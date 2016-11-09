@@ -33,14 +33,19 @@ func makeCond(condName, lockerName string) (cond *sync.Cond, l sync.IPCLocker, e
 }
 
 func wait() error {
-	if flag.NArg() != 3 {
+	if flag.NArg() != 4 {
 		return fmt.Errorf("wait: must provide cond and locker name only")
 	}
-	cond, l, err := makeCond(flag.Arg(1), flag.Arg(2))
+	ev, err := sync.NewEvent(flag.Arg(1), 0, 0666, false)
+	if err != nil {
+		return err
+	}
+	cond, l, err := makeCond(flag.Arg(2), flag.Arg(3))
 	if err != nil {
 		return err
 	}
 	l.Lock()
+	ev.Set()
 	if *timeout < 0 {
 		cond.Wait()
 	} else {

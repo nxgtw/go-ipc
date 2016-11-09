@@ -81,7 +81,7 @@ func (s *Semaphore) Add(value int) error {
 
 // Destroy removes the semaphore permanently.
 func (s *Semaphore) Destroy() error {
-	return removeSemaById(s.id, s.name)
+	return removeSemaByID(s.id, s.name)
 }
 
 // DestroySemaphore permanently removes semaphore with the given name.
@@ -90,14 +90,14 @@ func DestroySemaphore(name string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get a key for the name")
 	}
-	id, err := semget(common.Key(k), 1, 0)
+	id, err := semget(k, 1, 0)
 	if err != nil {
 		return errors.Wrap(err, "failed to get semaphore id")
 	}
-	return removeSemaById(id, name)
+	return removeSemaByID(id, name)
 }
 
-func removeSemaById(id int, name string) error {
+func removeSemaByID(id int, name string) error {
 	err := semctl(id, 0, common.IpcRmid)
 	if err == nil && len(name) > 0 {
 		if err = os.Remove(common.TmpFilename(name)); os.IsNotExist(err) {

@@ -58,30 +58,26 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 		state:  region,
 		name:   name,
 	}
-	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), result.wake, result.wait)
+	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), &eventWaiter{handle: handle})
+	if created {
+		result.inplace.init()
+	}
 	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (m *EventMutex) Lock() {
-	m.inplace.Lock()
+	m.inplace.lock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
-	err := m.inplace.lockTimeout(timeout)
-	if err == nil {
-		return true
-	}
-	if err == timeoutErr {
-		return false
-	}
-	panic(err)
+	return m.inplace.lockTimeout(timeout)
 }
 
 // Unlock releases the mutex. It panics on an error.
 func (m *EventMutex) Unlock() {
-	m.inplace.Unlock()
+	m.inplace.unlock()
 }
 
 // Close closes event's handle.
@@ -90,18 +86,28 @@ func (m *EventMutex) Close() error {
 	return windows.CloseHandle(m.handle)
 }
 
-func (m *EventMutex) wake(ptr *uint32) {
-	if err := windows.SetEvent(m.handle); err != nil {
+// DestroyEventMutex destroys shared mutex state.
+// The event object is destroyed, when its last handle is closed.
+func DestroyEventMutex(name string) error {
+	return shm.DestroyMemoryObject(mutexSharedStateName(name, "e"))
+}
+
+type eventWaiter struct {
+	handle windows.Handle
+}
+
+func (e *eventWaiter) wake() {
+	if err := windows.SetEvent(e.handle); err != nil {
 		panic("failed to unlock mutex: " + err.Error())
 	}
 }
 
-func (m *EventMutex) wait(ptr *uint32, timeout time.Duration) error {
+func (e *eventWaiter) wait(timeout time.Duration) error {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		waitMillis = uint32(timeout.Nanoseconds() / 1e6)
 	}
-	ev, err := windows.WaitForSingleObject(m.handle, waitMillis)
+	ev, err := windows.WaitForSingleObject(e.handle, waitMillis)
 	switch ev {
 	case windows.WAIT_OBJECT_0:
 		return nil
@@ -114,10 +120,4 @@ func (m *EventMutex) wait(ptr *uint32, timeout time.Duration) error {
 			panic(errors.Errorf("invalid wait state for a mutex: %d", ev))
 		}
 	}
-}
-
-// DestroyEventMutex destroys shared mutex state.
-// The event object is destroyed, when its last handle is closed.
-func DestroyEventMutex(name string) error {
-	return shm.DestroyMemoryObject(mutexSharedStateName(name, "e"))
 }

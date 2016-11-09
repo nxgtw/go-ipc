@@ -50,7 +50,7 @@ func (e *Event) Destroy() error {
 	return (*event)(e).destroy()
 }
 
-// Destroy permanently destroys an event with the given name.
+// DestroyEvent permanently destroys an event with the given name.
 func DestroyEvent(name string) error {
 	return destroyEvent(name)
 }

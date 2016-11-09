@@ -60,26 +60,28 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceMutexSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), new(futexWaiter))
+	fw := new(futexWaiter)
+	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), fw)
+	fw.ptr = unsafe.Pointer(futex.ptr)
 	if created {
-		futex.Init()
+		futex.init()
 	}
 	return &FutexMutex{futex: futex, name: name, region: region}, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (f *FutexMutex) Lock() {
-	f.futex.Lock()
+	f.futex.lock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 func (f *FutexMutex) LockTimeout(timeout time.Duration) bool {
-	return f.futex.LockTimeout(timeout)
+	return f.futex.lockTimeout(timeout)
 }
 
 // Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
 func (f *FutexMutex) Unlock() {
-	f.futex.Unlock()
+	f.futex.unlock()
 }
 
 // Close indicates, that the object is no longer in use,
@@ -108,21 +110,17 @@ func DestroyFutexMutex(name string) error {
 }
 
 type futexWaiter struct {
-	ptr *uint32
-}
-
-func (fw *futexWaiter) set(ptr *uint32) {
-	fw.ptr = ptr
+	ptr unsafe.Pointer
 }
 
 func (fw *futexWaiter) wake() {
-	if _, err := FutexWake(unsafe.Pointer(fw.ptr), 1, 0); err != nil {
+	if _, err := FutexWake(fw.ptr, 1, 0); err != nil {
 		panic(err)
 	}
 }
 
 func (fw *futexWaiter) wait(timeout time.Duration) error {
-	if err := FutexWait(unsafe.Pointer(fw.ptr), cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
+	if err := FutexWait(fw.ptr, cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
 		if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
 			return err
 		}

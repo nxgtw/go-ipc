@@ -87,7 +87,7 @@ func TestCondBroadcast(t *testing.T) {
 		}()
 	}
 	wg1.Wait()
-	time.Sleep(time.Millisecond * 1000)
+	time.Sleep(time.Millisecond * 250)
 	cond.Broadcast()
 	wg2.Wait()
 }
@@ -161,17 +161,30 @@ func TestCondBroadcastAnotherProcess(t *testing.T) {
 }
 
 func TestCondWaitAnotherProcess(t *testing.T) {
+	const waitEvent = "condWaitEvent"
 	a := assert.New(t)
+	if !a.NoError(DestroyEvent(waitEvent)) {
+		return
+	}
 	cond, l, err := makeTestCond(a)
 	if err != nil {
 		return
 	}
 	defer destroyTestCond(a, cond, l)
-	args := argsForCondWaitCommand(testCondName, testCondMutName)
+	ev, err := NewEvent(waitEvent, os.O_CREATE|os.O_EXCL, 0666, true)
+	if a.NoError(err) {
+		return
+	}
+	defer func() {
+		a.NoError(ev.Destroy())
+	}()
+	args := argsForCondWaitCommand(testCondName, testCondMutName, waitEvent)
 	killCh := make(chan bool, 1)
 	ch := testutil.RunTestAppAsync(args, nil)
-	// TODO(avd) - don't use sleep.
-	time.Sleep(time.Second * 3)
+	if !a.True(ev.WaitTimeout(time.Second*3), "wait event was not set") {
+		return
+	}
+	time.Sleep(time.Millisecond * 100)
 	cond.Signal()
 	select {
 	case res := <-ch:

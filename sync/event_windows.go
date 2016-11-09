@@ -36,18 +36,14 @@ func (e *event) set() {
 }
 
 func (e *event) wait() {
-	ev, err := windows.WaitForSingleObject(e.handle, windows.INFINITE)
-	if ev != windows.WAIT_OBJECT_0 {
-		if err != nil {
-			panic(err)
-		} else {
-			panic(errors.Errorf("invalid wait state for an event: %d", ev))
-		}
-	}
+	e.waitTimeout(-1)
 }
 
 func (e *event) waitTimeout(timeout time.Duration) bool {
-	waitMillis := uint32(timeout.Nanoseconds() / 1e6)
+	waitMillis := uint32(windows.INFINITE)
+	if timeout >= 0 {
+		waitMillis = uint32(timeout.Nanoseconds() / 1e6)
+	}
 	ev, err := windows.WaitForSingleObject(e.handle, waitMillis)
 	switch ev {
 	case windows.WAIT_OBJECT_0:

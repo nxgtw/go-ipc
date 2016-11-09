@@ -22,14 +22,7 @@ func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 // This call is supported on linux only.
 func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
-	err := m.inplace.lockTimeout(timeout)
-	if err == nil {
-		return true
-	}
-	if common.IsTimeoutErr(err) {
-		return false
-	}
-	panic(err)
+	return m.inplace.lockTimeout(timeout)
 }
 
 type semaTimedWaiter struct {
@@ -38,10 +31,6 @@ type semaTimedWaiter struct {
 
 func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
 	return &semaTimedWaiter{s: s}
-}
-
-func (sw *semaTimedWaiter) set(*uint32) {
-
 }
 
 func (sw *semaTimedWaiter) wake() {

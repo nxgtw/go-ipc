@@ -4,7 +4,6 @@ package sync
 
 import (
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -23,50 +22,41 @@ const (
 	inplaceMutexSize = int(unsafe.Sizeof(inplaceMutex{}))
 )
 
-// inplaceMutex must implement sync.Locker on all platforms.
-var (
-	_ sync.Locker = (*inplaceMutex)(nil)
-)
-
+// waitWaker is an object, which implements wake/wait semantics.
 type waitWaker interface {
-	set(ptr *uint32)
 	wake()
 	wait(timeout time.Duration) error
 }
 
-// inplaceMutex is a mutex, which can be placed into a shared memory region.
+// inplaceMutex is a mutex implementation operating on a uint32 memory cell.
+// it tries to minimize amount of syscalls needed to do locking.
+// actual sleeping must be implemented by a waitWaker object.
 type inplaceMutex struct {
 	ptr *uint32
 	ww  waitWaker
 }
 
-// NewinplaceMutex creates a new mutex based on a memory location.
-//	ptr - memory location for the state.
 func newInplaceMutex(ptr unsafe.Pointer, ww waitWaker) *inplaceMutex {
-	ww.set((*uint32)(ptr))
 	return &inplaceMutex{ptr: (*uint32)(ptr), ww: ww}
 }
 
-// Init writes initial value into futex's memory location.
-func (im *inplaceMutex) Init() {
+// init writes initial value into mutex's memory location.
+func (im *inplaceMutex) init() {
 	*im.ptr = cInplaceMutexUnlocked
 }
 
-// Lock locks the locker.
-func (im *inplaceMutex) Lock() {
-	if err := im.lockTimeout(-1); err != nil {
+func (im *inplaceMutex) lock() {
+	if err := im.doLock(-1); err != nil {
 		panic(err)
 	}
 }
 
-// TryLock tries to lock the locker. Return true, if it was locked.
-func (im *inplaceMutex) TryLock() bool {
+func (im *inplaceMutex) tryLock() bool {
 	return atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters)
 }
 
-// LockTimeout tries to lock the locker, waiting for not more, than timeout.
-func (im *inplaceMutex) LockTimeout(timeout time.Duration) bool {
-	err := im.lockTimeout(timeout)
+func (im *inplaceMutex) lockTimeout(timeout time.Duration) bool {
+	err := im.doLock(timeout)
 	if err == nil {
 		return true
 	}
@@ -76,8 +66,27 @@ func (im *inplaceMutex) LockTimeout(timeout time.Duration) bool {
 	panic(err)
 }
 
-// Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
-func (im *inplaceMutex) Unlock() {
+func (im *inplaceMutex) doLock(timeout time.Duration) error {
+	for i := 0; i < cInplaceSpinCount; i++ {
+		if atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters) {
+			return nil
+		}
+		runtime.Gosched()
+	}
+	old := atomic.LoadUint32(im.ptr)
+	if old != cInplaceMutexLockedHaveWaiters {
+		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
+	}
+	for old != cInplaceMutexUnlocked {
+		if err := im.ww.wait(timeout); err != nil {
+			return err
+		}
+		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
+	}
+	return nil
+}
+
+func (im *inplaceMutex) unlock() {
 	if old := atomic.LoadUint32(im.ptr); old == cInplaceMutexLockedHaveWaiters {
 		*im.ptr = cInplaceMutexUnlocked
 	} else {
@@ -97,24 +106,4 @@ func (im *inplaceMutex) Unlock() {
 		runtime.Gosched()
 	}
 	im.ww.wake()
-}
-
-func (im *inplaceMutex) lockTimeout(timeout time.Duration) error {
-	for i := 0; i < cInplaceSpinCount; i++ {
-		if atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters) {
-			return nil
-		}
-		runtime.Gosched()
-	}
-	old := atomic.LoadUint32(im.ptr)
-	if old != cInplaceMutexLockedHaveWaiters {
-		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
-	}
-	for old != cInplaceMutexUnlocked {
-		if err := im.ww.wait(timeout); err != nil {
-			return err
-		}
-		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
-	}
-	return nil
 }

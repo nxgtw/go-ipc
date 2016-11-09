@@ -55,12 +55,12 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 
 // Lock locks the mutex. It panics on an error.
 func (m *SemaMutex) Lock() {
-	m.inplace.Lock()
+	m.inplace.lock()
 }
 
 // Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
 func (m *SemaMutex) Unlock() {
-	m.inplace.Unlock()
+	m.inplace.unlock()
 }
 
 // Close closes shared state of the mutex.
