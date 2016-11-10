@@ -46,3 +46,7 @@ func TestSpinMutexMemory(t *testing.T) {
 func TestSpinMutexValueInc(t *testing.T) {
 	testLockerValueInc(t, "spin", spinCtor, spinDtor)
 }
+
+func TestSpinMutexPanicsOnDoubleUnlock(t *testing.T) {
+	testLockerTwiceUnlock(t, spinCtor, spinDtor)
+}

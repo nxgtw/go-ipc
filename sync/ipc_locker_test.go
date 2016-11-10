@@ -385,3 +385,23 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 		t.Error("failed to lock timed mutex")
 	}
 }
+
+func testLockerTwiceUnlock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(t)
+	if !a.NoError(dtor(testLockerName)) {
+		return
+	}
+	m, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer func() {
+		a.NoError(m.Close())
+	}()
+	defer dtor(testLockerName)
+	m.Lock()
+	m.Unlock()
+	a.Panics(func() {
+		m.Unlock()
+	})
+}

@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build linux,amd64
-
 package sync
 
 import (
@@ -12,7 +10,8 @@ import (
 
 // AddTimeout add the given value to the semaphore's value.
 // If the operation locks, it waits for not more, than timeout.
-func (s *Semaphore) AddTimeout(timeout time.Duration, value int) error {
+// This call is supported on linux only.
+func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
 	f := func(curTimeout time.Duration) error {
 		b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
 		return semtimedop(s.id, []sembuf{b}, common.TimeoutToTimeSpec(curTimeout))
@@ -21,13 +20,25 @@ func (s *Semaphore) AddTimeout(timeout time.Duration, value int) error {
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
+// This call is supported on linux only.
 func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
-	err := m.s.AddTimeout(timeout, -1)
-	if err == nil {
-		return true
+	return m.inplace.lockTimeout(timeout)
+}
+
+type semaTimedWaiter struct {
+	s *Semaphore
+}
+
+func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
+	return &semaTimedWaiter{s: s}
+}
+
+func (sw *semaTimedWaiter) wake() {
+	if err := sw.s.Add(1); err != nil {
+		panic(err)
 	}
-	if common.IsTimeoutErr(err) {
-		return false
-	}
-	panic(err)
+}
+
+func (sw *semaTimedWaiter) wait(timeout time.Duration) error {
+	return sw.s.AddTimeout(-1, timeout)
 }
