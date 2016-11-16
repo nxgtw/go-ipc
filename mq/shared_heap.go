@@ -84,7 +84,7 @@ func (mq *sharedHeap) Push(x interface{}) {
 }
 
 func (mq *sharedHeap) Pop() interface{} {
-	mq.array.PopBack(nil)
+	mq.array.PopBack()
 	return nil
 }
 

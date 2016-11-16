@@ -19,7 +19,7 @@ func TestSharedArray(t *testing.T) {
 	arr := NewSharedArray(allocator.ByteSliceData(sl), 10, 8)
 	a.Equal(arr.Len(), 0)
 	a.Panics(func() {
-		arr.PopFront(nil)
+		arr.PopFront()
 	})
 	data := make([]byte, 1)
 	for i := 0; i < 10; i++ {
@@ -39,7 +39,8 @@ func TestSharedArray(t *testing.T) {
 		arr.PushBack(data)
 	})
 	a.NotPanics(func() {
-		arr.PopFront(data)
+		copy(data, arr.At(0))
+		arr.PopFront()
 	})
 	a.Equal(arr.Len(), 9)
 	a.Equal([]byte{0}, data)
@@ -55,7 +56,7 @@ func TestSharedArray(t *testing.T) {
 	for i := 0; i < l; i++ {
 		a.NotPanics(func() {
 			a.Equal(arr.Len(), 9-i)
-			arr.PopFront(nil)
+			arr.PopFront()
 		})
 	}
 	a.Equal(0, arr.Len())
@@ -102,7 +103,7 @@ func TestSharedArray2(t *testing.T) {
 	}
 	for outer := 1; outer < len(data); outer++ {
 		sort.Ints(data[outer:])
-		arr.PopFront(nil)
+		arr.PopFront()
 		sort.Sort(&sorter{a: arr})
 		for i, b := range data[outer:] {
 			a.Equal(byte(b), arr.At(i)[0])
@@ -123,8 +124,9 @@ func TestSharedArray3(t *testing.T) {
 	rand.Seed(time.Now().Unix())
 	for i := 0; i < len(data); i++ {
 		idx := rand.Intn(len(d))
-		arr.PopAt(idx, popped)
+		popped = arr.At(idx)
 		a.Equal(d[idx], int(popped[0]))
+		arr.RemoveAt(idx)
 		d = append(d[:idx], d[idx+1:]...)
 	}
 	a.Equal(0, arr.Len())
