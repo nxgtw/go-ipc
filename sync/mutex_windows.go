@@ -82,7 +82,7 @@ func (m *EventMutex) Unlock() {
 
 // Close closes event's handle.
 func (m *EventMutex) Close() error {
-	m.Close()
+	m.state.Close()
 	return windows.CloseHandle(m.handle)
 }
 
