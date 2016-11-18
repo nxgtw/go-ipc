@@ -7,7 +7,6 @@ package sync
 import (
 	"os"
 	"time"
-	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/array"
@@ -15,10 +14,6 @@ import (
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	"github.com/pkg/errors"
-)
-
-const (
-	condWaiterSize = int(unsafe.Sizeof(waiter(cSpinUnlocked)))
 )
 
 // cond is a condvar implemented as a shared queue of waiters.
@@ -87,29 +82,23 @@ func (c *cond) waitTimeout(timeout time.Duration) bool {
 
 func (c *cond) signal() {
 	c.listLock.Lock()
+	defer c.listLock.Unlock()
 	c.signalN(1)
-	c.listLock.Unlock()
 }
 
 func (c *cond) broadcast() {
 	c.listLock.Lock()
+	defer c.listLock.Unlock()
 	c.signalN(c.waiters.Len())
-	c.listLock.Unlock()
 }
 
 // signalN wakes n waiters. Must be run with the list mutex locked.
 func (c *cond) signalN(count int) {
 	var signaled int
-	for c.waiters.Len() > 0 && signaled < count {
-		w := (*waiter)(c.waiters.AtPointer(0))
-		// here we wake a waiter. we must assure, that it'll read the 'wake value' by
-		// waiting for a 'confirm value'. Otherwise waiter's memory cell could be reused
-		// by another waiter, which could overwrite 'wake value'.
-		if w.signal(cSpinWaiterLocked, cSpinWaiterUnlocked) {
-			w.wait(cSpinWaiterWaitDone)
+	for i := 0; i < c.waiters.Len() && signaled < count; i++ {
+		if w := openWaiter(c.waiters.AtPointer(i)); w.signal() {
 			signaled++
 		}
-		c.waiters.PopFront(nil)
 	}
 }
 
@@ -117,23 +106,24 @@ func (c *cond) doWait(timeout time.Duration) bool {
 	w := c.addToWaitersList()
 	// unlock resource locker
 	c.L.Unlock()
-	result := w.waitTimeout(cSpinWaiterUnlocked, cSpinWaiterWaitDone, cSpinWaiterWaitCancelled, timeout)
-
+	result := w.waitTimeout(timeout)
 	if result {
 		c.L.Lock()
-	} else {
-		// timeout has expired. we must delete ourselves from the waiting queue.
-		ptr := unsafe.Pointer(w)
-		c.listLock.Lock()
-		for i := 0; i < c.waiters.Len(); i++ {
-			if ptr == c.waiters.AtPointer(i) {
-				c.waiters.PopAt(i, nil)
-				break
-			}
-		}
-		c.listLock.Unlock()
 	}
+	c.cleanupWaiter(w)
 	return result
+}
+
+func (c *cond) cleanupWaiter(w *waiter) {
+	c.listLock.Lock()
+	defer c.listLock.Unlock()
+	for i := 0; i < c.waiters.Len(); i++ {
+		if w.isSame(c.waiters.AtPointer(i)) {
+			w.destroy()
+			c.waiters.RemoveAt(i)
+			return
+		}
+	}
 }
 
 func (c *cond) addToWaitersList() *waiter {
@@ -142,9 +132,8 @@ func (c *cond) addToWaitersList() *waiter {
 	if c.waiters.Len() >= MaxCondWaiters {
 		panic(ErrTooManyWaiters)
 	}
-	data, _ := allocator.ObjectData(waiter(cSpinWaiterLocked))
-	c.waiters.PushBack(data)
-	return (*waiter)(c.waiters.AtPointer(c.waiters.Len() - 1))
+	c.waiters.PushBack(nil)
+	return newWaiter(c.waiters.AtPointer(c.waiters.Len() - 1))
 }
 
 func (c *cond) close() error {

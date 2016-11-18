@@ -362,13 +362,15 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 	if !a.NoError(err) || !a.NotNil(m) {
 		return
 	}
+	defer func() {
+		a.NoError(m.Close())
+	}()
 	defer dtor(testLockerName)
 	tl, ok := m.(TimedIPCLocker)
 	if !ok {
 		t.Skipf("timed locker of type %q is not supported on %s(%s)", typ, runtime.GOOS, runtime.GOARCH)
 		return
 	}
-
 	timeout := time.Millisecond * 50
 	tl.Lock()
 	ch := make(chan struct{})
