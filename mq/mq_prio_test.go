@@ -44,8 +44,8 @@ func testPrioMq1(t *testing.T, ctor prioMqCtor, opener prioMqOpener, dtor mqDtor
 			a.NoError(dtor(testMqName))
 		}
 	}()
+	message := make([]byte, 8)
 	for _, prio := range prios {
-		message := make([]byte, 8)
 		message[0] = byte(prio)
 		if !a.NoError(mq.SendPriority(message, prio)) {
 			return
@@ -54,10 +54,11 @@ func testPrioMq1(t *testing.T, ctor prioMqCtor, opener prioMqOpener, dtor mqDtor
 	sort.Ints(prios[:])
 	for i := len(prios) - 1; i >= 0; i-- {
 		message := make([]byte, 8)
-		prio, err := mq.ReceivePriority(message)
+		l, prio, err := mq.ReceivePriority(message)
 		if !a.NoError(err) {
 			continue
 		} else {
+			a.Equal(len(message), l)
 			a.Equal(prios[i], prio, "error at %d", i)
 			a.Equal(byte(prio), message[0])
 		}
@@ -125,14 +126,18 @@ func benchmarkPrioMq1(b *testing.B, ctor prioMqCtor, opener prioMqOpener, dtor m
 			defer inst.Close()
 			mess := make([]byte, params.msgSize)
 			for j := 0; j < b.N; j++ {
-				if prio, err := inst.ReceivePriority(mess); err != nil {
+				if l, prio, err := inst.ReceivePriority(mess); err != nil {
 					if !(params.flag&O_NONBLOCK != 0 && IsTemporary(err)) {
 						b.Error(err)
 					}
 				} else if prio == int(mess[0]) {
-					atomic.AddInt32(&received, 1)
+					if l != params.msgSize {
+						b.Errorf("error in msg len: %d != %d", params.msgSize, l)
+					} else {
+						atomic.AddInt32(&received, 1)
+					}
 				} else {
-					b.Errorf("error in prio: %d %d", prio, int(mess[0]))
+					b.Errorf("error in prio: %d != %d", prio, int(mess[0]))
 				}
 			}
 		}()

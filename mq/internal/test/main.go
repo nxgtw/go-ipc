@@ -63,17 +63,21 @@ func test() error {
 		return err
 	}
 	received := make([]byte, len(expected))
+	var l int
 	if *timeout >= 0 {
 		if tm, ok := msqQueue.(mq.TimedMessenger); ok {
-			err = tm.ReceiveTimeout(received, time.Duration(*timeout)*time.Millisecond)
+			l, err = tm.ReceiveTimeout(received, time.Duration(*timeout)*time.Millisecond)
 		} else {
 			return fmt.Errorf("selected mq implementation does not support timeouts")
 		}
 	} else {
-		err = msqQueue.Receive(received)
+		l, err = msqQueue.Receive(received)
 	}
 	if err != nil {
 		return err
+	}
+	if l != len(expected) {
+		return fmt.Errorf("invalid len. expected '%d', got '%d'", len(expected), l)
 	}
 	for i, expectedValue := range expected {
 		if expectedValue != received[i] {

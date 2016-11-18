@@ -210,31 +210,31 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 }
 
 // Receive receives a message. It blocks if the queue is empty.
-func (mq *FastMq) Receive(data []byte) error {
-	_, err := mq.ReceivePriorityTimeout(data, -1)
-	return err
+func (mq *FastMq) Receive(data []byte) (int, error) {
+	len, _, err := mq.ReceivePriorityTimeout(data, -1)
+	return len, err
 }
 
 // ReceivePriority receives a message and returns its priority. It blocks if the queue is empty.
-func (mq *FastMq) ReceivePriority(data []byte) (int, error) {
+func (mq *FastMq) ReceivePriority(data []byte) (int, int, error) {
 	return mq.ReceivePriorityTimeout(data, -1)
 }
 
 // ReceiveTimeout receives a message. It blocks if the queue is empty. It blocks if the queue is empty,
 // waiting for not longer, then the timeout.
-func (mq *FastMq) ReceiveTimeout(data []byte, timeout time.Duration) error {
-	_, err := mq.ReceivePriorityTimeout(data, timeout)
-	return err
+func (mq *FastMq) ReceiveTimeout(data []byte, timeout time.Duration) (int, error) {
+	len, _, err := mq.ReceivePriorityTimeout(data, timeout)
+	return len, err
 }
 
 // ReceivePriorityTimeout receives a message and returns its priority. It blocks if the queue is empty,
 // waiting for not longer, then the timeout.
-func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, error) {
+func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, int, error) {
 
 	// optimization: do lock the locker if the queue is empty.
 	if mq.Empty() {
 		if mq.flag&O_NONBLOCK != 0 {
-			return 0, mqEmptyError
+			return 0, 0, mqEmptyError
 		}
 	}
 
@@ -244,12 +244,12 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 	if mq.Empty() {
 		if mq.flag&O_NONBLOCK != 0 {
 			mq.locker.Unlock()
-			return 0, mqEmptyError
+			return 0, 0, mqEmptyError
 		}
 		if timeout >= 0 {
 			if !mq.cond.WaitTimeout(timeout) {
 				if mq.Empty() {
-					return 0, mqEmptyError
+					return 0, 0, mqEmptyError
 				}
 			}
 		} else {
@@ -258,10 +258,10 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 			}
 		}
 	}
-	prio, err := mq.impl.popMessage(data)
+	prio, len, err := mq.impl.popMessage(data)
 	mq.locker.Unlock()
 	mq.cond.Signal()
-	return prio, err
+	return len, prio, err
 }
 
 // Cap returns the size of the mq buffer.
