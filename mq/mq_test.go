@@ -464,3 +464,32 @@ func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) [
 		"notifywait",
 	)
 }
+
+func ExampleMq() {
+	Destroy("some_mq")
+	mq, err := New("some_mq", os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer mq.Close()
+	mq2, err := Open("some_mq", 0)
+	if err != nil {
+		panic(err)
+	}
+	defer mq2.Close()
+	msg := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	go func() {
+		if err := mq2.Send(msg); err != nil {
+			panic(err)
+		}
+	}()
+	in := make([]byte, len(msg))
+	if err := mq.Receive(in); err != nil {
+		panic(err)
+	}
+	for i, b := range in {
+		if b != msg[i] {
+			panic("bad data received")
+		}
+	}
+}
