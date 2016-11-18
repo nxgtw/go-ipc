@@ -144,7 +144,7 @@ func (arr *SharedArray) PushBack(datas ...[]byte) int {
 	return int(last.len)
 }
 
-// At returns data at the position i.
+// At returns data at the position i. Returned slice references to the data in the array.
 func (arr *SharedArray) At(i int) []byte {
 	if i < 0 || i >= arr.Len() {
 		panic("index out of range")
@@ -162,15 +162,11 @@ func (arr *SharedArray) AtPointer(i int) unsafe.Pointer {
 	return arr.data.atPointer(int(entry.slotIdx))
 }
 
-// PopFront removes the first element of the array, writing its data to 'data'.
-func (arr *SharedArray) PopFront(data []byte) {
+// PopFront removes the first element of the array.
+func (arr *SharedArray) PopFront() {
 	curLen := arr.Len()
 	if curLen == 0 {
 		panic("index out of range")
-	}
-	if data != nil {
-		toCopy := arr.At(0)
-		copy(data, toCopy)
 	}
 	arr.idx.freeSlot(int(*arr.idx.headIdx))
 	arr.forwardHead()
@@ -185,15 +181,11 @@ func (arr *SharedArray) forwardHead() {
 	}
 }
 
-// PopBack removes the last element of the array, writing its data to 'data'.
-func (arr *SharedArray) PopBack(data []byte) {
+// PopBack removes the last element of the array.
+func (arr *SharedArray) PopBack() {
 	curLen := arr.Len()
 	if curLen == 0 {
 		panic("index out of range")
-	}
-	if data != nil {
-		toCopy := arr.At(curLen - 1)
-		copy(data, toCopy)
 	}
 	arr.idx.freeSlot(arr.logicalIdxToPhys(curLen - 1))
 	if curLen == 1 {
@@ -202,24 +194,20 @@ func (arr *SharedArray) PopBack(data []byte) {
 	arr.data.decLen()
 }
 
-// PopAt removes i'th element of the array, writing its data to 'data'.
-func (arr *SharedArray) PopAt(idx int, data []byte) {
+// RemoveAt removes i'th element.
+func (arr *SharedArray) RemoveAt(i int) {
 	curLen := arr.Len()
-	if idx < 0 || idx >= curLen {
+	if i < 0 || i >= curLen {
 		panic("index out of range")
 	}
-	if data != nil {
-		toCopy := arr.At(idx)
-		copy(data, toCopy)
-	}
-	arr.idx.freeSlot(arr.logicalIdxToPhys(idx))
-	if idx <= curLen/2 {
-		for i := idx; i > 0; i-- {
+	arr.idx.freeSlot(arr.logicalIdxToPhys(i))
+	if i <= curLen/2 {
+		for i := i; i > 0; i-- {
 			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i-1)]
 		}
 		arr.forwardHead()
 	} else {
-		for i := idx; i < curLen-1; i++ {
+		for i := i; i < curLen-1; i++ {
 			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i+1)]
 		}
 		if curLen == 1 {

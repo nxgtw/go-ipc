@@ -18,9 +18,7 @@ var (
 )
 
 // Cond is a named interprocess condition variable.
-type Cond struct {
-	*cond
-}
+type Cond cond
 
 // NewCond returns new interprocess condvar.
 //	name - unique condvar name.
@@ -32,37 +30,37 @@ func NewCond(name string, flag int, perm os.FileMode, l IPCLocker) (*Cond, error
 	if err != nil {
 		return nil, err
 	}
-	return &Cond{c}, nil
+	return (*Cond)(c), nil
 }
 
 // Signal wakes one waiter.
 func (c *Cond) Signal() {
-	c.signal()
+	(*cond)(c).signal()
 }
 
 // Broadcast wakes all waiters.
 func (c *Cond) Broadcast() {
-	c.broadcast()
+	(*cond)(c).broadcast()
 }
 
 // Wait waits for the condvar to be signaled.
 func (c *Cond) Wait() {
-	c.wait()
+	(*cond)(c).wait()
 }
 
 // WaitTimeout waits for the condvar to be signaled for not longer, than timeout.
 func (c *Cond) WaitTimeout(timeout time.Duration) bool {
-	return c.waitTimeout(timeout)
+	return (*cond)(c).waitTimeout(timeout)
 }
 
 // Close releases resources of the cond's shared state.
 func (c *Cond) Close() error {
-	return c.close()
+	return (*cond)(c).close()
 }
 
 // Destroy permanently removes condvar.
 func (c *Cond) Destroy() error {
-	return c.destroy()
+	return (*cond)(c).destroy()
 }
 
 // DestroyCond permanently removes condvar with the given name.

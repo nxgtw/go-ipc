@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-//+build linux freebsd windows darwin
-
 package main
 
 import (
@@ -35,14 +33,19 @@ func makeCond(condName, lockerName string) (cond *sync.Cond, l sync.IPCLocker, e
 }
 
 func wait() error {
-	if flag.NArg() != 3 {
+	if flag.NArg() != 4 {
 		return fmt.Errorf("wait: must provide cond and locker name only")
 	}
-	cond, l, err := makeCond(flag.Arg(1), flag.Arg(2))
+	ev, err := sync.NewEvent(flag.Arg(1), 0, 0666, false)
+	if err != nil {
+		return err
+	}
+	cond, l, err := makeCond(flag.Arg(2), flag.Arg(3))
 	if err != nil {
 		return err
 	}
 	l.Lock()
+	ev.Set()
 	if *timeout < 0 {
 		cond.Wait()
 	} else {
@@ -50,6 +53,11 @@ func wait() error {
 		if ok != !*fail {
 			return fmt.Errorf("WaitTimeout returned %v, but expected %v", ok, !*fail)
 		}
+	}
+	if err1, err2 := cond.Close(), l.Close(); err1 != nil {
+		return err1
+	} else if err2 != nil {
+		return err2
 	}
 	return nil
 }
@@ -64,6 +72,9 @@ func signal() error {
 		return nil
 	}
 	cond.Signal()
+	if err := cond.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -77,6 +88,9 @@ func broadcast() error {
 		return nil
 	}
 	cond.Broadcast()
+	if err := cond.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 

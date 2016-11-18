@@ -362,13 +362,15 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 	if !a.NoError(err) || !a.NotNil(m) {
 		return
 	}
+	defer func() {
+		a.NoError(m.Close())
+	}()
 	defer dtor(testLockerName)
 	tl, ok := m.(TimedIPCLocker)
 	if !ok {
 		t.Skipf("timed locker of type %q is not supported on %s(%s)", typ, runtime.GOOS, runtime.GOARCH)
 		return
 	}
-
 	timeout := time.Millisecond * 50
 	tl.Lock()
 	ch := make(chan struct{})
@@ -384,4 +386,24 @@ func testLockerLockTimeout2(t *testing.T, typ string, ctor lockerCtor, dtor lock
 	case <-time.After(timeout * 3):
 		t.Error("failed to lock timed mutex")
 	}
+}
+
+func testLockerTwiceUnlock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(t)
+	if !a.NoError(dtor(testLockerName)) {
+		return
+	}
+	m, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer func() {
+		a.NoError(m.Close())
+	}()
+	defer dtor(testLockerName)
+	m.Lock()
+	m.Unlock()
+	a.Panics(func() {
+		m.Unlock()
+	})
 }

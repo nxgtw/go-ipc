@@ -4,6 +4,7 @@ package mq
 
 import (
 	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
+	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,20 +28,45 @@ type mqCtor func(name string, flag int, perm os.FileMode) (Messenger, error)
 type mqOpener func(name string, flag int) (Messenger, error)
 type mqDtor func(name string) error
 
-var mqProgFiles []string
+var (
+	mqProgArgs       []string
+	defaultMutexType = "m"
+)
 
-func init() {
-	var err error
-	mqProgFiles, err = testutil.LocatePackageFiles(mqProgPath)
+func detectMutexType() {
+	ipc_sync.DestroyMutex("testLocker")
+	m, err := ipc_sync.NewMutex("testLocker", os.O_CREATE, 0666)
 	if err != nil {
 		panic(err)
 	}
-	if len(mqProgFiles) == 0 {
-		panic("no files to test mq")
+	t := reflect.ValueOf(m)
+	if t.Elem().Type().Name() == "SemaMutex" {
+		defaultMutexType = "msysv"
 	}
-	for i, name := range mqProgFiles {
-		mqProgFiles[i] = mqProgPath + name
+	m.Close()
+	ipc_sync.DestroyMutex("testLocker")
+}
+
+func locate(path string) []string {
+	files, err := testutil.LocatePackageFiles(path)
+	if err != nil {
+		panic(err)
 	}
+	if len(files) == 0 {
+		panic("no locker test files")
+	}
+	for i, name := range files {
+		files[i] = path + name
+	}
+	if defaultMutexType == "msysv" {
+		files = append([]string{`-tags="sysv_mutex_linux"`}, files...)
+	}
+	return files
+}
+
+func init() {
+	detectMutexType()
+	mqProgArgs = locate(mqProgPath)
 }
 
 func testCreateMq(t *testing.T, ctor mqCtor, dtor mqDtor) {
@@ -269,11 +296,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		now := time.Now()
 		err := tmq.SendTimeout(data, tm)
 		a.Error(err)
-		if sysErr, ok := err.(syscall.Errno); ok {
-			a.True(sysErr.Temporary())
-		} else {
-			t.Error("non-syscall error", err)
-		}
+		a.True(IsTemporary(err))
 		a.Condition(func() bool {
 			return time.Since(now) >= tm
 		})
@@ -403,15 +426,15 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 // Mq test program
 
 func argsForMqCreateCommand(name string, mqMaxSize, msgMazSize int) []string {
-	return append(mqProgFiles, "-object="+name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize))
+	return append(mqProgArgs, "-object="+name, "create", strconv.Itoa(mqMaxSize), strconv.Itoa(msgMazSize))
 }
 
 func argsForMqDestroyCommand(name string) []string {
-	return append(mqProgFiles, "-object="+name, "destroy")
+	return append(mqProgArgs, "-object="+name, "destroy")
 }
 
 func argsForMqSendCommand(name string, timeout int, typ, options string, data []byte) []string {
-	return append(mqProgFiles,
+	return append(mqProgArgs,
 		"-object="+name,
 		"-type="+typ,
 		"-options="+options,
@@ -422,7 +445,7 @@ func argsForMqSendCommand(name string, timeout int, typ, options string, data []
 }
 
 func argsForMqTestCommand(name string, timeout int, typ, options string, data []byte) []string {
-	return append(mqProgFiles,
+	return append(mqProgArgs,
 		"-object="+name,
 		"-type="+typ,
 		"-options="+options,
@@ -433,7 +456,7 @@ func argsForMqTestCommand(name string, timeout int, typ, options string, data []
 }
 
 func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) []string {
-	return append(mqProgFiles,
+	return append(mqProgArgs,
 		"-object="+name,
 		"-type="+typ,
 		"-options="+options,

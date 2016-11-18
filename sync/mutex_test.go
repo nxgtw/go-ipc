@@ -40,17 +40,21 @@ func TestMutexLock(t *testing.T) {
 }
 
 func TestMutexMemory(t *testing.T) {
-	testLockerMemory(t, "m", mutexCtor, mutexDtor)
+	testLockerMemory(t, defaultMutexType, mutexCtor, mutexDtor)
 }
 
 func TestMutexValueInc(t *testing.T) {
-	testLockerValueInc(t, "m", mutexCtor, mutexDtor)
+	testLockerValueInc(t, defaultMutexType, mutexCtor, mutexDtor)
 }
 
 func TestMutexLockTimeout(t *testing.T) {
-	testLockerLockTimeout(t, "m", mutexCtor, mutexDtor)
+	testLockerLockTimeout(t, defaultMutexType, mutexCtor, mutexDtor)
 }
 
 func TestMutexLockTimeout2(t *testing.T) {
-	testLockerLockTimeout2(t, "m", mutexCtor, mutexDtor)
+	testLockerLockTimeout2(t, defaultMutexType, mutexCtor, mutexDtor)
+}
+
+func TestMutexPanicsOnDoubleUnlock(t *testing.T) {
+	testLockerTwiceUnlock(t, mutexCtor, mutexDtor)
 }
