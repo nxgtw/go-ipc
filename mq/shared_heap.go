@@ -50,14 +50,14 @@ func (mq *sharedHeap) pushMessage(msg message) {
 	heap.Push(mq, msg)
 }
 
-func (mq *sharedHeap) popMessage(data []byte) (int, error) {
+func (mq *sharedHeap) popMessage(data []byte) (int, int, error) {
 	msg := mq.at(0)
 	if len(msg.data) > len(data) {
-		return 0, errors.New("the message is too long")
+		return 0, 0, errors.New("the message is too long")
 	}
 	copy(data, msg.data)
 	heap.Pop(mq)
-	return int(msg.prio), nil
+	return int(msg.prio), len(msg.data), nil
 }
 
 // sort.Interface

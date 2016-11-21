@@ -136,11 +136,12 @@ func TestLinuxMqNotifyTwice(t *testing.T) {
 }
 
 func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
-	if !assert.NoError(t, DestroyLinuxMessageQueue(testMqName)) {
+	a := assert.New(t)
+	if !a.NoError(DestroyLinuxMessageQueue(testMqName)) {
 		return
 	}
 	mq, err := CreateLinuxMessageQueue(testMqName, os.O_EXCL|os.O_RDWR, 0666, 4, 16)
-	if !assert.NoError(t, err) {
+	if !a.NoError(err) {
 		return
 	}
 	defer mq.Destroy()
@@ -160,7 +161,9 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 		for {
 			assert.NoError(t, mq.SendTimeoutPriority(data, 0, time.Millisecond*1000))
 			<-time.After(time.Millisecond * 300)
-			assert.NoError(t, mq.Receive(data))
+			l, err := mq.Receive(data)
+			a.NoError(err)
+			a.Equal(len(data), l)
 			select {
 			case <-endChan:
 				return
@@ -170,7 +173,7 @@ func TestLinuxMqNotifyAnotherProcess(t *testing.T) {
 	}()
 	result := <-resultChan
 	endChan <- struct{}{}
-	if !assert.NoError(t, result.Err) {
+	if !a.NoError(result.Err) {
 		t.Logf("program output is %q", result.Output)
 	}
 }
