@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -153,8 +154,9 @@ func testMqSendIntSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dtor m
 		return
 	}
 	data, _ = allocator.ObjectData(&received)
-	err = mqr.Receive(data)
+	l, err := mqr.Receive(data)
 	a.NoError(err)
+	a.Equal(int(unsafe.Sizeof(message)), l)
 	a.Equal(message, received)
 	allocator.UseValue(data)
 	a.NoError(mqr.Close())
@@ -197,7 +199,9 @@ func testMqSendStructSameProcess(t *testing.T, ctor mqCtor, opener mqOpener, dto
 		a.NoError(dtor(testMqName))
 	}()
 	data, _ := allocator.ObjectData(&received)
-	a.NoError(mqr.Receive(data))
+	l, err := mqr.Receive(data)
+	a.NoError(err)
+	a.Equal(int(unsafe.Sizeof(message)), l)
 	a.Equal(message, received)
 	a.NoError(mq.Close())
 	allocator.UseValue(data)
@@ -228,7 +232,9 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 		a.NoError(mqr.Close())
 		a.NoError(dtor(testMqName))
 	}()
-	a.NoError(mqr.Receive(received))
+	l, err := mqr.Receive(received)
+	a.NoError(err)
+	a.Equal(len(message), l)
 	a.Equal(message, received[:512])
 	a.Equal(received[512:], make([]byte, 512))
 	a.NoError(mq.Close())
@@ -321,7 +327,7 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		received := make([]byte, 8)
 		tm := time.Millisecond * 200
 		now := time.Now()
-		err := tmq.ReceiveTimeout(received, tm)
+		_, err := tmq.ReceiveTimeout(received, tm)
 		a.Error(err)
 		if sysErr, ok := err.(syscall.Errno); ok {
 			a.True(sysErr.Temporary())
@@ -353,7 +359,8 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		go func() {
 			data := make([]byte, 8)
 			for i := 0; i < 32; i++ {
-				a.Error(mq.Receive(data))
+				_, err := mq.Receive(data)
+				a.Error(err)
 			}
 			endChan <- true
 		}()
@@ -418,8 +425,9 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 		t.Logf("program output is %s", result.Output)
 	}
 	received := make([]byte, 2048)
-	err = mq.Receive(received)
+	l, err := mq.Receive(received)
 	a.NoError(err)
+	a.Equal(len(data), l)
 	a.Equal(data, received)
 }
 

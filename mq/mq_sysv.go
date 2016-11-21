@@ -87,13 +87,18 @@ func (mq *SystemVMessageQueue) Send(data []byte) error {
 }
 
 // Receive receives a message. It blocks if the queue is empty.
-func (mq *SystemVMessageQueue) Receive(data []byte) error {
+func (mq *SystemVMessageQueue) Receive(data []byte) (int, error) {
 	var sysFlags int
 	if mq.flags&O_NONBLOCK != 0 {
 		sysFlags |= common.IpcNoWait
 	}
-	f := func() error { return msgrcv(mq.id, data, cSysVAnyMessage, sysFlags) }
-	return common.UninterruptedSyscall(f)
+	var len int
+	f := func() error {
+		var err error
+		len, err = msgrcv(mq.id, data, cSysVAnyMessage, sysFlags)
+		return err
+	}
+	return len, common.UninterruptedSyscall(f)
 }
 
 // Destroy closes the queue and removes it permanently.

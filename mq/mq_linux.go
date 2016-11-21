@@ -140,7 +140,8 @@ func (mq *LinuxMessageQueue) Send(data []byte) error {
 
 // ReceiveTimeoutPriority receives a message, returning its priority.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Duration) (int, error) {
+// Returns message len and priority.
+func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Duration) (int, int, error) {
 	var dataToReceive []byte
 	curMaxMsgSize := len(mq.inputBuff)
 	if len(data) < curMaxMsgSize {
@@ -162,38 +163,40 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Du
 		}
 	}
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if len(data) < curMaxMsgSize {
 		if len(data) < actualMsgSize {
-			return 0, errors.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
+			return 0, 0, errors.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
 		}
 		copy(data, dataToReceive[:actualMsgSize])
 	}
-	return prio, nil
+	return actualMsgSize, prio, nil
 }
 
 // ReceivePriority receives a message, returning its priority.
-// It blocks if the queue is empty.
-func (mq *LinuxMessageQueue) ReceivePriority(data []byte) (int, error) {
+// It blocks if the queue is empty. Returns message len and priority.
+func (mq *LinuxMessageQueue) ReceivePriority(data []byte) (int, int, error) {
 	return mq.ReceiveTimeoutPriority(data, time.Duration(-1))
 }
 
 // ReceiveTimeout receives a message.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
-func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) error {
-	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
-	return err
+// Returns message len.
+func (mq *LinuxMessageQueue) ReceiveTimeout(data []byte, timeout time.Duration) (int, error) {
+	len, _, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore proirity
+	return len, err
 }
 
 // Receive receives a message. It blocks if the queue is empty.
-func (mq *LinuxMessageQueue) Receive(data []byte) error {
+// Returns message len.
+func (mq *LinuxMessageQueue) Receive(data []byte) (int, error) {
 	timeout := time.Duration(-1)
 	if mq.flags&O_NONBLOCK != 0 {
 		timeout = time.Duration(0)
 	}
-	_, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore priority
-	return err
+	len, _, err := mq.ReceiveTimeoutPriority(data, timeout) // ignore priority
+	return len, err
 }
 
 // ID returns unique id of the queue.

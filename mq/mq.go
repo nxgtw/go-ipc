@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// O_NONBLOCK flag makes mq read/write operations nonblocking.
+	// O_NONBLOCK flag makes mq send/receive operations non-blocking.
 	O_NONBLOCK = common.O_NONBLOCK
 )
 
@@ -30,8 +30,9 @@ type Buffered interface {
 type Messenger interface {
 	// Send sends the data. It blocks if there are no readers and the queue is full
 	Send(data []byte) error
-	// Receive reads data from the queue. It blocks if the queue is empty
-	Receive(data []byte) error
+	// Receive reads data from the queue. It blocks if the queue is empty.
+	// Returns message len.
+	Receive(data []byte) (int, error)
 	io.Closer
 }
 
@@ -44,8 +45,8 @@ type TimedMessenger interface {
 	// It waits for not more, than timeout.
 	SendTimeout(data []byte, timeout time.Duration) error
 	// ReceiveTimeout reads data from the queue. It blocks if the queue is empty.
-	// It waits for not more, than timeout.
-	ReceiveTimeout(data []byte, timeout time.Duration) error
+	// It waits for not more, than timeout. Returns message len.
+	ReceiveTimeout(data []byte, timeout time.Duration) (int, error)
 }
 
 // PriorityMessenger is a Messenger, which orders messages according to their priority.
@@ -57,8 +58,8 @@ type PriorityMessenger interface {
 	Buffered
 	// SendPriority sends the data. The message will be inserted in the mq according to its priority.
 	SendPriority(data []byte, prio int) error
-	// ReceivePriority reads a message and returns its priority.
-	ReceivePriority(data []byte) (int, error)
+	// ReceivePriority reads a message and returns its len and priority.
+	ReceivePriority(data []byte) (int, int, error)
 }
 
 // New creates a mq with a given name and permissions.
