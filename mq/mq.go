@@ -22,13 +22,13 @@ type Blocker interface {
 
 // Buffered is an object with internal buffer of the given capacity.
 type Buffered interface {
-	Cap() (int, error)
+	Cap() int
 }
 
 // Messenger is an interface which must be satisfied by any
 // message queue implementation on any platform.
 type Messenger interface {
-	// Send sends the data. It blocks if there are no readers and the queue if full
+	// Send sends the data. It blocks if there are no readers and the queue is full
 	Send(data []byte) error
 	// Receive reads data from the queue. It blocks if the queue is empty.
 	// Returns message len.

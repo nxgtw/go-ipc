@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux windows
-
 package mq
 
 import (
@@ -291,10 +289,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		data := make([]byte, 8)
 		tm := time.Millisecond * 200
 		if buf, ok := mq.(Buffered); ok {
-			cap, err := buf.Cap()
-			if !a.NoError(err) {
-				return
-			}
+			cap := buf.Cap()
 			for i := 0; i < cap; i++ {
 				if !a.NoError(mq.Send(data)) {
 					return

@@ -1,14 +1,9 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux windows
-
 package mq
 
 import (
-	"log"
 	"math/rand"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"sort"
 	"sync"
@@ -18,12 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	go func() {
-		log.Println(http.ListenAndServe(":6060", nil))
-	}()
-}
 
 type prioMqCtor func(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (PriorityMessenger, error)
 type prioMqOpener func(name string, flag int) (PriorityMessenger, error)

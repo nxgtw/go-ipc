@@ -121,3 +121,47 @@ func TestMmfFileCopy(t *testing.T) {
 	}
 	a.Equal(expected, actual)
 }
+
+func ExampleMemoryRegion() {
+	// this example shows how to copy a file using mmf.
+
+	// open source file for reading.
+	inFile, err := os.Open("in.dat")
+	if err != nil {
+		panic("open file")
+	}
+	stat, err := inFile.Stat()
+	if err != nil {
+		panic("stat")
+	}
+	// open destination file for writing.
+	outFile, err := os.Create("out.dat")
+	if err != nil {
+		panic("create file")
+	}
+	// then, mmap contents of both files.
+	inRegion, err := NewMemoryRegion(inFile, MEM_READ_ONLY, 0, 0)
+	if err != nil {
+		panic("in region")
+	}
+	defer inRegion.Close()
+	outRegion, err := NewMemoryRegion(outFile, MEM_READWRITE, 0, 0)
+	if err != nil {
+		panic("out region")
+	}
+	defer outRegion.Close()
+
+	// copy file contents.
+	rd := NewMemoryRegionReader(inRegion)
+	wr := NewMemoryRegionWriter(outRegion)
+	written, err := io.Copy(wr, rd)
+
+	if err != nil || written != stat.Size() {
+		panic("copy")
+	}
+
+	// ensure the data has been written.
+	if err := outRegion.Flush(false); err != nil {
+		panic("flush")
+	}
+}

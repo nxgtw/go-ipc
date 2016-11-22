@@ -26,6 +26,7 @@ const (
 // this is to ensure, that FastMq satisfies queue interfaces.
 var (
 	_ Messenger         = (*FastMq)(nil)
+	_ TimedMessenger    = (*FastMq)(nil)
 	_ PriorityMessenger = (*FastMq)(nil)
 )
 
@@ -265,8 +266,8 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 }
 
 // Cap returns the size of the mq buffer.
-func (mq *FastMq) Cap() (int, error) {
-	return mq.impl.maxSize(), nil
+func (mq *FastMq) Cap() int {
+	return mq.impl.maxSize()
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.
