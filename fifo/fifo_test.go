@@ -267,7 +267,7 @@ func ExampleFifo() {
 	go func() {
 		fifo, err := New("fifo", os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
-			panic(new)
+			panic("new")
 		}
 		defer fifo.Close()
 		if written, err := fifo.Write(testData); err != nil || written != len(testData) {
