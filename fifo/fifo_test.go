@@ -262,7 +262,7 @@ func TestFifoNonBlock4(t *testing.T) {
 	}
 }
 
-func ExampleFifo(t *testing.T) {
+func ExampleFifo() {
 	testData := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	go func() {
 		fifo, err := New("fifo", os.O_CREATE|os.O_WRONLY, 0666)

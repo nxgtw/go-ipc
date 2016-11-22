@@ -85,7 +85,7 @@ func ExampleTimedMessenger() {
 	}
 }
 
-func ExamplePrioMessenger() {
+func ExamplePriorityMessenger() {
 	Destroy("mq")
 	mq, err := New("mq", os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {

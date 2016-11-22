@@ -64,7 +64,7 @@ func ExampleMemoryObject_readWriter() {
 		panic("new region")
 	}
 	defer roRegion.Close()
-	// for each region we create a reader and a writer, wich is a better solution, than
+	// for each region we create a reader and a writer, which is a better solution, than
 	// using region.Data() bytes directly.
 	writer := mmf.NewMemoryRegionWriter(rwRegion)
 	reader := mmf.NewMemoryRegionReader(roRegion)
