@@ -22,7 +22,7 @@ type Blocker interface {
 
 // Buffered is an object with internal buffer of the given capacity.
 type Buffered interface {
-	Cap() (int, error)
+	Cap() int
 }
 
 // Messenger is an interface which must be satisfied by any

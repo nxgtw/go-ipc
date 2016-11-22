@@ -128,26 +128,26 @@ func ExampleMemoryRegion() {
 	// open source file for reading.
 	inFile, err := os.Open("in.dat")
 	if err != nil {
-		return
+		panic("open file")
 	}
 	stat, err := inFile.Stat()
 	if err != nil {
-		return
+		panic("stat")
 	}
 	// open destination file for writing.
 	outFile, err := os.Create("out.dat")
 	if err != nil {
-		return
+		panic("create file")
 	}
 	// then, mmap contents of both files.
 	inRegion, err := NewMemoryRegion(inFile, MEM_READ_ONLY, 0, 0)
 	if err != nil {
-		return
+		panic("in region")
 	}
 	defer inRegion.Close()
 	outRegion, err := NewMemoryRegion(outFile, MEM_READWRITE, 0, 0)
 	if err != nil {
-		return
+		panic("out region")
 	}
 	defer outRegion.Close()
 
@@ -157,11 +157,11 @@ func ExampleMemoryRegion() {
 	written, err := io.Copy(wr, rd)
 
 	if err != nil || written != stat.Size() {
-		return
+		panic("copy")
 	}
 
 	// ensure the data has been written.
 	if err := outRegion.Flush(false); err != nil {
-		return
+		panic("flush")
 	}
 }

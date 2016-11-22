@@ -217,12 +217,12 @@ func (mq *LinuxMessageQueue) Close() error {
 }
 
 // Cap returns the size of the mq buffer.
-func (mq *LinuxMessageQueue) Cap() (int, error) {
+func (mq *LinuxMessageQueue) Cap() int {
 	attrs, err := mq.getAttrs()
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get mq attrs")
+		return 0
 	}
-	return attrs.Maxmsg, nil
+	return attrs.Maxmsg
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.

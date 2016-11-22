@@ -289,10 +289,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		data := make([]byte, 8)
 		tm := time.Millisecond * 200
 		if buf, ok := mq.(Buffered); ok {
-			cap, err := buf.Cap()
-			if !a.NoError(err) {
-				return
-			}
+			cap := buf.Cap()
 			for i := 0; i < cap; i++ {
 				if !a.NoError(mq.Send(data)) {
 					return
@@ -471,33 +468,4 @@ func argsForMqNotifyWaitCommand(name string, timeout int, typ, options string) [
 		"-timeout="+strconv.Itoa(timeout),
 		"notifywait",
 	)
-}
-
-func ExampleMq() {
-	Destroy("some_mq")
-	mq, err := New("some_mq", os.O_CREATE|os.O_EXCL, 0666)
-	if err != nil {
-		panic(err)
-	}
-	defer mq.Close()
-	mq2, err := Open("some_mq", 0)
-	if err != nil {
-		panic(err)
-	}
-	defer mq2.Close()
-	msg := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	go func() {
-		if err := mq2.Send(msg); err != nil {
-			panic(err)
-		}
-	}()
-	in := make([]byte, len(msg))
-	if err := mq.Receive(in); err != nil {
-		panic(err)
-	}
-	for i, b := range in {
-		if b != msg[i] {
-			panic("bad data received")
-		}
-	}
 }
