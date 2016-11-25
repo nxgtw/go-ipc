@@ -107,9 +107,7 @@ func (c *cond) doWait(timeout time.Duration) bool {
 	// unlock resource locker
 	c.L.Unlock()
 	result := w.waitTimeout(timeout)
-	if result {
-		c.L.Lock()
-	}
+	c.L.Lock()
 	c.cleanupWaiter(w)
 	return result
 }

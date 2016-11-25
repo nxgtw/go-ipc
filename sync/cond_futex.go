@@ -84,15 +84,15 @@ func (c *cond) wait() {
 
 func (c *cond) waitTimeout(timeout time.Duration) bool {
 	seq := *c.waiter.addr()
+	var success bool
 	c.L.Unlock()
-	if err := c.waiter.wait(seq, timeout); err != nil {
-		if !common.IsTimeoutErr(err) {
-			panic(err)
-		}
-		return false
+	if err := c.waiter.wait(seq, timeout); err == nil {
+		success = true
+	} else if !common.IsTimeoutErr(err) {
+		panic(err)
 	}
 	c.L.Lock()
-	return true
+	return success
 }
 
 func (c *cond) close() error {

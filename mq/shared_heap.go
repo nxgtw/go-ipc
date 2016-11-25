@@ -57,7 +57,11 @@ func (mq *sharedHeap) popMessage(data []byte) (int, int, error) {
 	}
 	copy(data, msg.data)
 	heap.Pop(mq)
-	return int(msg.prio), len(msg.data), nil
+	return len(msg.data), int(msg.prio), nil
+}
+
+func (mq *sharedHeap) safeLen() int {
+	return mq.array.SafeLen()
 }
 
 // sort.Interface
@@ -68,11 +72,17 @@ func (mq *sharedHeap) Len() int {
 
 func (mq *sharedHeap) Less(i, j int) bool {
 	// inverse less logic, as we want max-heap.
-	return mq.at(i).prio > mq.at(j).prio
+	if i == j {
+		return false
+	}
+	lhs, rhs := (*int32)(mq.array.AtPointer(i)), (*int32)(mq.array.AtPointer(j))
+	return *lhs > *rhs
 }
 
 func (mq *sharedHeap) Swap(i, j int) {
-	mq.array.Swap(i, j)
+	if i != j {
+		mq.array.Swap(i, j)
+	}
 }
 
 // heap.Interface

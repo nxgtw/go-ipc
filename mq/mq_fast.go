@@ -179,8 +179,9 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 	if len(data) > mq.impl.maxMsgSize() {
 		return errors.New("the message is too big")
 	}
+
 	// optimization: do lock the locker if the queue is full.
-	if mq.Full() && mq.flag&O_NONBLOCK != 0 {
+	if mq.flag&O_NONBLOCK != 0 && mq.Full() {
 		return mqFullError
 	}
 	mq.locker.Lock()
@@ -194,6 +195,7 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 		if timeout >= 0 {
 			if !mq.cond.WaitTimeout(timeout) {
 				if mq.Full() {
+					mq.locker.Unlock()
 					return mqFullError
 				}
 			}
@@ -203,7 +205,6 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 			}
 		}
 	}
-
 	mq.impl.pushMessage(message{data: data, prio: int32(prio)})
 	mq.locker.Unlock()
 	mq.cond.Signal()
@@ -233,10 +234,8 @@ func (mq *FastMq) ReceiveTimeout(data []byte, timeout time.Duration) (int, error
 func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (int, int, error) {
 
 	// optimization: do lock the locker if the queue is empty.
-	if mq.Empty() {
-		if mq.flag&O_NONBLOCK != 0 {
-			return 0, 0, mqEmptyError
-		}
+	if mq.flag&O_NONBLOCK != 0 && mq.Empty() {
+		return 0, 0, mqEmptyError
 	}
 
 	mq.locker.Lock()
@@ -250,6 +249,7 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 		if timeout >= 0 {
 			if !mq.cond.WaitTimeout(timeout) {
 				if mq.Empty() {
+					mq.locker.Unlock()
 					return 0, 0, mqEmptyError
 				}
 			}
@@ -259,13 +259,13 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 			}
 		}
 	}
-	prio, len, err := mq.impl.popMessage(data)
+	len, prio, err := mq.impl.popMessage(data)
 	mq.locker.Unlock()
 	mq.cond.Signal()
 	return len, prio, err
 }
 
-// Cap returns the size of the mq buffer.
+// Cap returns size of the mq buffer.
 func (mq *FastMq) Cap() int {
 	return mq.impl.maxSize()
 }
@@ -313,12 +313,12 @@ func (mq *FastMq) Destroy() error {
 
 // Full returns true, if the capacity liimt has been reached.
 func (mq *FastMq) Full() bool {
-	return mq.impl.Len() == mq.impl.maxSize()
+	return mq.impl.safeLen() == mq.impl.maxSize()
 }
 
 // Empty returns true, if there are no messages in the queue.
 func (mq *FastMq) Empty() bool {
-	return mq.impl.Len() == 0
+	return mq.impl.safeLen() == 0
 }
 
 func fastMqLockerName(mqName string) string {

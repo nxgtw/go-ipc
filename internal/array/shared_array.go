@@ -118,6 +118,11 @@ func (arr *SharedArray) Len() int {
 	return arr.data.len()
 }
 
+// SafeLen atomically loads returns current length.
+func (arr *SharedArray) SafeLen() int {
+	return arr.data.safeLen()
+}
+
 // ElemSize returns size of the element.
 func (arr *SharedArray) ElemSize() int {
 	return arr.data.elemLen()
@@ -150,7 +155,7 @@ func (arr *SharedArray) At(i int) []byte {
 		panic("index out of range")
 	}
 	entry := arr.entryAt(i)
-	return arr.data.at((int(entry.slotIdx)))[:int(entry.len):int(entry.len)]
+	return arr.data.at(int(entry.slotIdx))[:int(entry.len)]
 }
 
 // AtPointer returns pointer to the data at the position i.

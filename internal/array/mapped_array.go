@@ -39,6 +39,10 @@ func (arr *mappedArray) cap() int {
 }
 
 func (arr *mappedArray) len() int {
+	return int(arr.size)
+}
+
+func (arr *mappedArray) safeLen() int {
 	return int(atomic.LoadInt32(&arr.size))
 }
 
