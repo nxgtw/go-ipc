@@ -3,7 +3,6 @@
 package sync
 
 import (
-	"runtime"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -71,7 +70,6 @@ func (im *inplaceMutex) doLock(timeout time.Duration) error {
 		if atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters) {
 			return nil
 		}
-		runtime.Gosched()
 	}
 	old := atomic.LoadUint32(im.ptr)
 	if old != cInplaceMutexLockedHaveWaiters {
@@ -103,7 +101,6 @@ func (im *inplaceMutex) unlock() {
 				return
 			}
 		}
-		runtime.Gosched()
 	}
 	im.ww.wake()
 }

@@ -31,7 +31,7 @@ const (
 // If it doesn't, Wait returns EWOULDBLOCK.
 // Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
 func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags int32) error {
-	fun := func(tm time.Duration) error {
+	return common.UninterruptedSyscallTimeout(func(tm time.Duration) error {
 		var ptr unsafe.Pointer
 		if flags&FUTEX_CLOCK_REALTIME != 0 {
 			ptr = unsafe.Pointer(common.AbsTimeoutToTimeSpec(tm))
@@ -40,8 +40,7 @@ func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags i
 		}
 		_, err := sys_futex(addr, cFUTEX_WAIT|flags, value, ptr, nil, 0)
 		return err
-	}
-	return common.UninterruptedSyscallTimeout(fun, timeout)
+	}, timeout)
 }
 
 // FutexWake wakes count threads waiting on the futex.

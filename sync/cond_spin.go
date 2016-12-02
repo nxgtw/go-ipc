@@ -41,7 +41,6 @@ func (w *waiter) waitTimeout(timeout time.Duration) bool {
 	start := time.Now()
 	ptr := (*uint32)(w)
 	for !atomic.CompareAndSwapUint32(ptr, cSpinWaiterSet, cSpinWaiterWaitDone) {
-		runtime.Gosched()
 		if attempt%1000 == 0 { // do not call time.Since too often.
 			if timeout >= 0 && time.Since(start) >= timeout {
 				// if we changed the value from 'unset' to 'done', than the waiter had not been set, return false.
@@ -52,6 +51,7 @@ func (w *waiter) waitTimeout(timeout time.Duration) bool {
 				}
 				return ret
 			}
+			runtime.Gosched()
 		}
 		attempt++
 	}

@@ -30,8 +30,10 @@ var (
 type spinMutex uint32
 
 func (spin *spinMutex) lock() {
-	for !spin.tryLock() {
-		runtime.Gosched()
+	for i := uint64(0); !spin.tryLock(); i++ {
+		if i%1000 == 0 {
+			runtime.Gosched()
+		}
 	}
 }
 
@@ -39,11 +41,11 @@ func (spin *spinMutex) lockTimeout(timeout time.Duration) bool {
 	var attempt uint64
 	start := time.Now()
 	for !spin.tryLock() {
-		runtime.Gosched()
 		if attempt%1000 == 0 { // do not call time.Since too often.
 			if timeout >= 0 && time.Since(start) >= timeout {
 				return false
 			}
+			runtime.Gosched()
 		}
 		attempt++
 	}

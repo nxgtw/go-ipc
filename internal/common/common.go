@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 )
 
 const (
@@ -69,4 +70,21 @@ func SyscallErrHasCode(err error, code syscall.Errno) bool {
 		}
 	}
 	return false
+}
+
+func CallTimeout(f func(time.Duration) bool, timeout time.Duration) {
+	for {
+		opStart := time.Now()
+		if !f(timeout) {
+			return
+		}
+		if timeout >= 0 {
+			elapsed := time.Since(opStart)
+			if timeout > elapsed {
+				timeout = timeout - elapsed
+			} else {
+				return
+			}
+		}
+	}
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc"
-	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -21,6 +20,8 @@ const (
 	DefaultFastMqMaxSize = 8
 	// DefaultFastMqMessageSize is the fast mq message size.
 	DefaultFastMqMessageSize = 8192
+
+	waitSpinsCount = 100
 )
 
 // this is to ensure, that FastMq satisfies queue interfaces.
@@ -38,12 +39,13 @@ var (
 // FastMq is a priority message queue based on shared memory.
 // Currently it is the only implementation for windows.
 type FastMq struct {
-	name   string
-	region *mmf.MemoryRegion
-	flag   int
-	locker ipc_sync.IPCLocker
-	impl   *sharedHeap
-	cond   *ipc_sync.Cond
+	name     string
+	region   *mmf.MemoryRegion
+	flag     int
+	locker   ipc_sync.IPCLocker
+	impl     *fastMq
+	condSend *ipc_sync.Cond
+	condRecv *ipc_sync.Cond
 }
 
 func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSize int) (*FastMq, error) {
@@ -52,8 +54,8 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 		return nil, errors.New("invalid mq permissions")
 	}
 	openFlags := common.FlagsForOpen(flag)
-	// calc size for all messages and metadata.
-	size, err := calcSharedHeapSize(maxQueueSize, maxMsgSize)
+
+	size, err := calcFastMqSize(maxQueueSize, maxMsgSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "mq size check failed")
 	}
@@ -86,18 +88,15 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 		return nil, errors.Wrap(err, "fast mq: failed to create a locker")
 	}
 
-	result.cond, err = ipc_sync.NewCond(fastMqCondName(name), openFlags, perm, result.locker)
+	result.condSend, err = ipc_sync.NewCond(fastMqCondName(name, "s"), openFlags, perm, result.locker)
 	if err != nil {
-		return nil, errors.Wrap(err, "fast mq: failed to create a cond")
+		return nil, errors.Wrap(err, "fast mq: failed to create a send cond")
 	}
-
-	// impl is an object placed into in mmaped area.
-	rawData := allocator.ByteSliceData(result.region.Data())
-	if created {
-		result.impl = newSharedHeap(rawData, maxQueueSize, maxMsgSize)
-	} else {
-		result.impl = openSharedHeap(rawData)
+	result.condRecv, err = ipc_sync.NewCond(fastMqCondName(name, "r"), openFlags, perm, result.locker)
+	if err != nil {
+		return nil, errors.Wrap(err, "fast mq: failed to create a recv cond")
 	}
+	result.impl = newFastMq(result.region.Data(), maxQueueSize, maxMsgSize, created)
 	return result, err
 }
 
@@ -129,7 +128,7 @@ func FastMqAttrs(name string) (int, int, error) {
 		return 0, 0, errors.Wrap(err, "failed to open shm object")
 	}
 	defer obj.Close()
-	minSize := minHeapSize()
+	minSize := minFastMqSize()
 	if int(obj.Size()) < minSize {
 		return 0, 0, errors.New("shm object is too small")
 	}
@@ -138,8 +137,8 @@ func FastMqAttrs(name string) (int, int, error) {
 		return 0, 0, errors.Wrap(err, "failed to create new shm region")
 	}
 	defer region.Close()
-	heap := openSharedHeap(allocator.ByteSliceData(region.Data()))
-	return heap.maxSize(), heap.maxMsgSize(), nil
+	impl := newFastMq(region.Data(), 0, 0, false)
+	return impl.heap.maxSize(), impl.heap.maxMsgSize(), nil
 }
 
 // DestroyFastMq permanently removes a FastMq.
@@ -151,8 +150,11 @@ func DestroyFastMq(name string) error {
 	if errMutex != nil {
 		return errors.Wrap(errMutex, "failed to destroy ipc locker")
 	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name)); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy condvar")
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "s")); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy send condvar")
+	}
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "r")); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy receive condvar")
 	}
 	return nil
 }
@@ -173,10 +175,12 @@ func (mq *FastMq) SendTimeout(data []byte, timeout time.Duration) error {
 	return mq.SendPriorityTimeout(data, 0, timeout)
 }
 
+var xxx, yyy int32
+
 // SendPriorityTimeout sends a message with the given priority. It blocks if the queue is full,
 // waiting for not longer, then the timeout.
 func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Duration) error {
-	if len(data) > mq.impl.maxMsgSize() {
+	if len(data) > mq.impl.heap.maxMsgSize() {
 		return errors.New("the message is too big")
 	}
 
@@ -192,22 +196,20 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 			mq.locker.Unlock()
 			return mqFullError
 		}
-		if timeout >= 0 {
-			if !mq.cond.WaitTimeout(timeout) {
-				if mq.Full() {
-					mq.locker.Unlock()
-					return mqFullError
-				}
-			}
-		} else {
-			for mq.Full() {
-				mq.cond.Wait()
-			}
+		if ok := mq.doSendWait(timeout); !ok {
+			mq.locker.Unlock()
+			return mqFullError
 		}
 	}
-	mq.impl.pushMessage(message{data: data, prio: int32(prio)})
+	mq.impl.heap.pushMessage(message{data: data, prio: int32(prio)})
+	needNotify := mq.impl.header.blockedReceivers != 0
 	mq.locker.Unlock()
-	mq.cond.Signal()
+	if needNotify {
+		mq.condRecv.Signal()
+		yyy++
+	} else {
+		xxx++
+	}
 	return nil
 }
 
@@ -246,28 +248,26 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 			mq.locker.Unlock()
 			return 0, 0, mqEmptyError
 		}
-		if timeout >= 0 {
-			if !mq.cond.WaitTimeout(timeout) {
-				if mq.Empty() {
-					mq.locker.Unlock()
-					return 0, 0, mqEmptyError
-				}
-			}
-		} else {
-			for mq.Empty() {
-				mq.cond.Wait()
-			}
+		if ok := mq.doReceiveWait(timeout); !ok {
+			mq.locker.Unlock()
+			return 0, 0, mqEmptyError
 		}
 	}
-	len, prio, err := mq.impl.popMessage(data)
+	len, prio, err := mq.impl.heap.popMessage(data)
+	needNotify := mq.impl.header.blockedSenders != 0
 	mq.locker.Unlock()
-	mq.cond.Signal()
+	if needNotify {
+		mq.condSend.Signal()
+		yyy++
+	} else {
+		xxx++
+	}
 	return len, prio, err
 }
 
 // Cap returns size of the mq buffer.
 func (mq *FastMq) Cap() int {
-	return mq.impl.maxSize()
+	return mq.impl.heap.maxSize()
 }
 
 // SetBlocking sets whether the send/receive operations on the queue block.
@@ -290,8 +290,11 @@ func (mq *FastMq) Close() error {
 	if errLocker != nil {
 		return errors.Wrap(errLocker, "failed to close ipc locker")
 	}
-	if err := mq.cond.Close(); err != nil {
-		return errors.Wrap(err, "failed to close cond")
+	if err := mq.condSend.Close(); err != nil {
+		return errors.Wrap(err, "failed to close send cond")
+	}
+	if err := mq.condRecv.Close(); err != nil {
+		return errors.Wrap(err, "failed to close recv cond")
 	}
 	return nil
 }
@@ -305,28 +308,89 @@ func (mq *FastMq) Destroy() error {
 	if errClose != nil {
 		return errors.Wrap(errClose, "failed to close fastmq")
 	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name)); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy condvar")
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name, "s")); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy send condvar")
+	}
+	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name, "r")); errCondDestroy != nil {
+		return errors.Wrap(errCondDestroy, "failed to destroy recv condvar")
 	}
 	return nil
 }
 
 // Full returns true, if the capacity liimt has been reached.
 func (mq *FastMq) Full() bool {
-	return mq.impl.safeLen() == mq.impl.maxSize()
+	return mq.impl.heap.safeLen() == mq.impl.heap.maxSize()
 }
 
 // Empty returns true, if there are no messages in the queue.
 func (mq *FastMq) Empty() bool {
-	return mq.impl.safeLen() == 0
+	return mq.impl.heap.safeLen() == 0
+}
+
+func (mq *FastMq) doReceiveWait(timeout time.Duration) bool {
+	mq.locker.Unlock()
+	for i := 0; i < waitSpinsCount; i++ {
+		if !mq.Empty() {
+			break
+		}
+	}
+	mq.locker.Lock()
+	mq.impl.header.blockedReceivers++
+	var empty bool
+	common.CallTimeout(func(timeout time.Duration) bool {
+		if empty = mq.Empty(); !empty {
+			return false
+		}
+		if timeout >= 0 {
+			if ok := mq.condRecv.WaitTimeout(timeout); !ok {
+				return false
+			}
+		} else {
+			mq.condRecv.Wait()
+		}
+		// if the queue is still empty, this was a spurious wakeup, and we can continue waiting.
+		empty = mq.Empty()
+		return empty
+	}, timeout)
+	mq.impl.header.blockedReceivers--
+	return !empty
+}
+
+func (mq *FastMq) doSendWait(timeout time.Duration) bool {
+	mq.locker.Unlock()
+	for i := 0; i < waitSpinsCount; i++ {
+		if !mq.Full() {
+			break
+		}
+	}
+	mq.locker.Lock()
+	mq.impl.header.blockedSenders++
+	var full bool
+	common.CallTimeout(func(timeout time.Duration) bool {
+		if full = mq.Full(); !full {
+			return false
+		}
+		if timeout >= 0 {
+			if ok := mq.condSend.WaitTimeout(timeout); !ok {
+				return false
+			}
+		} else {
+			mq.condSend.Wait()
+		}
+		// if the queue is still full, this was a spurious wakeup, and we can continue waiting.
+		full = mq.Full()
+		return full
+	}, timeout)
+	mq.impl.header.blockedSenders--
+	return !full
 }
 
 func fastMqLockerName(mqName string) string {
 	return mqName + ".locker"
 }
 
-func fastMqCondName(mqName string) string {
-	return mqName + ".cond"
+func fastMqCondName(mqName, typ string) string {
+	return mqName + "." + typ + ".cond"
 }
 
 func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err error) {
@@ -348,11 +412,18 @@ func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err err
 			mq.locker.Close()
 		}
 	}
-	if mq.cond != nil {
+	if mq.condSend != nil {
 		if created {
-			mq.cond.Destroy()
+			mq.condSend.Destroy()
 		} else {
-			mq.cond.Close()
+			mq.condSend.Close()
+		}
+	}
+	if mq.condRecv != nil {
+		if created {
+			mq.condRecv.Destroy()
+		} else {
+			mq.condRecv.Close()
 		}
 	}
 	if created {
