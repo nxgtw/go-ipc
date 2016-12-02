@@ -110,13 +110,9 @@ func OpenLinuxMessageQueue(name string, flag int) (*LinuxMessageQueue, error) {
 // SendTimeoutPriority sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) SendTimeoutPriority(data []byte, prio int, timeout time.Duration) error {
-	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
+	return common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		return mq_timedsend(mq.ID(), data, prio, common.AbsTimeoutToTimeSpec(curTimeout))
 	}, timeout)
-	if err != nil {
-		err = errors.Wrap(err, "linux mq: send failed")
-	}
-	return err
 }
 
 // SendPriority sends a message with a given priority.
