@@ -71,11 +71,11 @@ func (mq *sharedHeap) Len() int {
 }
 
 func (mq *sharedHeap) Less(i, j int) bool {
-	// inverse less logic, as we want max-heap.
 	if i == j {
 		return false
 	}
 	lhs, rhs := (*int32)(mq.array.AtPointer(i)), (*int32)(mq.array.AtPointer(j))
+	// inverse less logic, as we want max-heap.
 	return *lhs > *rhs
 }
 

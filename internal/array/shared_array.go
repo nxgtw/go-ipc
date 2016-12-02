@@ -137,8 +137,7 @@ func (arr *SharedArray) PushBack(datas ...[]byte) int {
 	}
 	last := arr.entryAt(curLen)
 	arr.idx.reserveFreeSlot(arr.logicalIdxToPhys(curLen))
-	dataPtr := arr.data.atPointer(int(last.slotIdx))
-	slData := allocator.ByteSliceFromUnsafePointer(dataPtr, arr.ElemSize(), arr.ElemSize())
+	slData := arr.data.at(int(last.slotIdx))
 	for _, data := range datas {
 		last.len += int32(copy(slData[last.len:], data))
 		if int(last.len) < len(data) {

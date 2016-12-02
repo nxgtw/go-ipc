@@ -196,20 +196,20 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 			mq.locker.Unlock()
 			return mqFullError
 		}
-		if ok := mq.doSendWait(timeout); !ok {
+		if !mq.doSendWait(timeout) {
 			mq.locker.Unlock()
 			return mqFullError
 		}
 	}
 	mq.impl.heap.pushMessage(message{data: data, prio: int32(prio)})
-	needNotify := mq.impl.header.blockedReceivers != 0
-	mq.locker.Unlock()
-	if needNotify {
+	if mq.impl.header.blockedReceivers != 0 {
 		mq.condRecv.Signal()
 		yyy++
 	} else {
 		xxx++
 	}
+	mq.locker.Unlock()
+
 	return nil
 }
 
@@ -248,20 +248,20 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 			mq.locker.Unlock()
 			return 0, 0, mqEmptyError
 		}
-		if ok := mq.doReceiveWait(timeout); !ok {
+		if !mq.doReceiveWait(timeout) {
 			mq.locker.Unlock()
 			return 0, 0, mqEmptyError
 		}
 	}
 	len, prio, err := mq.impl.heap.popMessage(data)
-	needNotify := mq.impl.header.blockedSenders != 0
-	mq.locker.Unlock()
-	if needNotify {
+	if mq.impl.header.blockedSenders != 0 {
 		mq.condSend.Signal()
 		yyy++
 	} else {
 		xxx++
 	}
+	mq.locker.Unlock()
+
 	return len, prio, err
 }
 
@@ -342,7 +342,7 @@ func (mq *FastMq) doReceiveWait(timeout time.Duration) bool {
 			return false
 		}
 		if timeout >= 0 {
-			if ok := mq.condRecv.WaitTimeout(timeout); !ok {
+			if !mq.condRecv.WaitTimeout(timeout) {
 				return false
 			}
 		} else {
@@ -371,7 +371,7 @@ func (mq *FastMq) doSendWait(timeout time.Duration) bool {
 			return false
 		}
 		if timeout >= 0 {
-			if ok := mq.condSend.WaitTimeout(timeout); !ok {
+			if !mq.condSend.WaitTimeout(timeout) {
 				return false
 			}
 		} else {
