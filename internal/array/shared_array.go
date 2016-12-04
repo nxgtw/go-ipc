@@ -32,16 +32,17 @@ func bitmapSize(sz int) int {
 	return bitmapSize
 }
 
-func indexSize(sz int) int {
-	return sz*int(indexEntrySize) + bitmapSize(sz)*8 + 4
+func indexSize(len int) int {
+	// len of index, len of bitmap, current head index.
+	return len*int(indexEntrySize) + bitmapSize(len)*8 + 4
 }
 
 func newIndex(raw unsafe.Pointer, sz int) index {
 	bitmapSz := bitmapSize(sz)
 	rawIndexSlice := allocator.RawSliceFromUnsafePointer(raw, sz, sz)
-	raw = allocator.AvdancePointer(raw, uintptr(sz)*indexEntrySize)
+	raw = allocator.AdvancePointer(raw, uintptr(sz)*indexEntrySize)
 	rawBitmapSlize := allocator.RawSliceFromUnsafePointer(raw, bitmapSz, bitmapSz)
-	raw = allocator.AvdancePointer(raw, 8*uintptr(bitmapSz))
+	raw = allocator.AdvancePointer(raw, 8*uintptr(bitmapSz))
 	return index{
 		entries: *(*[]indexEntry)(rawIndexSlice),
 		bitmap:  *(*[]uint64)(rawBitmapSlize),
@@ -75,13 +76,12 @@ func (idx *index) reserveFreeSlot(at int) {
 func (idx index) freeSlot(at int) {
 	slotIdx := idx.entries[at].slotIdx
 	bucketIdx, bitIdx := slotIdx/64, slotIdx%64
-	bucket := &idx.bitmap[bucketIdx]
-	*bucket = (*bucket) & ^(1 << uint32(bitIdx))
+	idx.bitmap[bucketIdx] &= ^(1 << uint32(bitIdx))
 }
 
 // SharedArray is an array placed in the shared memory with fixed length and element size.
 // It is possible to swap elements and pop them from any position. It never moves elements
-// in memory, so can be used to implements an array of futexes or spin locks.
+// in memory, so can be used to implement an array of futexes or spin locks.
 type SharedArray struct {
 	data *mappedArray
 	idx  index
@@ -91,7 +91,7 @@ type SharedArray struct {
 func NewSharedArray(raw unsafe.Pointer, size, elemSize int) *SharedArray {
 	data := newMappedArray(raw)
 	data.init(size, elemSize)
-	idx := newIndex(allocator.AvdancePointer(raw, mappedArrayHdrSize+uintptr(size*elemSize)), size)
+	idx := newIndex(allocator.AdvancePointer(raw, mappedArrayHdrSize+uintptr(size*elemSize)), size)
 	return &SharedArray{
 		data: data,
 		idx:  idx,
@@ -101,7 +101,7 @@ func NewSharedArray(raw unsafe.Pointer, size, elemSize int) *SharedArray {
 // OpenSharedArray opens existing shared array.
 func OpenSharedArray(raw unsafe.Pointer) *SharedArray {
 	data := newMappedArray(raw)
-	idx := newIndex(allocator.AvdancePointer(raw, mappedArrayHdrSize+uintptr(data.cap()*data.elemLen())), data.cap())
+	idx := newIndex(allocator.AdvancePointer(raw, mappedArrayHdrSize+uintptr(data.cap()*data.elemLen())), data.cap())
 	return &SharedArray{
 		data: data,
 		idx:  idx,

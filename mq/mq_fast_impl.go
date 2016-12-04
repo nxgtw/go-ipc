@@ -25,7 +25,7 @@ type fastMq struct {
 func newFastMq(data []byte, maxQueueSize, maxMsgSize int, created bool) *fastMq {
 	rawData := allocator.ByteSliceData(data)
 	result := &fastMq{header: (*fastMqHdr)(rawData)}
-	rawData = allocator.AvdancePointer(rawData, uintptr(fastMqHdrSize))
+	rawData = allocator.AdvancePointer(rawData, uintptr(fastMqHdrSize))
 	if created {
 		result.heap = newSharedHeap(rawData, maxQueueSize, maxMsgSize)
 		result.header.blockedReceivers = 0
