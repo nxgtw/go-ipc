@@ -4,6 +4,7 @@ package mq
 
 import (
 	"os"
+	"runtime"
 	"time"
 
 	"bitbucket.org/avd/go-ipc"
@@ -201,7 +202,7 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 			return mqFullError
 		}
 	}
-	mq.impl.heap.pushMessage(message{data: data, prio: int32(prio)})
+	mq.impl.heap.pushMessage(&message{data: data, prio: int32(prio)})
 	if mq.impl.header.blockedReceivers != 0 {
 		mq.condRecv.Signal()
 		yyy++
@@ -333,6 +334,7 @@ func (mq *FastMq) doReceiveWait(timeout time.Duration) bool {
 		if !mq.Empty() {
 			break
 		}
+		runtime.Gosched()
 	}
 	mq.locker.Lock()
 	mq.impl.header.blockedReceivers++
@@ -362,6 +364,7 @@ func (mq *FastMq) doSendWait(timeout time.Duration) bool {
 		if !mq.Full() {
 			break
 		}
+		runtime.Gosched()
 	}
 	mq.locker.Lock()
 	mq.impl.header.blockedSenders++

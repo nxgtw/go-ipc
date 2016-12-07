@@ -60,14 +60,12 @@ func lowestZeroBit(value uint64) uint8 {
 	return math.MaxUint8
 }
 
-func (idx *index) reserveFreeSlot(at int) {
+func (idx *index) reserveFreeSlot(at int) int32 {
 	for i, b := range idx.bitmap {
 		if b != math.MaxUint64 {
 			bitIdx := lowestZeroBit(b)
-			idx.entries[at].slotIdx = int32(i*64 + int(bitIdx))
-			idx.entries[at].len = 0
 			idx.bitmap[i] |= (1 << bitIdx)
-			return
+			return int32(i*64 + int(bitIdx))
 		}
 	}
 	panic("no free slots")
@@ -135,33 +133,33 @@ func (arr *SharedArray) PushBack(datas ...[]byte) int {
 	if curLen >= arr.Cap() {
 		panic("index out of range")
 	}
-	last := arr.entryAt(curLen)
-	arr.idx.reserveFreeSlot(arr.logicalIdxToPhys(curLen))
-	slData := arr.data.at(int(last.slotIdx))
+	physIdx := arr.logicalIdxToPhys(curLen)
+	entry := indexEntry{
+		slotIdx: arr.idx.reserveFreeSlot(physIdx),
+		len:     0,
+	}
+	slData := arr.data.at(int(entry.slotIdx))
 	for _, data := range datas {
-		last.len += int32(copy(slData[last.len:], data))
-		if int(last.len) < len(data) {
+		entry.len += int32(copy(slData[entry.len:], data))
+		if int(entry.len) < len(data) {
 			break
 		}
 	}
+	arr.idx.entries[physIdx] = entry
 	arr.data.incLen()
-	return int(last.len)
+	return int(entry.len)
 }
 
 // At returns data at the position i. Returned slice references to the data in the array.
+// It does not perform border check.
 func (arr *SharedArray) At(i int) []byte {
-	if i < 0 || i >= arr.Len() {
-		panic("index out of range")
-	}
 	entry := arr.entryAt(i)
 	return arr.data.at(int(entry.slotIdx))[:int(entry.len)]
 }
 
 // AtPointer returns pointer to the data at the position i.
+// It does not perform border check.
 func (arr *SharedArray) AtPointer(i int) unsafe.Pointer {
-	if i < 0 || i >= arr.Len() {
-		panic("index out of range")
-	}
 	entry := arr.entryAt(i)
 	return arr.data.atPointer(int(entry.slotIdx))
 }
@@ -175,14 +173,6 @@ func (arr *SharedArray) PopFront() {
 	arr.idx.freeSlot(int(*arr.idx.headIdx))
 	arr.forwardHead()
 	arr.data.decLen()
-}
-
-func (arr *SharedArray) forwardHead() {
-	if arr.Len() == 1 {
-		*arr.idx.headIdx = 0
-	} else {
-		*arr.idx.headIdx = (*arr.idx.headIdx + 1) % int32(arr.Cap())
-	}
 }
 
 // PopBack removes the last element of the array.
@@ -206,13 +196,13 @@ func (arr *SharedArray) RemoveAt(i int) {
 	}
 	arr.idx.freeSlot(arr.logicalIdxToPhys(i))
 	if i <= curLen/2 {
-		for i := i; i > 0; i-- {
-			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i-1)]
+		for j := i; j > 0; j-- {
+			arr.idx.entries[arr.logicalIdxToPhys(j)] = arr.idx.entries[arr.logicalIdxToPhys(j-1)]
 		}
 		arr.forwardHead()
 	} else {
-		for i := i; i < curLen-1; i++ {
-			arr.idx.entries[arr.logicalIdxToPhys(i)] = arr.idx.entries[arr.logicalIdxToPhys(i+1)]
+		for j := i; j < curLen-1; j++ {
+			arr.idx.entries[arr.logicalIdxToPhys(j)] = arr.idx.entries[arr.logicalIdxToPhys(j+1)]
 		}
 		if curLen == 1 {
 			*arr.idx.headIdx = 0
@@ -234,12 +224,20 @@ func (arr *SharedArray) Swap(i, j int) {
 	arr.idx.entries[i], arr.idx.entries[j] = arr.idx.entries[j], arr.idx.entries[i]
 }
 
+func (arr *SharedArray) forwardHead() {
+	if arr.Len() == 1 {
+		*arr.idx.headIdx = 0
+	} else {
+		*arr.idx.headIdx = (*arr.idx.headIdx + 1) % int32(arr.Cap())
+	}
+}
+
 func (arr *SharedArray) logicalIdxToPhys(log int) int {
 	return (log + int(*arr.idx.headIdx)) % arr.Cap()
 }
 
-func (arr *SharedArray) entryAt(log int) *indexEntry {
-	return &arr.idx.entries[arr.logicalIdxToPhys(log)]
+func (arr *SharedArray) entryAt(log int) indexEntry {
+	return arr.idx.entries[arr.logicalIdxToPhys(log)]
 }
 
 // CalcSharedArraySize returns the size, needed to place shared array in memory.

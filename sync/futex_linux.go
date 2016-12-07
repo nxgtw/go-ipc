@@ -27,6 +27,10 @@ const (
 	FUTEX_CLOCK_REALTIME = 256
 )
 
+var (
+	futexSyscallErr error = os.NewSyscallError("FUTEX", unix.EWOULDBLOCK)
+)
+
 // FutexWait checks if the the value equals futex's value.
 // If it doesn't, Wait returns EWOULDBLOCK.
 // Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
@@ -46,12 +50,16 @@ func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags i
 // FutexWake wakes count threads waiting on the futex.
 // Returns number of woken threads.
 func FutexWake(addr unsafe.Pointer, count uint32, flags int32) (int, error) {
-	for {
-		woken, err := sys_futex(addr, cFUTEX_WAKE|flags, count, nil, nil, 0)
-		if !common.IsInterruptedSyscallErr(err) {
-			return int(woken), err
-		}
+	var woken int32
+	err := common.UninterruptedSyscall(func() error {
+		var err error
+		woken, err = sys_futex(addr, cFUTEX_WAKE|flags, count, nil, nil, 0)
+		return err
+	})
+	if err == nil {
+		return int(woken), nil
 	}
+	return 0, err
 }
 
 func sys_futex(addr unsafe.Pointer, op int32, val uint32, ts, addr2 unsafe.Pointer, val3 uint32) (int32, error) {
@@ -64,8 +72,12 @@ func sys_futex(addr unsafe.Pointer, op int32, val uint32, ts, addr2 unsafe.Point
 		uintptr(val3))
 	allocator.Use(addr)
 	allocator.Use(addr2)
-	if err != 0 {
+	switch err {
+	case 0:
+		return int32(r1), nil
+	case unix.EWOULDBLOCK: // optimization: as EWOULDBLOCK can occur too often, do not allocate a syscall error each time.
+		return 0, futexSyscallErr
+	default:
 		return 0, os.NewSyscallError("FUTEX", err)
 	}
-	return int32(r1), nil
 }

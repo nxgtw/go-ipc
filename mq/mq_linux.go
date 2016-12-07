@@ -118,7 +118,11 @@ func (mq *LinuxMessageQueue) SendTimeoutPriority(data []byte, prio int, timeout 
 // SendPriority sends a message with a given priority.
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) SendPriority(data []byte, prio int) error {
-	return mq.SendTimeoutPriority(data, prio, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	return mq.SendTimeoutPriority(data, prio, timeout)
 }
 
 // SendTimeout sends a message with a default (0) priority.
@@ -176,7 +180,11 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(input []byte, timeout time.D
 // ReceivePriority receives a message, returning its priority.
 // It blocks if the queue is empty. Returns message len and priority.
 func (mq *LinuxMessageQueue) ReceivePriority(data []byte) (int, int, error) {
-	return mq.ReceiveTimeoutPriority(data, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	return mq.ReceiveTimeoutPriority(data, timeout)
 }
 
 // ReceiveTimeout receives a message.

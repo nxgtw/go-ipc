@@ -46,7 +46,7 @@ func (mq *sharedHeap) at(i int) message {
 	return message{prio: *(*int32)(rawData), data: data[4:]}
 }
 
-func (mq *sharedHeap) pushMessage(msg message) {
+func (mq *sharedHeap) pushMessage(msg *message) {
 	heap.Push(mq, msg)
 }
 
@@ -88,7 +88,7 @@ func (mq *sharedHeap) Swap(i, j int) {
 // heap.Interface
 
 func (mq *sharedHeap) Push(x interface{}) {
-	msg := x.(message)
+	msg := x.(*message)
 	prioData := allocator.ByteSliceFromUnsafePointer(unsafe.Pointer(&msg.prio), 4, 4)
 	mq.array.PushBack(prioData, msg.data)
 }
