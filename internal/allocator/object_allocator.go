@@ -126,7 +126,7 @@ func RawSliceFromUnsafePointer(memory unsafe.Pointer, length, capacity int) unsa
 }
 
 // AvdancePointer adds shift value to 'p' pointer.
-func AvdancePointer(p unsafe.Pointer, shift uintptr) unsafe.Pointer {
+func AdvancePointer(p unsafe.Pointer, shift uintptr) unsafe.Pointer {
 	return unsafe.Pointer(uintptr(p) + shift)
 }
 

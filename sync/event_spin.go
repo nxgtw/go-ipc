@@ -59,8 +59,10 @@ func (e *event) set() {
 }
 
 func (e *event) wait() {
-	for !atomic.CompareAndSwapUint32(e.waiter, 1, 0) {
-		runtime.Gosched()
+	for i := uint64(0); !atomic.CompareAndSwapUint32(e.waiter, 1, 0); i++ {
+		if i%1000 == 0 {
+			runtime.Gosched()
+		}
 	}
 }
 
@@ -68,11 +70,11 @@ func (e *event) waitTimeout(timeout time.Duration) bool {
 	var attempt uint64
 	start := time.Now()
 	for !atomic.CompareAndSwapUint32(e.waiter, 1, 0) {
-		runtime.Gosched()
 		if attempt%1000 == 0 { // do not call time.Since too often.
 			if timeout >= 0 && time.Since(start) >= timeout {
 				return false
 			}
+			runtime.Gosched()
 		}
 		attempt++
 	}

@@ -110,16 +110,19 @@ func OpenLinuxMessageQueue(name string, flag int) (*LinuxMessageQueue, error) {
 // SendTimeoutPriority sends a message with a given priority.
 // It blocks if the queue is full, waiting for a message unless timeout is passed.
 func (mq *LinuxMessageQueue) SendTimeoutPriority(data []byte, prio int, timeout time.Duration) error {
-	f := func(curTimeout time.Duration) error {
+	return common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		return mq_timedsend(mq.ID(), data, prio, common.AbsTimeoutToTimeSpec(curTimeout))
-	}
-	return common.UninterruptedSyscallTimeout(f, timeout)
+	}, timeout)
 }
 
 // SendPriority sends a message with a given priority.
 // It blocks if the queue is full.
 func (mq *LinuxMessageQueue) SendPriority(data []byte, prio int) error {
-	return mq.SendTimeoutPriority(data, prio, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	return mq.SendTimeoutPriority(data, prio, timeout)
 }
 
 // SendTimeout sends a message with a default (0) priority.
@@ -141,35 +144,35 @@ func (mq *LinuxMessageQueue) Send(data []byte) error {
 // ReceiveTimeoutPriority receives a message, returning its priority.
 // It blocks if the queue is empty, waiting for a message unless timeout is passed.
 // Returns message len and priority.
-func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Duration) (int, int, error) {
-	var dataToReceive []byte
+func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(input []byte, timeout time.Duration) (int, int, error) {
+	dataToReceive := input
 	curMaxMsgSize := len(mq.inputBuff)
-	if len(data) < curMaxMsgSize {
+	if len(input) < curMaxMsgSize {
 		dataToReceive = mq.inputBuff
-	} else {
-		dataToReceive = data
 	}
-	var prio int
-	var actualMsgSize, maxMsgSize int
-	f := func(curTimeout time.Duration) error {
+	var prio, actualMsgSize, maxMsgSize int
+	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		var err error
-		actualMsgSize, maxMsgSize, err = mq_timedreceive(mq.ID(), dataToReceive, &prio, common.AbsTimeoutToTimeSpec(curTimeout))
+		actualMsgSize, maxMsgSize, err = mq_timedreceive(
+			mq.ID(),
+			dataToReceive,
+			&prio,
+			common.AbsTimeoutToTimeSpec(curTimeout))
 		return err
-	}
-	err := common.UninterruptedSyscallTimeout(f, timeout)
+	}, timeout)
 	if maxMsgSize != 0 && actualMsgSize != 0 {
 		if curMaxMsgSize != maxMsgSize {
 			mq.inputBuff = make([]byte, maxMsgSize)
 		}
 	}
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "linux mq: receive failed")
 	}
-	if len(data) < curMaxMsgSize {
-		if len(data) < actualMsgSize {
-			return 0, 0, errors.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(data), actualMsgSize)
+	if len(input) < curMaxMsgSize {
+		if len(input) < actualMsgSize {
+			return 0, 0, errors.Errorf("the buffer of %d bytes is too small for a %d bytes message", len(input), actualMsgSize)
 		}
-		copy(data, dataToReceive[:actualMsgSize])
+		copy(input, dataToReceive[:actualMsgSize])
 	}
 	return actualMsgSize, prio, nil
 }
@@ -177,7 +180,11 @@ func (mq *LinuxMessageQueue) ReceiveTimeoutPriority(data []byte, timeout time.Du
 // ReceivePriority receives a message, returning its priority.
 // It blocks if the queue is empty. Returns message len and priority.
 func (mq *LinuxMessageQueue) ReceivePriority(data []byte) (int, int, error) {
-	return mq.ReceiveTimeoutPriority(data, time.Duration(-1))
+	timeout := time.Duration(-1)
+	if mq.flags&O_NONBLOCK != 0 {
+		timeout = time.Duration(0)
+	}
+	return mq.ReceiveTimeoutPriority(data, timeout)
 }
 
 // ReceiveTimeout receives a message.

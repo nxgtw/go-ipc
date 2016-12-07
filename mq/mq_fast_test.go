@@ -59,6 +59,26 @@ func TestFastMqPrio1(t *testing.T) {
 	testPrioMq1(t, fastMqCtorPrio, fastMqOpenerPrio, fastMqDtor)
 }
 
+func TestFastMqSendStructSameProcess(t *testing.T) {
+	testMqSendStructSameProcess(t, fastMqCtor, fastMqOpener, fastMqDtor)
+}
+
+func TestFastMqSendMessageLessThenBuffer(t *testing.T) {
+	testMqSendMessageLessThenBuffer(t, fastMqCtor, fastMqOpener, fastMqDtor)
+}
+
+func TestFastMqReceiveFromAnotherProcess(t *testing.T) {
+	testMqReceiveFromAnotherProcess(t, fastMqCtor, fastMqDtor, "fast")
+}
+
+func TestFastMqSendTimeout(t *testing.T) {
+	testMqSendTimeout(t, fastMqCtor, fastMqDtor)
+}
+
+func TestFastMqReceiveTimeout(t *testing.T) {
+	testMqReceiveTimeout(t, fastMqCtor, fastMqDtor)
+}
+
 func BenchmarkFastMqNonBlock(b *testing.B) {
 	params := &prioBenchmarkParams{readers: 4, writers: 4, mqSize: 8, msgSize: 1024, flag: O_NONBLOCK}
 	benchmarkPrioMq1(b, fastMqCtorPrio, fastMqOpenerPrio, fastMqDtor, params)
