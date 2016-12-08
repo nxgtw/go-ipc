@@ -176,8 +176,6 @@ func (mq *FastMq) SendTimeout(data []byte, timeout time.Duration) error {
 	return mq.SendPriorityTimeout(data, 0, timeout)
 }
 
-var xxx, yyy int32
-
 // SendPriorityTimeout sends a message with the given priority. It blocks if the queue is full,
 // waiting for not longer, then the timeout.
 func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Duration) error {
@@ -205,9 +203,6 @@ func (mq *FastMq) SendPriorityTimeout(data []byte, prio int, timeout time.Durati
 	mq.impl.heap.pushMessage(&message{data: data, prio: int32(prio)})
 	if mq.impl.header.blockedReceivers != 0 {
 		mq.condRecv.Signal()
-		yyy++
-	} else {
-		xxx++
 	}
 	mq.locker.Unlock()
 
@@ -257,9 +252,6 @@ func (mq *FastMq) ReceivePriorityTimeout(data []byte, timeout time.Duration) (in
 	len, prio, err := mq.impl.heap.popMessage(data)
 	if mq.impl.header.blockedSenders != 0 {
 		mq.condSend.Signal()
-		yyy++
-	} else {
-		xxx++
 	}
 	mq.locker.Unlock()
 
