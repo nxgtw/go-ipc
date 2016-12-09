@@ -8,15 +8,17 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-// AddTimeout add the given value to the semaphore's value.
-// If the operation locks, it waits for not more, than timeout.
+// WaitTimeout decrements the value of semaphore variable by 1.
+// If the value becomes negative, it waites for not longer than timeout.
 // This call is supported on linux only.
-func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
-	f := func(curTimeout time.Duration) error {
-		b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
+func (s *Semaphore) WaitTimeout(timeout time.Duration) {
+	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
+		b := sembuf{semnum: 0, semop: int16(-1), semflg: 0}
 		return semtimedop(s.id, []sembuf{b}, common.TimeoutToTimeSpec(curTimeout))
+	}, timeout)
+	if err != nil {
+		panic(err)
 	}
-	return common.UninterruptedSyscallTimeout(f, timeout)
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
@@ -34,11 +36,9 @@ func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
 }
 
 func (sw *semaTimedWaiter) wake() {
-	if err := sw.s.Add(1); err != nil {
-		panic(err)
-	}
+	sw.s.Signal(1)
 }
 
-func (sw *semaTimedWaiter) wait(timeout time.Duration) error {
-	return sw.s.AddTimeout(-1, timeout)
+func (sw *semaTimedWaiter) wait(timeout time.Duration) {
+	sw.s.WaitTimeout(timeout)
 }

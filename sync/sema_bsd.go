@@ -14,16 +14,10 @@ func newSemaWaiter(s *Semaphore) *semaWaiter {
 	return &semaWaiter{s: s}
 }
 
-func (sw *semaWaiter) set(*uint32) {
-
-}
-
 func (sw *semaWaiter) wake() {
-	if err := sw.s.Add(1); err != nil {
-		panic(err)
-	}
+	sw.s.Signal(1)
 }
 
-func (sw *semaWaiter) wait(timeout time.Duration) error {
-	return sw.s.Add(-1)
+func (sw *semaWaiter) wait(timeout time.Duration) {
+	sw.s.Wait()
 }

@@ -29,12 +29,12 @@ type Semaphore struct {
 
 // NewSemaphore creates a new sysV semaphore with the given name.
 // It generates a key from the name, and then calls NewSemaphoreKey.
-func NewSemaphore(name string, mode int, perm os.FileMode, initial int) (*Semaphore, error) {
+func NewSemaphore(name string, flag int, perm os.FileMode, initial int) (*Semaphore, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate a key for the name")
 	}
-	result, err := NewSemaphoreKey(uint64(k), mode, perm, initial)
+	result, err := NewSemaphoreKey(uint64(k), flag, perm, initial)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Sema
 	}
 	result := &Semaphore{id: id}
 	if created && initial > 0 {
-		if err = result.Add(initial); err != nil {
+		if err = result.add(initial); err != nil {
 			result.Destroy()
 			return nil, errors.Wrap(err, "failed to add initial semaphore value")
 		}
@@ -72,11 +72,18 @@ func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Sema
 	return result, nil
 }
 
-// Add adds the given value to the semaphore's value.
-// It locks, if the operation cannot be done immediately.
-func (s *Semaphore) Add(value int) error {
-	f := func() error { return semAdd(s.id, value) }
-	return common.UninterruptedSyscall(f)
+// Signal increments the value of semaphore variable by count, waking waiting process (if any).
+func (s *Semaphore) Signal(count int) {
+	if err := s.add(count); err != nil {
+		panic(err)
+	}
+}
+
+// Wait decrements the value of semaphore variable by -1, and blocks if the value becomes negative.
+func (s *Semaphore) Wait() {
+	if err := s.add(-1); err != nil {
+		panic(err)
+	}
 }
 
 // Destroy removes the semaphore permanently.
@@ -95,6 +102,10 @@ func DestroySemaphore(name string) error {
 		return errors.Wrap(err, "failed to get semaphore id")
 	}
 	return removeSemaByID(id, name)
+}
+
+func (s *Semaphore) add(value int) error {
+	return common.UninterruptedSyscall(func() error { return semAdd(s.id, value) })
 }
 
 func removeSemaByID(id int, name string) error {

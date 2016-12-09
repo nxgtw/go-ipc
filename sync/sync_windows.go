@@ -17,12 +17,15 @@ const (
 )
 
 var (
-	modkernel32      = windows.NewLazyDLL("kernel32.dll")
-	procCreateMutex  = modkernel32.NewProc("CreateMutexW")
-	procOpenMutex    = modkernel32.NewProc("OpenMutexW")
-	procReleaseMutex = modkernel32.NewProc("ReleaseMutex")
-	procOpenEvent    = modkernel32.NewProc("OpenEventW")
-	procCreateEvent  = modkernel32.NewProc("CreateEventW")
+	modkernel32          = windows.NewLazyDLL("kernel32.dll")
+	procCreateMutex      = modkernel32.NewProc("CreateMutexW")
+	procOpenMutex        = modkernel32.NewProc("OpenMutexW")
+	procReleaseMutex     = modkernel32.NewProc("ReleaseMutex")
+	procOpenEvent        = modkernel32.NewProc("OpenEventW")
+	procCreateEvent      = modkernel32.NewProc("CreateEventW")
+	procCreateSemaphore  = modkernel32.NewProc("CreateSemaphoreW")
+	procOpenSemaphore    = modkernel32.NewProc("OpenSemaphoreW")
+	procReleaseSemaphore = modkernel32.NewProc("ReleaseSemaphore")
 )
 
 func sys_CreateMutex(name string) (windows.Handle, error) {
@@ -104,6 +107,78 @@ func openOrCreateEvent(name string, flag int, initial int) (windows.Handle, erro
 			}
 		} else {
 			handle, err = sys_OpenEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
+		}
+		if handle != windows.Handle(0) {
+			return nil
+		}
+		return err
+	}
+	_, err := common.OpenOrCreate(creator, flag)
+	return handle, err
+}
+
+func sys_CreateSemaphore(name string, initial, maximum int, attrs *windows.SecurityAttributes) (windows.Handle, error) {
+	namep, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	h, _, err := procCreateEvent.Call(
+		uintptr(unsafe.Pointer(attrs)),
+		uintptr(initial),
+		uintptr(maximum),
+		uintptr(unsafe.Pointer(namep)))
+	allocator.Use(unsafe.Pointer(attrs))
+	allocator.Use(unsafe.Pointer(namep))
+	if h == 0 {
+		err = os.NewSyscallError("CreateSemaphore", err)
+	} else if err == syscall.Errno(0) {
+		err = nil
+	}
+	return windows.Handle(h), err
+}
+
+func sys_ReleaseSemaphore(h windows.Handle, count int) (int, error) {
+	var prev int32
+	prevPtr := unsafe.Pointer(&prev)
+	ok, _, err := procReleaseSemaphore.Call(
+		uintptr(h),
+		uintptr(count),
+		uintptr(prevPtr),
+	)
+	allocator.Use(prevPtr)
+	if ok == 0 {
+		err = os.NewSyscallError("ReleaseSemaphore", err)
+	} else {
+		err = nil
+	}
+	return int(prev), err
+}
+
+func sys_OpenSemaphore(name string, desiredAccess uint32, inheritHandle uint32) (windows.Handle, error) {
+	namep, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	h, _, err := procOpenSemaphore.Call(uintptr(desiredAccess), uintptr(inheritHandle), uintptr(unsafe.Pointer(namep)))
+	allocator.Use(unsafe.Pointer(namep))
+	if h == 0 {
+		return 0, os.NewSyscallError("OpenSemaphore", err)
+	}
+	return windows.Handle(h), nil
+}
+
+func openOrCreateSemaphore(name string, flag int, initial, maximum int) (windows.Handle, error) {
+	var handle windows.Handle
+	creator := func(create bool) error {
+		var err error
+		if create {
+			handle, err = sys_CreateSemaphore(name, initial, maximum, nil)
+			if os.IsExist(err) {
+				windows.CloseHandle(handle)
+				return err
+			}
+		} else {
+			handle, err = sys_OpenSemaphore(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
 		}
 		if handle != windows.Handle(0) {
 			return nil
