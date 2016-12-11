@@ -24,7 +24,7 @@ const (
 // waitWaker is an object, which implements wake/wait semantics.
 type waitWaker interface {
 	wake()
-	wait(timeout time.Duration)
+	wait(timeout time.Duration) error
 }
 
 // inplaceMutex is a mutex implementation operating on a uint32 memory cell.
@@ -76,7 +76,9 @@ func (im *inplaceMutex) doLock(timeout time.Duration) error {
 		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
 	}
 	for old != cInplaceMutexUnlocked {
-		im.ww.wait(timeout)
+		if err := im.ww.wait(timeout); err != nil {
+			return err
+		}
 		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
 	}
 	return nil

@@ -11,14 +11,11 @@ import (
 // WaitTimeout decrements the value of semaphore variable by 1.
 // If the value becomes negative, it waites for not longer than timeout.
 // This call is supported on linux only.
-func (s *Semaphore) WaitTimeout(timeout time.Duration) {
-	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
+func (s *Semaphore) WaitTimeout(timeout time.Duration) error {
+	return common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		b := sembuf{semnum: 0, semop: int16(-1), semflg: 0}
 		return semtimedop(s.id, []sembuf{b}, common.TimeoutToTimeSpec(curTimeout))
 	}, timeout)
-	if err != nil {
-		panic(err)
-	}
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
@@ -39,6 +36,6 @@ func (sw *semaTimedWaiter) wake() {
 	sw.s.Signal(1)
 }
 
-func (sw *semaTimedWaiter) wait(timeout time.Duration) {
-	sw.s.WaitTimeout(timeout)
+func (sw *semaTimedWaiter) wait(timeout time.Duration) error {
+	return sw.s.WaitTimeout(timeout)
 }

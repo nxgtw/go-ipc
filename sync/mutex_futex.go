@@ -119,10 +119,11 @@ func (fw *futexWaiter) wake() {
 	}
 }
 
-func (fw *futexWaiter) wait(timeout time.Duration) {
+func (fw *futexWaiter) wait(timeout time.Duration) error {
 	if err := FutexWait(fw.ptr, cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
 		if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
