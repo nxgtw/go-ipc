@@ -7,6 +7,7 @@ package sync
 import (
 	"os"
 
+	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -21,7 +22,7 @@ var (
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
-	s       *Semaphore
+	s       Semaphore
 	state   *mmf.MemoryRegion
 	name    string
 	inplace *inplaceMutex
@@ -76,7 +77,14 @@ func (m *SemaMutex) Destroy() error {
 	if err := shm.DestroyMemoryObject(mutexSharedStateName(m.name, "s")); err != nil {
 		return errors.Wrap(err, "failed to destroy shared state")
 	}
-	return m.s.Destroy()
+	if d, ok := m.s.(ipc.Destroyer); ok {
+		if err := d.Destroy(); err != nil {
+			return errors.Wrap(err, "failed to destroy semaphore")
+		}
+	} else {
+		m.s.Close()
+	}
+	return nil
 }
 
 // DestroySemaMutex permanently removes mutex with the given name.

@@ -8,10 +8,8 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-// WaitTimeout decrements the value of semaphore variable by 1.
-// If the value becomes negative, it waites for not longer than timeout.
-// This call is supported on linux only.
-func (s *Semaphore) WaitTimeout(timeout time.Duration) error {
+// WaitTimeout is supported on linux only.
+func (s *semaphore) WaitTimeout(timeout time.Duration) error {
 	return common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		b := sembuf{semnum: 0, semop: int16(-1), semflg: 0}
 		return semtimedop(s.id, []sembuf{b}, common.TimeoutToTimeSpec(curTimeout))
@@ -25,10 +23,10 @@ func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
 }
 
 type semaTimedWaiter struct {
-	s *Semaphore
+	s Semaphore
 }
 
-func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
+func newSemaWaiter(s Semaphore) *semaTimedWaiter {
 	return &semaTimedWaiter{s: s}
 }
 

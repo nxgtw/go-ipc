@@ -11,6 +11,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// semaphore is a platform specific semaphore implementation.
+// on windows it uses system semaphore object.
 type semaphore struct {
 	handle windows.Handle
 }
@@ -26,20 +28,28 @@ func newSemaphore(name string, flag int, perm os.FileMode, initial int) (*semaph
 	return &semaphore{handle: handle}, nil
 }
 
-// Signal increments the value of semaphore variable by 1, waking waiting process (if any).
+// destroySemaphore is a no-op on windows.
+func destroySemaphore(name string) error {
+	return nil
+}
+
 func (s *semaphore) Signal(count int) {
 	if _, err := sys_ReleaseSemaphore(s.handle, count); err != nil {
 		panic(err)
 	}
 }
 
-// Wait decrements the value of semaphore variable by -1, and blocks if the value becomes negative.
 func (s *semaphore) Wait() {
 	s.WaitTimeout(-1)
 }
 
-// Wait decrements the value of semaphore variable by -1,
-// and blocks if the value becomes negative, waiting for not longer, than timeout.
+func (s *semaphore) Close() error {
+	if err := windows.CloseHandle(s.handle); err != nil {
+		return errors.Wrap(err, "failed to close windows handle")
+	}
+	return nil
+}
+
 func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {

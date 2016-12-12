@@ -54,7 +54,7 @@ func sys_OpenMutex(name string) (windows.Handle, error) {
 	return windows.Handle(h), nil
 }
 
-func sys_releaseMutex(handle windows.Handle) error {
+func sys_ReleaseMutex(handle windows.Handle) error {
 	result, _, err := procReleaseMutex.Call(uintptr(handle))
 	if result == 0 {
 		return os.NewSyscallError("ReleaseMutex", err)
@@ -122,7 +122,7 @@ func sys_CreateSemaphore(name string, initial, maximum int, attrs *windows.Secur
 	if err != nil {
 		return 0, err
 	}
-	h, _, err := procCreateEvent.Call(
+	h, _, err := procCreateSemaphore.Call(
 		uintptr(unsafe.Pointer(attrs)),
 		uintptr(initial),
 		uintptr(maximum),
