@@ -254,7 +254,7 @@ func TestEventWaitAnotherProcess(t *testing.T) {
 	}
 }
 
-func TestEventWaitAnotherProcess2(t *testing.T) {
+func TestEventTimedWaitAnotherProcess(t *testing.T) {
 	a := assert.New(t)
 	if !a.NoError(DestroyEvent(testEventName)) {
 		return

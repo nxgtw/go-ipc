@@ -21,6 +21,7 @@ const (
 	lockerProgPath = "./internal/test/locker/"
 	condProgPath   = "./internal/test/cond/"
 	eventProgPath  = "./internal/test/event/"
+	semaProgPath   = "./internal/test/sema/"
 	testMemObj     = "go-ipc.sync-test.region"
 )
 
@@ -28,6 +29,7 @@ var (
 	lockerProgArgs   []string
 	condProgArgs     []string
 	eventProgArgs    []string
+	semaProgArgs     []string
 	defaultMutexType = "m"
 )
 
@@ -67,6 +69,7 @@ func init() {
 	lockerProgArgs = locate(lockerProgPath)
 	condProgArgs = locate(condProgPath)
 	eventProgArgs = locate(eventProgPath)
+	semaProgArgs = locate(semaProgPath)
 }
 
 func createMemoryRegionSimple(objMode, regionMode int, size int64, offset int64) (*mmf.MemoryRegion, error) {
@@ -159,6 +162,24 @@ func argsForEventSetCommand(name string) []string {
 
 func argsForEventWaitCommand(name string, timeoutMS int) []string {
 	return append(eventProgArgs,
+		"-timeout="+strconv.Itoa(timeoutMS),
+		"wait",
+		name,
+	)
+}
+
+// Semaphore test program
+
+func argsForSemaSignalCommand(name string, count int) []string {
+	return append(semaProgArgs,
+		"signal",
+		name,
+		strconv.Itoa(count),
+	)
+}
+
+func argsForSemaWaitCommand(name string, timeoutMS int) []string {
+	return append(semaProgArgs,
 		"-timeout="+strconv.Itoa(timeoutMS),
 		"wait",
 		name,
