@@ -1,7 +1,5 @@
 // Copyright 2015 Aleksandr Demakin. All rights reserved.
 
-// +build darwin freebsd linux
-
 package sync
 
 import (
@@ -22,10 +20,10 @@ var (
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
-	s       Semaphore
-	state   *mmf.MemoryRegion
-	name    string
-	inplace *inplaceMutex
+	s      Semaphore
+	region *mmf.MemoryRegion
+	name   string
+	lwm    *lwMutex
 }
 
 // NewSemaMutex creates a new semaphore-based mutex.
@@ -46,27 +44,28 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 		return nil, errors.Wrap(err, "failed to create a semaphore")
 	}
 	result := &SemaMutex{
-		s:     s,
-		state: region,
-		name:  name,
+		s:      s,
+		region: region,
+		name:   name,
 	}
-	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), newSemaWaiter(s))
+	result.lwm = newLightweightMutex(allocator.ByteSliceData(region.Data()), newSemaWaiter(s))
 	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (m *SemaMutex) Lock() {
-	m.inplace.lock()
+	m.lwm.lock()
 }
 
 // Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
 func (m *SemaMutex) Unlock() {
-	m.inplace.unlock()
+	m.lwm.unlock()
 }
 
 // Close closes shared state of the mutex.
 func (m *SemaMutex) Close() error {
-	return m.state.Close()
+	m.s.Close()
+	return m.region.Close()
 }
 
 // Destroy closes the mutex and removes it permanently.

@@ -27,10 +27,10 @@ var (
 // goroutines migrate between threads, and windows mutex must
 // be released by the same thread it was locked.
 type EventMutex struct {
-	handle  windows.Handle
-	state   *mmf.MemoryRegion
-	name    string
-	inplace *inplaceMutex
+	handle windows.Handle
+	state  *mmf.MemoryRegion
+	name   string
+	lwm    *lwMutex
 }
 
 // NewEventMutex creates a new event-basedmutex.
@@ -58,26 +58,26 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 		state:  region,
 		name:   name,
 	}
-	result.inplace = newInplaceMutex(allocator.ByteSliceData(region.Data()), &eventWaiter{handle: handle})
+	result.lwm = newLightweightMutex(allocator.ByteSliceData(region.Data()), &eventWaiter{handle: handle})
 	if created {
-		result.inplace.init()
+		result.lwm.init()
 	}
 	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (m *EventMutex) Lock() {
-	m.inplace.lock()
+	m.lwm.lock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 func (m *EventMutex) LockTimeout(timeout time.Duration) bool {
-	return m.inplace.lockTimeout(timeout)
+	return m.lwm.lockTimeout(timeout)
 }
 
 // Unlock releases the mutex. It panics on an error.
 func (m *EventMutex) Unlock() {
-	m.inplace.unlock()
+	m.lwm.unlock()
 }
 
 // Close closes event's handle.
@@ -96,13 +96,14 @@ type eventWaiter struct {
 	handle windows.Handle
 }
 
-func (e *eventWaiter) wake() {
+func (e *eventWaiter) wake(uint32) (int, error) {
 	if err := windows.SetEvent(e.handle); err != nil {
 		panic("failed to unlock mutex: " + err.Error())
 	}
+	return 1, nil
 }
 
-func (e *eventWaiter) wait(timeout time.Duration) error {
+func (e *eventWaiter) wait(unused uint32, timeout time.Duration) error {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		waitMillis = uint32(timeout.Nanoseconds() / 1e6)

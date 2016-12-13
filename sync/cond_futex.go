@@ -20,13 +20,13 @@ type cond struct {
 	L      IPCLocker
 	name   string
 	region *mmf.MemoryRegion
-	waiter *inplaceWaiter
+	ftx    *futex
 }
 
 func newCond(name string, flag int, perm os.FileMode, l IPCLocker) (*cond, error) {
 	openFlags := common.FlagsForOpen(flag)
 	// create a shared memory object for the queue.
-	obj, created, err := shm.NewMemoryObjectSize(condSharedStateName(name), openFlags, perm, int64(inplaceWaiterSize))
+	obj, created, err := shm.NewMemoryObjectSize(condSharedStateName(name), openFlags, perm, int64(futexSize))
 	if err != nil {
 		return nil, errors.Wrap(err, "cond: failed to open/create shm object")
 	}
@@ -47,46 +47,46 @@ func newCond(name string, flag int, perm os.FileMode, l IPCLocker) (*cond, error
 	}()
 
 	// mmap memory object.
-	result.region, err = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceWaiterSize)
+	result.region, err = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, futexSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "cond: failed to create new shm region")
 	}
 
-	result.waiter = newInplaceWaiter(allocator.ByteSliceData(result.region.Data()))
+	result.ftx = &futex{(allocator.ByteSliceData(result.region.Data()))}
 
 	return result, nil
 }
 
 func (c *cond) signal() {
-	c.waiter.add(1)
-	_, err := c.waiter.wake(1)
+	c.ftx.add(1)
+	_, err := c.ftx.wake(1)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (c *cond) broadcast() {
-	c.waiter.add(1)
-	_, err := c.waiter.wakeAll()
+	c.ftx.add(1)
+	_, err := c.ftx.wakeAll()
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (c *cond) wait() {
-	seq := *c.waiter.addr()
+	seq := *c.ftx.addr()
 	c.L.Unlock()
-	if err := c.waiter.wait(seq, time.Duration(-1)); err != nil {
+	if err := c.ftx.wait(seq, time.Duration(-1)); err != nil {
 		panic(err)
 	}
 	c.L.Lock()
 }
 
 func (c *cond) waitTimeout(timeout time.Duration) bool {
-	seq := *c.waiter.addr()
+	seq := *c.ftx.addr()
 	var success bool
 	c.L.Unlock()
-	if err := c.waiter.wait(seq, timeout); err == nil {
+	if err := c.ftx.wait(seq, timeout); err == nil {
 		success = true
 	} else if !common.IsTimeoutErr(err) {
 		panic(err)

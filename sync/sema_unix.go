@@ -101,6 +101,9 @@ func destroySemaphore(name string) error {
 	}
 	id, err := semget(k, 1, 0)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return errors.Wrap(err, "failed to get semaphore id")
 	}
 	return removeSysVSemaByID(id, name)

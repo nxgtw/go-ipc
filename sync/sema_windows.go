@@ -28,8 +28,10 @@ func newSemaphore(name string, flag int, perm os.FileMode, initial int) (*semaph
 	return &semaphore{handle: handle}, nil
 }
 
-// destroySemaphore is a no-op on windows.
-func destroySemaphore(name string) error {
+func (s *semaphore) Close() error {
+	if err := windows.CloseHandle(s.handle); err != nil {
+		return errors.Wrap(err, "failed to close windows handle")
+	}
 	return nil
 }
 
@@ -41,13 +43,6 @@ func (s *semaphore) Signal(count int) {
 
 func (s *semaphore) Wait() {
 	s.WaitTimeout(-1)
-}
-
-func (s *semaphore) Close() error {
-	if err := windows.CloseHandle(s.handle); err != nil {
-		return errors.Wrap(err, "failed to close windows handle")
-	}
-	return nil
 }
 
 func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
@@ -68,4 +63,9 @@ func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
 			panic(errors.Errorf("invalid wait state for an event: %d", ev))
 		}
 	}
+}
+
+// destroySemaphore is a no-op on windows.
+func destroySemaphore(name string) error {
+	return nil
 }
