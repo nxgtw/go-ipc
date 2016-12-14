@@ -419,8 +419,8 @@ func benchmarkLocker(b *testing.B, ctor lockerCtor, dtor lockerDtor) {
 	}
 	defer func() {
 		a.NoError(m.Close())
+		dtor(testLockerName)
 	}()
-	defer dtor(testLockerName)
 	var shared uint64
 	b.SetParallelism(16)
 	b.RunParallel(func(pb *testing.PB) {
