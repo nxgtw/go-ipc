@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	cEVENT_MODIFY_STATE = 0x0002
+	cEVENT_MODIFY_STATE     = 0x0002
+	cSEMAPHORE_MODIFY_STATE = 0x0002
 )
 
 var (
@@ -106,7 +107,7 @@ func openOrCreateEvent(name string, flag int, initial int) (windows.Handle, erro
 				return err
 			}
 		} else {
-			handle, err = sys_OpenEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
+			handle, err = sys_OpenEvent(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, 0)
 		}
 		if handle != windows.Handle(0) {
 			return nil
@@ -178,7 +179,7 @@ func openOrCreateSemaphore(name string, flag int, initial, maximum int) (windows
 				return err
 			}
 		} else {
-			handle, err = sys_OpenSemaphore(name, windows.SYNCHRONIZE|cEVENT_MODIFY_STATE, uint32(0))
+			handle, err = sys_OpenSemaphore(name, windows.SYNCHRONIZE|cSEMAPHORE_MODIFY_STATE, 0)
 		}
 		if handle != windows.Handle(0) {
 			return nil
