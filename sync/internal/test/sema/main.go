@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/sync"
@@ -16,47 +18,53 @@ var (
 	fail    = flag.Bool("fail", false, "operation must fail")
 )
 
-const usage = `  test program for events.
+const usage = `  test program for semaphores.
 available commands:
-  wait event_name
-  set event_name
+  wait sema_name
+  signal sema_name count
 `
 
 func wait() error {
 	if flag.NArg() != 2 {
-		return fmt.Errorf("wait: must provide event name only")
+		return fmt.Errorf("wait: must provide sema name only")
 	}
-	ev, err := sync.NewEvent(flag.Arg(1), 0, 0666, false)
+	s, err := sync.NewSemaphore(flag.Arg(1), 0, 0666, 0)
 	if err != nil {
 		return err
 	}
 	if *timeout < 0 {
-		ev.Wait()
-	} else {
-		ok := ev.WaitTimeout(time.Duration(*timeout) * time.Millisecond)
+		s.Wait()
+	} else if ts, ok := s.(sync.TimedSemaphore); ok {
+		ok := ts.WaitTimeout(time.Duration(*timeout) * time.Millisecond)
 		if ok != !*fail {
 			if !ok {
 				return fmt.Errorf("timeout exceeded")
 			}
 			return fmt.Errorf("timeout passed")
 		}
+	} else {
+		return fmt.Errorf("semaphore on %s aren't timed", runtime.GOARCH)
 	}
-	if err = ev.Close(); err != nil {
+	if err = s.Close(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func set() error {
-	if flag.NArg() != 2 {
-		return fmt.Errorf("signal: must provide event name only")
+func signal() error {
+	if flag.NArg() != 3 {
+		return fmt.Errorf("signal: must provide sema name and count")
 	}
-	ev, err := sync.NewEvent(flag.Arg(1), 0, 0666, false)
+	s, err := sync.NewSemaphore(flag.Arg(1), 0, 0666, 0)
 	if err != nil {
 		return err
 	}
-	ev.Set()
-	if err = ev.Close(); err != nil {
+	count, err := strconv.Atoi(flag.Arg(2))
+	if err != nil {
+		return err
+	}
+	s.Signal(count)
+	if err = s.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -67,8 +75,8 @@ func runCommand() error {
 	switch command {
 	case "wait":
 		return wait()
-	case "set":
-		return set()
+	case "signal":
+		return signal()
 	default:
 		return fmt.Errorf("unknown command")
 	}

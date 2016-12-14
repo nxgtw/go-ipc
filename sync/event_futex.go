@@ -19,7 +19,7 @@ import (
 type event struct {
 	name   string
 	region *mmf.MemoryRegion
-	waiter *inplaceWaiter
+	ftx    *futex
 }
 
 func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, error) {
@@ -27,7 +27,7 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 		return nil, err
 	}
 	internalName := eventName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(inplaceWaiterSize))
+	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(futexSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -44,23 +44,23 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceWaiterSize); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, futexSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	waiter := newInplaceWaiter(allocator.ByteSliceData(region.Data()))
+	ftx := &futex{allocator.ByteSliceData(region.Data())}
 	if created {
 		if initial {
-			*waiter.addr() = 1
+			*ftx.addr() = 1
 		} else {
-			*waiter.addr() = 0
+			*ftx.addr() = 0
 		}
 	}
-	return &event{waiter: waiter, name: name, region: region}, nil
+	return &event{ftx: ftx, name: name, region: region}, nil
 }
 
 func (e *event) set() {
-	*e.waiter.addr() = 1
-	if _, err := e.waiter.wake(1); err != nil {
+	*e.ftx.addr() = 1
+	if _, err := e.ftx.wake(1); err != nil {
 		panic(err)
 	}
 }
@@ -71,10 +71,10 @@ func (e *event) wait() {
 
 func (e *event) waitTimeout(timeout time.Duration) bool {
 	for {
-		if atomic.CompareAndSwapUint32(e.waiter.addr(), 1, 0) {
+		if atomic.CompareAndSwapUint32(e.ftx.addr(), 1, 0) {
 			return true
 		}
-		if err := e.waiter.wait(0, timeout); err != nil {
+		if err := e.ftx.wait(0, timeout); err != nil {
 			if common.IsTimeoutErr(err) {
 				return false
 			}
@@ -89,7 +89,7 @@ func (e *event) close() error {
 	}
 	err := e.region.Close()
 	e.region = nil
-	e.waiter = nil
+	e.ftx = nil
 	return err
 }
 

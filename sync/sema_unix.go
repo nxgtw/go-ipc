@@ -21,20 +21,20 @@ type sembuf struct {
 	semflg int16
 }
 
-// Semaphore is a sysV semaphore.
-type Semaphore struct {
+// semaphore is a sysV semaphore.
+type semaphore struct {
 	name string
 	id   int
 }
 
-// NewSemaphore creates a new sysV semaphore with the given name.
+// newSemaphore creates a new sysV semaphore with the given name.
 // It generates a key from the name, and then calls NewSemaphoreKey.
-func NewSemaphore(name string, mode int, perm os.FileMode, initial int) (*Semaphore, error) {
+func newSemaphore(name string, flag int, perm os.FileMode, initial int) (*semaphore, error) {
 	k, err := common.KeyForName(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate a key for the name")
 	}
-	result, err := NewSemaphoreKey(uint64(k), mode, perm, initial)
+	result, err := newSemaphoreKey(uint64(k), flag, perm, initial)
 	if err != nil {
 		return nil, err
 	}
@@ -42,12 +42,8 @@ func NewSemaphore(name string, mode int, perm os.FileMode, initial int) (*Semaph
 	return result, nil
 }
 
-// NewSemaphoreKey creates a new sysV semaphore for the given key.
-//	key - object key. each semaphore object is identifyed by a unique key.
-//	flag - flag is a combination of open flags from 'os' package.
-//	perm - object's permission bits.
-//	initial - this value will be added to the semaphore's value, if it was created.
-func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Semaphore, error) {
+// newSemaphoreKey creates a new sysV semaphore for the given key.
+func newSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*semaphore, error) {
 	var id int
 	creator := func(create bool) error {
 		var creatorErr error
@@ -62,9 +58,9 @@ func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Sema
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open/create sysv semaphore")
 	}
-	result := &Semaphore{id: id}
+	result := &semaphore{id: id}
 	if created && initial > 0 {
-		if err = result.Add(initial); err != nil {
+		if err = result.add(initial); err != nil {
 			result.Destroy()
 			return nil, errors.Wrap(err, "failed to add initial semaphore value")
 		}
@@ -72,32 +68,48 @@ func NewSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*Sema
 	return result, nil
 }
 
-// Add adds the given value to the semaphore's value.
-// It locks, if the operation cannot be done immediately.
-func (s *Semaphore) Add(value int) error {
-	f := func() error { return semAdd(s.id, value) }
-	return common.UninterruptedSyscall(f)
+func (s *semaphore) Signal(count int) {
+	if err := s.add(count); err != nil {
+		panic(err)
+	}
 }
 
-// Destroy removes the semaphore permanently.
-func (s *Semaphore) Destroy() error {
-	return removeSemaByID(s.id, s.name)
+func (s *semaphore) Wait() {
+	if err := s.add(-1); err != nil {
+		panic(err)
+	}
 }
 
-// DestroySemaphore permanently removes semaphore with the given name.
-func DestroySemaphore(name string) error {
+// Close is a no-op on unix.
+func (s *semaphore) Close() error {
+	return nil
+}
+
+func (s *semaphore) Destroy() error {
+	return removeSysVSemaByID(s.id, s.name)
+}
+
+func (s *semaphore) add(value int) error {
+	return common.UninterruptedSyscall(func() error { return semAdd(s.id, value) })
+}
+
+// destroySemaphore permanently removes semaphore with the given name.
+func destroySemaphore(name string) error {
 	k, err := common.KeyForName(name)
 	if err != nil {
 		return errors.Wrap(err, "failed to get a key for the name")
 	}
 	id, err := semget(k, 1, 0)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return errors.Wrap(err, "failed to get semaphore id")
 	}
-	return removeSemaByID(id, name)
+	return removeSysVSemaByID(id, name)
 }
 
-func removeSemaByID(id int, name string) error {
+func removeSysVSemaByID(id int, name string) error {
 	err := semctl(id, 0, common.IpcRmid)
 	if err == nil && len(name) > 0 {
 		if err = os.Remove(common.TmpFilename(name)); os.IsNotExist(err) {

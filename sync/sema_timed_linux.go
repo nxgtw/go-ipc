@@ -3,42 +3,50 @@
 package sync
 
 import (
+	"os"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"golang.org/x/sys/unix"
 )
 
-// AddTimeout add the given value to the semaphore's value.
-// If the operation locks, it waits for not more, than timeout.
-// This call is supported on linux only.
-func (s *Semaphore) AddTimeout(value int, timeout time.Duration) error {
-	f := func(curTimeout time.Duration) error {
-		b := sembuf{semnum: 0, semop: int16(value), semflg: 0}
+// WaitTimeout is supported on linux only.
+func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
+	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
+		b := sembuf{semnum: 0, semop: int16(-1), semflg: 0}
 		return semtimedop(s.id, []sembuf{b}, common.TimeoutToTimeSpec(curTimeout))
+	}, timeout)
+	if err == nil {
+		return true
 	}
-	return common.UninterruptedSyscallTimeout(f, timeout)
+	if common.IsTimeoutErr(err) {
+		return false
+	}
+	panic(err)
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 // This call is supported on linux only.
 func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
-	return m.inplace.lockTimeout(timeout)
+	return m.lwm.lockTimeout(timeout)
 }
 
 type semaTimedWaiter struct {
-	s *Semaphore
+	s *semaphore
 }
 
-func newSemaWaiter(s *Semaphore) *semaTimedWaiter {
-	return &semaTimedWaiter{s: s}
+func newSemaWaiter(s Semaphore) *semaTimedWaiter {
+	return &semaTimedWaiter{s: s.(*semaphore)}
 }
 
-func (sw *semaTimedWaiter) wake() {
-	if err := sw.s.Add(1); err != nil {
-		panic(err)
+func (sw *semaTimedWaiter) wake(uint32) (int, error) {
+	sw.s.Signal(1)
+	return 1, nil
+}
+
+func (sw *semaTimedWaiter) wait(unused uint32, timeout time.Duration) error {
+	if !sw.s.WaitTimeout(timeout) {
+		return os.NewSyscallError("SEMTIMEDOP", unix.EAGAIN)
 	}
-}
-
-func (sw *semaTimedWaiter) wait(timeout time.Duration) error {
-	return sw.s.AddTimeout(-1, timeout)
+	return nil
 }

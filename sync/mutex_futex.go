@@ -6,12 +6,10 @@ package sync
 
 import (
 	"os"
-	"syscall"
 	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -25,7 +23,7 @@ var (
 
 // FutexMutex is a mutex based on linux futex object.
 type FutexMutex struct {
-	futex  *inplaceMutex
+	lwm    *lwMutex
 	region *mmf.MemoryRegion
 	name   string
 }
@@ -40,7 +38,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(inplaceMutexSize))
+	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(lwmCellSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -57,31 +55,36 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceMutexSize); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, lwmCellSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
-	fw := new(futexWaiter)
-	futex := newInplaceMutex(allocator.ByteSliceData(region.Data()), fw)
-	fw.ptr = unsafe.Pointer(futex.ptr)
+	fw := new(futex)
+	lwm := newLightweightMutex(allocator.ByteSliceData(region.Data()), fw)
+	fw.ptr = unsafe.Pointer(lwm.ptr)
 	if created {
-		futex.init()
+		lwm.init()
 	}
-	return &FutexMutex{futex: futex, name: name, region: region}, nil
+	return &FutexMutex{lwm: lwm, name: name, region: region}, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (f *FutexMutex) Lock() {
-	f.futex.lock()
+	f.lwm.lock()
+}
+
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+func (f *FutexMutex) TryLock() bool {
+	return f.lwm.tryLock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
 func (f *FutexMutex) LockTimeout(timeout time.Duration) bool {
-	return f.futex.lockTimeout(timeout)
+	return f.lwm.lockTimeout(timeout)
 }
 
 // Unlock releases the mutex. It panics on an error, or if the mutex is not locked.
 func (f *FutexMutex) Unlock() {
-	f.futex.unlock()
+	f.lwm.unlock()
 }
 
 // Close indicates, that the object is no longer in use,
@@ -96,7 +99,7 @@ func (f *FutexMutex) Destroy() error {
 		return errors.Wrap(err, "failed to close shm region")
 	}
 	f.region = nil
-	f.futex = nil
+	f.lwm = nil
 	return DestroyFutexMutex(f.name)
 }
 
@@ -105,25 +108,6 @@ func DestroyFutexMutex(name string) error {
 	err := shm.DestroyMemoryObject(mutexSharedStateName(name, "f"))
 	if err != nil {
 		return errors.Wrap(err, "failed to destroy memory object")
-	}
-	return nil
-}
-
-type futexWaiter struct {
-	ptr unsafe.Pointer
-}
-
-func (fw *futexWaiter) wake() {
-	if _, err := FutexWake(fw.ptr, 1, 0); err != nil {
-		panic(err)
-	}
-}
-
-func (fw *futexWaiter) wait(timeout time.Duration) error {
-	if err := FutexWait(fw.ptr, cInplaceMutexLockedHaveWaiters, timeout, 0); err != nil {
-		if !common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
-			return err
-		}
 	}
 	return nil
 }
