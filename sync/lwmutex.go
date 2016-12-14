@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	cInplaceSpinCount              = 100
-	cInplaceMutexUnlocked          = uint32(0)
-	cInplaceMutexLockedNoWaiters   = uint32(1)
-	cInplaceMutexLockedHaveWaiters = uint32(2)
+	lwmSpinCount         = 100
+	lwmUnlocked          = uint32(0)
+	lwmLockedNoWaiters   = uint32(1)
+	lwmLockedHaveWaiters = uint32(2)
 )
 
 const (
-	inplaceMutexSize = int(unsafe.Sizeof(lwMutex{}))
+	lwmCellSize = 4
 )
 
 // waitWaker is an object, which implements wake/wait semantics.
@@ -40,22 +40,22 @@ func newLightweightMutex(ptr unsafe.Pointer, ww waitWaker) *lwMutex {
 }
 
 // init writes initial value into mutex's memory location.
-func (im *lwMutex) init() {
-	*im.ptr = cInplaceMutexUnlocked
+func (lwm *lwMutex) init() {
+	*lwm.ptr = lwmUnlocked
 }
 
-func (im *lwMutex) lock() {
-	if err := im.doLock(-1); err != nil {
+func (lwm *lwMutex) lock() {
+	if err := lwm.doLock(-1); err != nil {
 		panic(err)
 	}
 }
 
-func (im *lwMutex) tryLock() bool {
-	return atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters)
+func (lwm *lwMutex) tryLock() bool {
+	return atomic.CompareAndSwapUint32(lwm.ptr, lwmUnlocked, lwmLockedNoWaiters)
 }
 
-func (im *lwMutex) lockTimeout(timeout time.Duration) bool {
-	err := im.doLock(timeout)
+func (lwm *lwMutex) lockTimeout(timeout time.Duration) bool {
+	err := lwm.doLock(timeout)
 	if err == nil {
 		return true
 	}
@@ -65,42 +65,42 @@ func (im *lwMutex) lockTimeout(timeout time.Duration) bool {
 	panic(err)
 }
 
-func (im *lwMutex) doLock(timeout time.Duration) error {
-	for i := 0; i < cInplaceSpinCount; i++ {
-		if atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexUnlocked, cInplaceMutexLockedNoWaiters) {
+func (lwm *lwMutex) doLock(timeout time.Duration) error {
+	for i := 0; i < lwmSpinCount; i++ {
+		if lwm.tryLock() {
 			return nil
 		}
 	}
-	old := atomic.LoadUint32(im.ptr)
-	if old != cInplaceMutexLockedHaveWaiters {
-		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
+	old := atomic.LoadUint32(lwm.ptr)
+	if old != lwmLockedHaveWaiters {
+		old = atomic.SwapUint32(lwm.ptr, lwmLockedHaveWaiters)
 	}
-	for old != cInplaceMutexUnlocked {
-		if err := im.ww.wait(cInplaceMutexLockedHaveWaiters, timeout); err != nil {
+	for old != lwmUnlocked {
+		if err := lwm.ww.wait(lwmLockedHaveWaiters, timeout); err != nil {
 			return err
 		}
-		old = atomic.SwapUint32(im.ptr, cInplaceMutexLockedHaveWaiters)
+		old = atomic.SwapUint32(lwm.ptr, lwmLockedHaveWaiters)
 	}
 	return nil
 }
 
-func (im *lwMutex) unlock() {
-	if old := atomic.LoadUint32(im.ptr); old == cInplaceMutexLockedHaveWaiters {
-		*im.ptr = cInplaceMutexUnlocked
+func (lwm *lwMutex) unlock() {
+	if old := atomic.LoadUint32(lwm.ptr); old == lwmLockedHaveWaiters {
+		*lwm.ptr = lwmUnlocked
 	} else {
-		if old == cInplaceMutexUnlocked {
+		if old == lwmUnlocked {
 			panic("unlock of unlocked mutex")
 		}
-		if atomic.SwapUint32(im.ptr, cInplaceMutexUnlocked) == cInplaceMutexLockedNoWaiters {
+		if atomic.SwapUint32(lwm.ptr, lwmUnlocked) == lwmLockedNoWaiters {
 			return
 		}
 	}
-	for i := 0; i < cInplaceSpinCount; i++ {
-		if *im.ptr != cInplaceMutexUnlocked {
-			if atomic.CompareAndSwapUint32(im.ptr, cInplaceMutexLockedNoWaiters, cInplaceMutexLockedHaveWaiters) {
+	for i := 0; i < lwmSpinCount; i++ {
+		if *lwm.ptr != lwmUnlocked {
+			if atomic.CompareAndSwapUint32(lwm.ptr, lwmLockedNoWaiters, lwmLockedHaveWaiters) {
 				return
 			}
 		}
 	}
-	im.ww.wake(1)
+	lwm.ww.wake(1)
 }

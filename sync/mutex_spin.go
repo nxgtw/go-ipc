@@ -5,9 +5,7 @@ package sync
 import (
 	"os"
 	"runtime"
-	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
@@ -17,7 +15,6 @@ import (
 )
 
 const (
-	spinImplSize  = int(unsafe.Sizeof(spinMutex(0)))
 	cSpinUnlocked = 0
 	cSpinLocked   = 1
 )
@@ -27,46 +24,22 @@ var (
 	_ IPCLocker = (*SpinMutex)(nil)
 )
 
-type spinMutex uint32
-
-func (spin *spinMutex) lock() {
-	for i := uint64(0); !spin.tryLock(); i++ {
-		if i%1000 == 0 {
-			runtime.Gosched()
-		}
-	}
-}
-
-func (spin *spinMutex) lockTimeout(timeout time.Duration) bool {
-	var attempt uint64
-	start := time.Now()
-	for !spin.tryLock() {
-		if attempt%1000 == 0 { // do not call time.Since too often.
-			if timeout >= 0 && time.Since(start) >= timeout {
-				return false
-			}
-			runtime.Gosched()
-		}
-		attempt++
-	}
-	return true
-}
-
-func (spin *spinMutex) unlock() {
-	if !atomic.CompareAndSwapUint32((*uint32)(unsafe.Pointer(spin)), cSpinLocked, cSpinUnlocked) {
-		panic("unlock of unlocked mutex")
-	}
-}
-
-func (spin *spinMutex) tryLock() bool {
-	return atomic.CompareAndSwapUint32((*uint32)(unsafe.Pointer(spin)), cSpinUnlocked, cSpinLocked)
-}
-
 // SpinMutex is a synchronization object which performs busy wait loop.
 type SpinMutex struct {
-	impl   *spinMutex
+	lwm    *lwMutex
 	region *mmf.MemoryRegion
 	name   string
+}
+
+type spinWW struct{}
+
+func (sw spinWW) wake(uint32) (int, error) {
+	return 1, nil
+}
+
+func (sw spinWW) wait(unused uint32, timeout time.Duration) error {
+	runtime.Gosched()
+	return nil
 }
 
 // NewSpinMutex creates a new spin mutex.
@@ -78,33 +51,36 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, err
 	}
 	name = spinName(name)
-	region, _, err := createWritableRegion(name, flag, perm, spinImplSize, spinMutex(cSpinUnlocked))
+	region, created, err := createWritableRegion(name, flag, perm, lwmCellSize, nil)
 	if err != nil {
 		return nil, err
 	}
-	m := (*spinMutex)(allocator.ByteSliceData(region.Data()))
-	impl := &SpinMutex{impl: m, region: region, name: name}
+	lwm := newLightweightMutex(allocator.ByteSliceData(region.Data()), &spinWW{})
+	if created {
+		lwm.init()
+	}
+	impl := &SpinMutex{region: region, name: name, lwm: lwm}
 	return impl, nil
 }
 
 // Lock locks the mutex waiting in a busy loop if needed.
 func (spin *SpinMutex) Lock() {
-	spin.impl.lock()
+	spin.lwm.lock()
 }
 
 // LockTimeout locks the mutex waiting in a busy loop for not longer, than timeout.
 func (spin *SpinMutex) LockTimeout(timeout time.Duration) bool {
-	return spin.impl.lockTimeout(timeout)
+	return spin.lwm.lockTimeout(timeout)
 }
 
 // Unlock releases the mutex. It panics, if the mutex is not locked.
 func (spin *SpinMutex) Unlock() {
-	spin.impl.unlock()
+	spin.lwm.unlock()
 }
 
 // TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
 func (spin *SpinMutex) TryLock() bool {
-	return spin.impl.tryLock()
+	return spin.lwm.tryLock()
 }
 
 // Close indicates, that the object is no longer in use,

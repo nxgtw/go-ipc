@@ -31,7 +31,7 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, inplaceMutexSize, cInplaceMutexUnlocked)
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmCellSize, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}
@@ -47,14 +47,22 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 		s:      s,
 		region: region,
 		name:   name,
+		lwm:    newLightweightMutex(allocator.ByteSliceData(region.Data()), newSemaWaiter(s)),
 	}
-	result.lwm = newLightweightMutex(allocator.ByteSliceData(region.Data()), newSemaWaiter(s))
+	if created {
+		result.lwm.init()
+	}
 	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
 func (m *SemaMutex) Lock() {
 	m.lwm.lock()
+}
+
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+func (m *SemaMutex) TryLock() bool {
+	return m.lwm.tryLock()
 }
 
 // Unlock releases the mutex. It panics on an error, or if the mutex is not locked.

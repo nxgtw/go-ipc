@@ -38,7 +38,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(inplaceMutexSize))
+	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(lwmCellSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -55,7 +55,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, inplaceMutexSize); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, lwmCellSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	fw := new(futex)
@@ -70,6 +70,11 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 // Lock locks the mutex. It panics on an error.
 func (f *FutexMutex) Lock() {
 	f.lwm.lock()
+}
+
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+func (f *FutexMutex) TryLock() bool {
+	return f.lwm.tryLock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.

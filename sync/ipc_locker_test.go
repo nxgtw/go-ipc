@@ -407,3 +407,46 @@ func testLockerTwiceUnlock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		m.Unlock()
 	})
 }
+
+func benchmarkLocker(b *testing.B, ctor lockerCtor, dtor lockerDtor) {
+	a := assert.New(b)
+	if !a.NoError(dtor(testLockerName)) {
+		return
+	}
+	m, err := ctor(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) || !a.NotNil(m) {
+		return
+	}
+	defer func() {
+		a.NoError(m.Close())
+	}()
+	defer dtor(testLockerName)
+	var shared uint64
+	b.SetParallelism(16)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			m.Lock()
+			for i := 0; i < 30000; i++ {
+				shared++
+			}
+			m.Unlock()
+		}
+	})
+	b.Logf("locker bench: final value is %d", shared)
+}
+
+func BenchmarkSemaMutex(b *testing.B) {
+	benchmarkLocker(b, func(name string, mode int, perm os.FileMode) (IPCLocker, error) {
+		return NewSemaMutex(name, mode, perm)
+	}, func(name string) error {
+		return DestroySemaMutex(name)
+	})
+}
+
+func BenchmarkSpinMutex(b *testing.B) {
+	benchmarkLocker(b, func(name string, mode int, perm os.FileMode) (IPCLocker, error) {
+		return NewSpinMutex(name, mode, perm)
+	}, func(name string) error {
+		return DestroySpinMutex(name)
+	})
+}

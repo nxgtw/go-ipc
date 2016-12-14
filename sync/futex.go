@@ -33,7 +33,7 @@ func (w *futex) add(value int) {
 
 func (w *futex) wait(value uint32, timeout time.Duration) error {
 	err := FutexWait(w.ptr, value, timeout, 0)
-	if common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
+	if err != nil && common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
 		return nil
 	}
 	return err

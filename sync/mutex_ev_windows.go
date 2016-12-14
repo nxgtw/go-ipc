@@ -41,7 +41,7 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, inplaceMutexSize, cInplaceMutexUnlocked)
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, lwmCellSize, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}
@@ -57,8 +57,8 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 		handle: handle,
 		state:  region,
 		name:   name,
+		lwm:    newLightweightMutex(allocator.ByteSliceData(region.Data()), &eventWaiter{handle: handle}),
 	}
-	result.lwm = newLightweightMutex(allocator.ByteSliceData(region.Data()), &eventWaiter{handle: handle})
 	if created {
 		result.lwm.init()
 	}
@@ -68,6 +68,11 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 // Lock locks the mutex. It panics on an error.
 func (m *EventMutex) Lock() {
 	m.lwm.lock()
+}
+
+// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+func (m *EventMutex) TryLock() bool {
+	return m.lwm.tryLock()
 }
 
 // LockTimeout tries to lock the locker, waiting for not more, than timeout.
