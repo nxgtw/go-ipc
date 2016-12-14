@@ -60,7 +60,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	}
 	fw := new(futex)
 	lwm := newLightweightMutex(allocator.ByteSliceData(region.Data()), fw)
-	fw.ptr = unsafe.Pointer(lwm.ptr)
+	fw.ptr = unsafe.Pointer(lwm.state)
 	if created {
 		lwm.init()
 	}
