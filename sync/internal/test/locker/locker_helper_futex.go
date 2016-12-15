@@ -19,6 +19,8 @@ func createLocker(typ, name string, flag int) (locker sync.Locker, err error) {
 		locker, err = ipc_sync.NewSemaMutex(name, flag, 0666)
 	case "spin":
 		locker, err = ipc_sync.NewSpinMutex(name, flag, 0666)
+	case "rw":
+		locker, err = ipc_sync.NewRWMutex(name, flag, 0666)
 	default:
 		err = fmt.Errorf("unknown object type %q", typ)
 	}
@@ -33,6 +35,8 @@ func destroyLocker(typ, name string) error {
 		return ipc_sync.DestroySemaMutex(name)
 	case "spin":
 		return ipc_sync.DestroySpinMutex(name)
+	case "rw":
+		return ipc_sync.DestroyRWMutex(name)
 	default:
 		return fmt.Errorf("unknown object type %q", typ)
 	}

@@ -65,6 +65,11 @@ func (lwrw *lwRWMutex) lock() {
 	if new.readers() > 0 || new.writers() > 1 {
 		lwrw.wWaiter.wait(0, -1)
 	}
+	st := (lwRWState)(atomic.LoadInt64(lwrw.state))
+	if st.readers() > 0 {
+		println(st.readers())
+		panic(st.readers())
+	}
 }
 
 func (lwrw *lwRWMutex) rlock() {

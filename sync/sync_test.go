@@ -100,24 +100,23 @@ func argsForSyncDestroyCommand(name string) []string {
 	return append(lockerProgArgs, "-object="+name, "destroy")
 }
 
-func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int, logFile string) []string {
+func argsForSyncInc64Command(name, t string, jobs int, shmName string, n int) []string {
 	return append(lockerProgArgs,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
-		"-log="+logFile,
 		"inc64",
 		shmName,
 		strconv.Itoa(n),
 	)
 }
 
-func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, data []byte, log string) []string {
+func argsForSyncTestCommand(name, t string, jobs int, shmName string, n int, data []byte, rlock bool) []string {
 	return append(lockerProgArgs,
 		"-object="+name,
 		"-type="+t,
 		"-jobs="+strconv.Itoa(jobs),
-		"-log="+log,
+		"-ro="+strconv.FormatBool(rlock),
 		"test",
 		shmName,
 		strconv.Itoa(n),

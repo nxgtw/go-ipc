@@ -200,7 +200,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a.Equal(routines*iters, sharedValue)
 }
 
-func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
+func testLockerMemory(t *testing.T, typ string, ro bool, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
@@ -231,7 +231,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	for i := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testLockerName, typ, 4, testMemObj, 1024, data, "")
+	args := argsForSyncTestCommand(testLockerName, typ, 4, testMemObj, 1024, data, ro)
 	var wg sync.WaitGroup
 	var flag int32 = 1
 	jobs := runtime.NumCPU() - 1
@@ -299,7 +299,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	}()
 	data := region.Data()
 	ptr := (*int64)(allocator.ByteSliceData(data))
-	args := argsForSyncInc64Command(testLockerName, typ, remoteJobs, testMemObj, iterations, "")
+	args := argsForSyncInc64Command(testLockerName, typ, remoteJobs, testMemObj, iterations)
 	var wg sync.WaitGroup
 	flag := int32(1)
 	jobs := runtime.NumCPU()

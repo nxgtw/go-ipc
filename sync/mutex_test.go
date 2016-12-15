@@ -40,7 +40,7 @@ func TestMutexLock(t *testing.T) {
 }
 
 func TestMutexMemory(t *testing.T) {
-	testLockerMemory(t, defaultMutexType, mutexCtor, mutexDtor)
+	testLockerMemory(t, defaultMutexType, false, mutexCtor, mutexDtor)
 }
 
 func TestMutexValueInc(t *testing.T) {
