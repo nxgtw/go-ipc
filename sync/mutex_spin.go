@@ -14,11 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	cSpinUnlocked = 0
-	cSpinLocked   = 1
-)
-
 // all implementations must satisfy IPCLocker interface.
 var (
 	_ IPCLocker = (*SpinMutex)(nil)
@@ -51,7 +46,7 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, err
 	}
 	name = spinName(name)
-	region, created, err := createWritableRegion(name, flag, perm, lwmCellSize, nil)
+	region, created, err := createWritableRegion(name, flag, perm, lwmStateSize, nil)
 	if err != nil {
 		return nil, err
 	}

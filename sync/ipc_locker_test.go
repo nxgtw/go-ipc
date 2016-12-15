@@ -450,3 +450,11 @@ func BenchmarkSpinMutex(b *testing.B) {
 		return DestroySpinMutex(name)
 	})
 }
+
+func BenchmarkRWMutex(b *testing.B) {
+	benchmarkLocker(b, func(name string, mode int, perm os.FileMode) (IPCLocker, error) {
+		return NewRWMutex(name, mode, perm)
+	}, func(name string) error {
+		return DestroyRWMutex(name)
+	})
+}

@@ -38,7 +38,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(lwmCellSize))
+	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(lwmStateSize))
 	if resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm object")
 	}
@@ -55,7 +55,7 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, lwmCellSize); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, lwmStateSize); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	fw := new(futex)
@@ -98,15 +98,12 @@ func (f *FutexMutex) Destroy() error {
 	if err := f.Close(); err != nil {
 		return errors.Wrap(err, "failed to close shm region")
 	}
-	f.region = nil
-	f.lwm = nil
 	return DestroyFutexMutex(f.name)
 }
 
 // DestroyFutexMutex permanently removes mutex with the given name.
 func DestroyFutexMutex(name string) error {
-	err := shm.DestroyMemoryObject(mutexSharedStateName(name, "f"))
-	if err != nil {
+	if err := shm.DestroyMemoryObject(mutexSharedStateName(name, "f")); err != nil {
 		return errors.Wrap(err, "failed to destroy memory object")
 	}
 	return nil

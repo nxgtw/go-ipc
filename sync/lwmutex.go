@@ -11,14 +11,12 @@ import (
 )
 
 const (
+	lwmStateSize = 4
+
 	lwmSpinCount         = 100
 	lwmUnlocked          = uint32(0)
 	lwmLockedNoWaiters   = uint32(1)
 	lwmLockedHaveWaiters = uint32(2)
-)
-
-const (
-	lwmCellSize = 4
 )
 
 // waitWaker is an object, which implements wake/wait semantics.

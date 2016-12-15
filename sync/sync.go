@@ -18,7 +18,6 @@ import (
 // IPCLocker is a minimal interface, which must be satisfied by any synchronization primitive on any platform.
 type IPCLocker interface {
 	sync.Locker
-	TryLock() bool
 	io.Closer
 }
 

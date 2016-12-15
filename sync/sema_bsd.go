@@ -7,16 +7,16 @@ package sync
 import "time"
 
 type semaWaiter struct {
-	s Semaphore
+	s *semaphore
 }
 
 func newSemaWaiter(s Semaphore) *semaWaiter {
-	return &semaWaiter{s: s}
+	return &semaWaiter{s: s.(*semaphore)}
 }
 
-func (sw *semaWaiter) wake(uint32) (int, error) {
-	sw.s.Signal(1)
-	return 1, nil
+func (sw *semaWaiter) wake(count uint32) (int, error) {
+	sw.s.Signal(int(count))
+	return int(count), nil
 }
 
 func (sw *semaWaiter) wait(unused uint32, timeout time.Duration) error {

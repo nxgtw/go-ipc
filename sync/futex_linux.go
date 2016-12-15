@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	futexSyscallErr error = os.NewSyscallError("FUTEX", unix.EWOULDBLOCK)
+	futexSyscallErr = os.NewSyscallError("FUTEX", unix.EWOULDBLOCK)
 )
 
 // FutexWait checks if the the value equals futex's value.

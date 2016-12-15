@@ -8,30 +8,51 @@ import (
 )
 
 const (
-	lwRWCellSize = 8
+	lwRWMStateSize          = 8
+	lwRWMMask               = 0x1FFFFF
+	lwRWMWaitingReaderShift = 21
+	lwRWMWriterShift        = 42
 )
 
-// wRWState is a shared rwmutex state.
-//   63........62.........41...................20....0
-//  unused      writers     waiting readers     readers
-type lwRWState uint64
+// wRWState is a shared rwmutex state with the following bits distribution:
+//  ...63...|62.................42|41.................21|20.................0|
+//  --------|---------------------|---------------------|--------------------|
+//   unused |       writers       |   waiting readers   |      readers       |
+// which gives us up to 2kk readers and writers.
+type lwRWState int64
 
-func (s *lwRWState) load() lwRWState {
-	return (lwRWState)(atomic.LoadUint64((*uint64)(s)))
+func (s lwRWState) readers() int64 {
+	return (int64)(s) & lwRWMMask
 }
 
-func (s *lwRWState) readers() int {
-	return (int)(*(*uint64)(s) & 0xFFFFF)
+func (s lwRWState) waitingReaders() int64 {
+	return ((int64)(s) >> lwRWMWaitingReaderShift) & lwRWMMask
+}
+
+func (s lwRWState) writers() int64 {
+	return ((int64)(s) >> lwRWMWriterShift) & lwRWMMask
+}
+
+func (s *lwRWState) addReaders(count int64) {
+	*(*int64)(s) += count
+}
+
+func (s *lwRWState) addWaitingReaders(count int64) {
+	*(*int64)(s) += count << lwRWMWaitingReaderShift
+}
+
+func (s *lwRWState) addWriters(count int64) {
+	*(*int64)(s) += count << lwRWMWriterShift
 }
 
 type lwRWMutex struct {
 	rWaiter waitWaker
 	wWaiter waitWaker
-	state   *lwRWState
+	state   *int64
 }
 
 func newRWLightweightMutex(state unsafe.Pointer, rWaiter, wWaiter waitWaker) *lwRWMutex {
-	return &lwRWMutex{state: (*lwRWState)(state), rWaiter: rWaiter, wWaiter: wWaiter}
+	return &lwRWMutex{state: (*int64)(state), rWaiter: rWaiter, wWaiter: wWaiter}
 }
 
 // init writes initial value into mutex's memory location.
@@ -40,21 +61,61 @@ func (lwrw *lwRWMutex) init() {
 }
 
 func (lwrw *lwRWMutex) lock() {
-	old := lwrw.state.load()
-	for {
-		new := old
-		_ = new
+	new := (lwRWState)(atomic.AddInt64(lwrw.state, 1<<lwRWMWriterShift))
+	if new.readers() > 0 || new.writers() > 1 {
+		lwrw.wWaiter.wait(0, -1)
 	}
 }
 
 func (lwrw *lwRWMutex) rlock() {
-
+	var new lwRWState
+	for {
+		old := (lwRWState)(atomic.LoadInt64(lwrw.state))
+		new = old
+		if new.writers() == 0 {
+			new.addReaders(1)
+		} else {
+			new.addWaitingReaders(1)
+		}
+		if atomic.CompareAndSwapInt64(lwrw.state, (int64)(old), (int64)(new)) {
+			break
+		}
+	}
+	if new.writers() > 0 {
+		lwrw.rWaiter.wait(0, -1)
+	}
 }
 
 func (lwrw *lwRWMutex) runlock() {
-
+	new := (lwRWState)(atomic.AddInt64(lwrw.state, -1))
+	if new.readers() == lwRWMMask {
+		panic("unlock of unlocked mutex")
+	}
+	if new.readers() == 0 && new.writers() > 0 {
+		lwrw.wWaiter.wake(uint32(new.writers()))
+	}
 }
 
 func (lwrw *lwRWMutex) unlock() {
-
+	var new lwRWState
+	for {
+		old := (lwRWState)(atomic.LoadInt64(lwrw.state))
+		if old.writers() == 0 {
+			panic("unlock of unlocked mutex")
+		}
+		new = old
+		new.addWriters(-1)
+		if wr := new.waitingReaders(); wr > 0 {
+			new.addWaitingReaders(-wr)
+			new.addReaders(wr)
+		}
+		if atomic.CompareAndSwapInt64(lwrw.state, (int64)(old), (int64)(new)) {
+			break
+		}
+	}
+	if new.readers() > 0 {
+		lwrw.rWaiter.wake(uint32(new.readers()))
+	} else if new.writers() > 0 {
+		lwrw.wWaiter.wake(1)
+	}
 }

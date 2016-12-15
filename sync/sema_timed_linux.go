@@ -31,20 +31,20 @@ func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
 	return m.lwm.lockTimeout(timeout)
 }
 
-type semaTimedWaiter struct {
+type semaWaiter struct {
 	s *semaphore
 }
 
-func newSemaWaiter(s Semaphore) *semaTimedWaiter {
-	return &semaTimedWaiter{s: s.(*semaphore)}
+func newSemaWaiter(s Semaphore) *semaWaiter {
+	return &semaWaiter{s: s.(*semaphore)}
 }
 
-func (sw *semaTimedWaiter) wake(uint32) (int, error) {
-	sw.s.Signal(1)
-	return 1, nil
+func (sw *semaWaiter) wake(count uint32) (int, error) {
+	sw.s.Signal(int(count))
+	return int(count), nil
 }
 
-func (sw *semaTimedWaiter) wait(unused uint32, timeout time.Duration) error {
+func (sw *semaWaiter) wait(unused uint32, timeout time.Duration) error {
 	if !sw.s.WaitTimeout(timeout) {
 		return os.NewSyscallError("SEMTIMEDOP", unix.EAGAIN)
 	}

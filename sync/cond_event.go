@@ -14,10 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	condWaiterSize = 8
-)
-
 var (
 	pid = os.Getpid()
 	seq uint32

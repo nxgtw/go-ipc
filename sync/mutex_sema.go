@@ -5,7 +5,6 @@ package sync
 import (
 	"os"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -27,11 +26,14 @@ type SemaMutex struct {
 }
 
 // NewSemaMutex creates a new semaphore-based mutex.
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
 func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmCellSize, nil)
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmStateSize, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}
@@ -72,8 +74,14 @@ func (m *SemaMutex) Unlock() {
 
 // Close closes shared state of the mutex.
 func (m *SemaMutex) Close() error {
-	m.s.Close()
-	return m.region.Close()
+	e1, e2 := m.s.Close(), m.region.Close()
+	if e1 != nil {
+		return errors.Wrap(e1, "failed to close semaphore")
+	}
+	if e2 != nil {
+		return errors.Wrap(e2, "failed to close shared state")
+	}
+	return nil
 }
 
 // Destroy closes the mutex and removes it permanently.
@@ -81,17 +89,7 @@ func (m *SemaMutex) Destroy() error {
 	if err := m.Close(); err != nil {
 		return errors.Wrap(err, "failed to close shared state")
 	}
-	if err := shm.DestroyMemoryObject(mutexSharedStateName(m.name, "s")); err != nil {
-		return errors.Wrap(err, "failed to destroy shared state")
-	}
-	if d, ok := m.s.(ipc.Destroyer); ok {
-		if err := d.Destroy(); err != nil {
-			return errors.Wrap(err, "failed to destroy semaphore")
-		}
-	} else {
-		m.s.Close()
-	}
-	return nil
+	return DestroySemaMutex(m.name)
 }
 
 // DestroySemaMutex permanently removes mutex with the given name.
