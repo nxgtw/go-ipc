@@ -45,6 +45,11 @@ func (s *lwRWState) addWriters(count int64) {
 	*(*int64)(s) += count << lwRWMWriterShift
 }
 
+// lwRWMutex is an optimized low-level rwmutex implementation,
+// that doesn't have internal lock for its state.
+// this implementation is inspired by Jeff Preshing and his article at
+// http://preshing.com/20150316/semaphores-are-surprisingly-versatile/
+// and his c++ implementation (github.com/preshing/cpp11-on-multicore).
 type lwRWMutex struct {
 	rWaiter waitWaker
 	wWaiter waitWaker
@@ -63,7 +68,9 @@ func (lwrw *lwRWMutex) init() {
 func (lwrw *lwRWMutex) lock() {
 	new := (lwRWState)(atomic.AddInt64(lwrw.state, 1<<lwRWMWriterShift))
 	if new.readers() > 0 || new.writers() > 1 {
-		lwrw.wWaiter.wait(0, -1)
+		if err := lwrw.wWaiter.wait(0, -1); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -82,7 +89,9 @@ func (lwrw *lwRWMutex) rlock() {
 		}
 	}
 	if new.writers() > 0 {
-		lwrw.rWaiter.wait(0, -1)
+		if err := lwrw.rWaiter.wait(0, -1); err != nil {
+			panic(err)
+		}
 	}
 }
 

@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -295,4 +296,48 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		killCh <- true
 		t.Errorf("timeout")
 	}
+}
+
+func ExampleSemaphore() {
+	// create new semaphore with initial count set to 3.
+	DestroySemaphore("sema")
+	sema, err := NewSemaphore("sema", os.O_CREATE|os.O_EXCL, 0666, 3)
+	if err != nil {
+		panic(err)
+	}
+	defer sema.Close()
+	// in the following cycle we consume three units of the resource and won't block.
+	for i := 0; i < 3; i++ {
+		sema.Wait()
+		fmt.Println("got one resource unit")
+	}
+	// the following two goroutines won't continue until we call Signal().
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			defer wg.Done()
+			// open existing semaphore
+			sema, err := NewSemaphore("sema", 0, 0666, 0)
+			if err != nil {
+				panic(err)
+			}
+			defer sema.Close()
+			sema.Wait()
+			fmt.Println("got one resource unit after waiting")
+		}()
+	}
+	// wake up goroutines
+	fmt.Println("waking up...")
+	sema.Signal(2)
+	wg.Wait()
+	fmt.Println("done")
+	// Output:
+	// got one resource unit
+	// got one resource unit
+	// got one resource unit
+	// waking up...
+	// got one resource unit after waiting
+	// got one resource unit after waiting
+	// done
 }

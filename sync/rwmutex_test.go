@@ -3,7 +3,10 @@
 package sync
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -65,4 +68,52 @@ func TestRWMutexPanicsOnDoubleUnlock(t *testing.T) {
 
 func TestRWMutexPanicsOnDoubleRUnlock(t *testing.T) {
 	testLockerTwiceUnlock(t, rwRMutexCtor, rwMutexDtor)
+}
+
+func ExampleRWMutex() {
+	const (
+		writers = 4
+		readers = 10
+	)
+	DestroyRWMutex("rw")
+	m, err := NewRWMutex("rw", os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		panic(err)
+	}
+	// we create a shared array of consistently increasing ints for reading and wriring.
+	sharedData := make([]int, 128)
+	for i := range sharedData {
+		sharedData[i] = i
+	}
+	var wg sync.WaitGroup
+	wg.Add(writers + readers)
+	// writers will update the data.
+	for i := 0; i < writers; i++ {
+		go func() {
+			defer wg.Done()
+			start := rand.Intn(1024)
+			m.Lock()
+			for i := range sharedData {
+				sharedData[i] = i + start
+			}
+			m.Unlock()
+		}()
+	}
+	// readers will check the data.
+	for i := 0; i < readers; i++ {
+		go func() {
+			defer wg.Done()
+			m.RLock()
+			for i := 1; i < len(sharedData); i++ {
+				if sharedData[i] != sharedData[i-1]+1 {
+					panic("bad data")
+				}
+			}
+			m.RUnlock()
+		}()
+	}
+	wg.Wait()
+	fmt.Println("done")
+	// Output:
+	// done
 }

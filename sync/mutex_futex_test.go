@@ -7,6 +7,8 @@ package sync
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkFutexMutex(b *testing.B) {
@@ -15,4 +17,15 @@ func BenchmarkFutexMutex(b *testing.B) {
 	}, func(name string) error {
 		return DestroyFutexMutex(name)
 	})
+}
+
+func BenchmarkFutexMutexAsRW(b *testing.B) {
+	a := assert.New(b)
+	DestroyFutexMutex(testLockerName)
+	m, err := NewFutexMutex(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer m.Close()
+	benchmarkRWLocker(b, m, m)
 }
