@@ -75,7 +75,7 @@ func (rw *RWMutex) RUnlock() {
 
 // Close closes shared state of the mutex.
 func (rw *RWMutex) Close() error {
-	e1, e2 := closeRWWaiters(rw.wR, rw.wR), rw.region.Close()
+	e1, e2 := closeRWWaiters(rw.wR, rw.wW), rw.region.Close()
 	if e1 != nil {
 		return e1
 	}
