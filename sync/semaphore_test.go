@@ -296,7 +296,7 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		} else if !a.True(strings.Contains(result.Output, "timeout exceeded")) {
 			t.Logf("invalid error message: %s", result.Output)
 		}
-	case <-time.After(time.Second * 3):
+	case <-time.After(time.Second * 10):
 		killCh <- true
 		t.Errorf("timeout")
 	}
