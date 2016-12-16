@@ -282,6 +282,11 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
+	ts, ok := s.(TimedSemaphore)
+	if !ok {
+		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		return
+	}
 	args := argsForSemaWaitCommand(testSemaName, 250)
 	killCh := make(chan bool, 1)
 	resultCh := testutil.RunTestAppAsync(args, killCh)
