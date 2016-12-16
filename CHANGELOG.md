@@ -1,3 +1,11 @@
+# Release 0.4.0 (2016-12-16)
+
+ - sync: RWMutex for all platforms.
+ - sync: Semaphore for all platforms.
+ - mq: FastMq has become about 30% faster.
+ - all: Added examples.
+ - sync: Event for all platforms.
+
 # Release 0.3.0 (2016-10-12)
 
  - sync: Limited condvar support on darwin and windows via spin waiters.

@@ -12,8 +12,10 @@ This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD
     - shared memory (all supported platforms)
     - system message queues (Linux, FreeBSD, OSX)
     - cross-platform priority message queue (all supported platforms)
-    - locking primitives (all supported platforms)
-    - conditional variables (Linux, FreeBSD, Windows, OSX)
+    - mutexes, rw mutexes (all supported platforms)
+    - semaphores (all supported platforms)
+    - events (all supported platforms)
+    - conditional variables (all supported platforms)
 
 ## Install
 1. Install Go 1.6 or higher.
