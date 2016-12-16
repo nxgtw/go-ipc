@@ -89,7 +89,7 @@ func destroyMemoryObject(name string) error {
 		return errors.Wrap(err, "shm name failed")
 	}
 	if err = doDestroyMemoryObject(path); err != nil {
-		err = errors.Wrap(err, "shm destroy failed")
+		err = errors.Wrapf(err, "failed to destroy shm object %q", path)
 	}
 	return err
 }
