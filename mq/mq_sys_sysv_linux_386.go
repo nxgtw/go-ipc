@@ -50,11 +50,11 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	return nil
 }
 
-func msgrcv(id int, data []byte, typ int, flags int) error {
+func msgrcv(id int, data []byte, typ int, flags int) (int, error) {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	_, _, err := syscall.Syscall6(unix.SYS_IPC,
+	len, _, err := syscall.Syscall6(unix.SYS_IPC,
 		uintptr(cMSGRCV|(1<<16)),
 		uintptr(id),
 		uintptr(len(data)),
@@ -64,9 +64,9 @@ func msgrcv(id int, data []byte, typ int, flags int) error {
 	allocator.Use(rawData)
 	copy(data, message[typeDataSize:])
 	if err != syscall.Errno(0) {
-		return os.NewSyscallError("MSGRCV", err)
+		return 0, os.NewSyscallError("MSGRCV", err)
 	}
-	return nil
+	return int(len), nil
 }
 
 func msgctl(id int, cmd int, buf *msqidDs) error {
