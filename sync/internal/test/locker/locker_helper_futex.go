@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build linux freebsd
+// +build linux freebsd darwin
 
 package main
 
