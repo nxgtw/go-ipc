@@ -28,7 +28,7 @@ func shmName(name string) (string, error) {
 	// workaround from http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	if isDarwin() {
 		newName := fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
-		if len(newName) <= maxNameLen {
+		if len(newName) < maxNameLen {
 			name = newName
 		}
 	}

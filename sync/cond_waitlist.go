@@ -160,11 +160,11 @@ func (c *cond) destroy() error {
 }
 
 func condMutexName(name string) string {
-	return name + ".lock"
+	return name + ".m"
 }
 
 func condSharedStateName(name string) string {
-	return name + ".shared"
+	return name + ".st"
 }
 
 func condCleanup(result *cond, name string, obj shm.SharedMemoryObject, created bool) {

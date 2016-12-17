@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	testMqName = "go.mq"
+	testMqName = "tstmq"
 	mqProgPath = "./internal/test/"
 )
 

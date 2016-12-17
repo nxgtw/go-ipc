@@ -381,11 +381,11 @@ func (mq *FastMq) doSendWait(timeout time.Duration) bool {
 }
 
 func fastMqLockerName(mqName string) string {
-	return mqName + ".locker"
+	return mqName + ".m"
 }
 
 func fastMqCondName(mqName, typ string) string {
-	return mqName + "." + typ + ".cond"
+	return mqName + ".cv" + typ
 }
 
 func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err error) {
