@@ -1,4 +1,4 @@
-# Release 0.4.0 (2016-12-16)
+# Release 0.4.0 (2016-12-18)
 
  - sync: RWMutex for all platforms.
  - sync: Semaphore for all platforms.

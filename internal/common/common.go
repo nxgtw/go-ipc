@@ -72,6 +72,10 @@ func SyscallErrHasCode(err error, code syscall.Errno) bool {
 	return false
 }
 
+// CallTimeout calls f in a loop allowing it to run for at least 'timeout'.
+// It calls f, measuring its runtime:
+//	if f returned false, or its cumulative runtime exceeded timeout, CallTimeout returns.
+//	otherwise CallTimeout subtracts runtime from timeout anf calls 'f' with the updated value.
 func CallTimeout(f func(time.Duration) bool, timeout time.Duration) {
 	for {
 		opStart := time.Now()

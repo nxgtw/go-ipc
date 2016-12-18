@@ -128,7 +128,7 @@ func test() error {
 		if rLocker, ok := locker.(readLocker); ok {
 			locker = rLocker.RLocker()
 		} else {
-			return fmt.Errorf("%q mutex type does not implement RLocker")
+			return fmt.Errorf("%q mutex type does not implement RLocker", *objType)
 		}
 	}
 	return performTest(expected, region, locker, n)
