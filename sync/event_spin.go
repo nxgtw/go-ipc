@@ -44,7 +44,7 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 			obj.Destroy()
 		}
 	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, int(spinImplSize)); resultErr != nil {
+	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, 4); resultErr != nil {
 		return nil, errors.Wrap(resultErr, "failed to create shm region")
 	}
 	waiter := (*uint32)(allocator.ByteSliceData(region.Data()))

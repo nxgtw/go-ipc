@@ -11,14 +11,12 @@ import (
 )
 
 const (
+	lwmStateSize = 4
+
 	lwmSpinCount         = 100
 	lwmUnlocked          = uint32(0)
 	lwmLockedNoWaiters   = uint32(1)
 	lwmLockedHaveWaiters = uint32(2)
-)
-
-const (
-	lwmCellSize = 4
 )
 
 // waitWaker is an object, which implements wake/wait semantics.
@@ -31,17 +29,17 @@ type waitWaker interface {
 // it tries to minimize amount of syscalls needed to do locking.
 // actual sleeping must be implemented by a waitWaker object.
 type lwMutex struct {
-	ptr *uint32
-	ww  waitWaker
+	state *uint32
+	ww    waitWaker
 }
 
-func newLightweightMutex(ptr unsafe.Pointer, ww waitWaker) *lwMutex {
-	return &lwMutex{ptr: (*uint32)(ptr), ww: ww}
+func newLightweightMutex(state unsafe.Pointer, ww waitWaker) *lwMutex {
+	return &lwMutex{state: (*uint32)(state), ww: ww}
 }
 
 // init writes initial value into mutex's memory location.
 func (lwm *lwMutex) init() {
-	*lwm.ptr = lwmUnlocked
+	*lwm.state = lwmUnlocked
 }
 
 func (lwm *lwMutex) lock() {
@@ -51,7 +49,7 @@ func (lwm *lwMutex) lock() {
 }
 
 func (lwm *lwMutex) tryLock() bool {
-	return atomic.CompareAndSwapUint32(lwm.ptr, lwmUnlocked, lwmLockedNoWaiters)
+	return atomic.CompareAndSwapUint32(lwm.state, lwmUnlocked, lwmLockedNoWaiters)
 }
 
 func (lwm *lwMutex) lockTimeout(timeout time.Duration) bool {
@@ -71,33 +69,33 @@ func (lwm *lwMutex) doLock(timeout time.Duration) error {
 			return nil
 		}
 	}
-	old := atomic.LoadUint32(lwm.ptr)
+	old := atomic.LoadUint32(lwm.state)
 	if old != lwmLockedHaveWaiters {
-		old = atomic.SwapUint32(lwm.ptr, lwmLockedHaveWaiters)
+		old = atomic.SwapUint32(lwm.state, lwmLockedHaveWaiters)
 	}
 	for old != lwmUnlocked {
 		if err := lwm.ww.wait(lwmLockedHaveWaiters, timeout); err != nil {
 			return err
 		}
-		old = atomic.SwapUint32(lwm.ptr, lwmLockedHaveWaiters)
+		old = atomic.SwapUint32(lwm.state, lwmLockedHaveWaiters)
 	}
 	return nil
 }
 
 func (lwm *lwMutex) unlock() {
-	if old := atomic.LoadUint32(lwm.ptr); old == lwmLockedHaveWaiters {
-		*lwm.ptr = lwmUnlocked
+	if old := atomic.LoadUint32(lwm.state); old == lwmLockedHaveWaiters {
+		*lwm.state = lwmUnlocked
 	} else {
 		if old == lwmUnlocked {
 			panic("unlock of unlocked mutex")
 		}
-		if atomic.SwapUint32(lwm.ptr, lwmUnlocked) == lwmLockedNoWaiters {
+		if atomic.SwapUint32(lwm.state, lwmUnlocked) == lwmLockedNoWaiters {
 			return
 		}
 	}
 	for i := 0; i < lwmSpinCount; i++ {
-		if *lwm.ptr != lwmUnlocked {
-			if atomic.CompareAndSwapUint32(lwm.ptr, lwmLockedNoWaiters, lwmLockedHaveWaiters) {
+		if *lwm.state != lwmUnlocked {
+			if atomic.CompareAndSwapUint32(lwm.state, lwmLockedNoWaiters, lwmLockedHaveWaiters) {
 				return
 			}
 		}

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	testMqName = "go-ipc.mq"
+	testMqName = "tstmq"
 	mqProgPath = "./internal/test/"
 )
 
@@ -216,6 +216,10 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	if !a.NoError(err) {
 		return
 	}
+	defer func() {
+		a.NoError(mq.Close())
+		a.NoError(dtor(testMqName))
+	}()
 	message := make([]byte, 512)
 	for i := range message {
 		message[i] = byte(i)
@@ -230,14 +234,12 @@ func testMqSendMessageLessThenBuffer(t *testing.T, ctor mqCtor, opener mqOpener,
 	}
 	defer func() {
 		a.NoError(mqr.Close())
-		a.NoError(dtor(testMqName))
 	}()
 	l, err := mqr.Receive(received)
 	a.NoError(err)
 	a.Equal(len(message), l)
 	a.Equal(message, received[:512])
 	a.Equal(received[512:], make([]byte, 512))
-	a.NoError(mq.Close())
 }
 
 func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
@@ -250,6 +252,7 @@ func testMqSendNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		a.NoError(dtor(testMqName))
 	}()
 	if b, ok := mq.(Blocker); ok {
@@ -283,6 +286,7 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		a.NoError(dtor(testMqName))
 	}()
 	if tmq, ok := mq.(TimedMessenger); ok {
@@ -300,9 +304,9 @@ func testMqSendTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		err := tmq.SendTimeout(data, tm)
 		a.Error(err)
 		a.True(IsTemporary(err))
-		a.Condition(func() bool {
-			return time.Since(now) >= tm
-		})
+		if !a.True(time.Since(now) >= tm) {
+
+		}
 	} else {
 		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)
 	}
@@ -318,6 +322,7 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		a.NoError(dtor(testMqName))
 	}()
 	if tmq, ok := mq.(TimedMessenger); ok {
@@ -329,9 +334,9 @@ func testMqReceiveTimeout(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		if sysErr, ok := err.(syscall.Errno); ok {
 			a.True(sysErr.Temporary())
 		}
-		a.Condition(func() bool {
-			return time.Since(now) >= tm
-		})
+		if !a.True(time.Since(now) >= tm) {
+
+		}
 	} else {
 		t.Skipf("current mq impl on %s does not implement TimedMessenger", runtime.GOOS)
 	}
@@ -347,6 +352,7 @@ func testMqReceiveNonBlock(t *testing.T, ctor mqCtor, dtor mqDtor) {
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		a.NoError(dtor(testMqName))
 	}()
 	if b, ok := mq.(Blocker); ok {
@@ -410,6 +416,7 @@ func testMqReceiveFromAnotherProcess(t *testing.T, ctor mqCtor, dtor mqDtor, typ
 		return
 	}
 	defer func() {
+		a.NoError(mq.Close())
 		a.NoError(dtor(testMqName))
 	}()
 	data := make([]byte, 2048)

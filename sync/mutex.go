@@ -19,5 +19,5 @@ func DestroyMutex(name string) error {
 }
 
 func mutexSharedStateName(name, typ string) string {
-	return "goipc.sms." + typ + "." + name
+	return name + ".s" + typ
 }

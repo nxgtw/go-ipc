@@ -119,5 +119,5 @@ func destroyCond(name string) error {
 }
 
 func condSharedStateName(name string) string {
-	return name + ".shared"
+	return name + ".st"
 }

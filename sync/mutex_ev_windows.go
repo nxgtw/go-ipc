@@ -41,7 +41,7 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, lwmCellSize, nil)
+	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, lwmStateSize, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}

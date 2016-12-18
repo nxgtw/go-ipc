@@ -42,7 +42,7 @@ func TestSysvMutexLock(t *testing.T) {
 }
 
 func TestSysvMutexMemory(t *testing.T) {
-	testLockerMemory(t, "msysv", sysvMutexCtor, sysvMutexDtor)
+	testLockerMemory(t, "msysv", false, sysvMutexCtor, sysvMutexDtor)
 }
 
 func TestSysvMutexValueInc(t *testing.T) {

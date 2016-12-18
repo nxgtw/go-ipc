@@ -8,6 +8,8 @@
 //	shared memory (all supported platforms)
 //	system message queues (Linux, FreeBSD, OSX)
 //	cross-platform priority message queue (all supported platforms)
-//	locking primitives (all supported platforms)
+//	mutexes, rw mutexes (all supported platforms)
+//	semaphores (all supported platforms)
+//	events (all supported platforms)
 //	conditional variables (all supported platforms)
 package ipc

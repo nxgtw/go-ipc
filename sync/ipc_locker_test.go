@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"math/rand"
 	"os"
 	"runtime"
 	"sync"
@@ -200,7 +201,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 	a.Equal(routines*iters, sharedValue)
 }
 
-func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor) {
+func testLockerMemory(t *testing.T, typ string, ro bool, ctor lockerCtor, dtor lockerDtor) {
 	a := assert.New(t)
 	if dtor != nil {
 		if !a.NoError(dtor(testLockerName)) {
@@ -231,7 +232,7 @@ func testLockerMemory(t *testing.T, typ string, ctor lockerCtor, dtor lockerDtor
 	for i := range data { // fill the data with correct values
 		data[i] = byte(i)
 	}
-	args := argsForSyncTestCommand(testLockerName, typ, 4, testMemObj, 1024, data, "")
+	args := argsForSyncTestCommand(testLockerName, typ, 4, testMemObj, 1024, data, ro)
 	var wg sync.WaitGroup
 	var flag int32 = 1
 	jobs := runtime.NumCPU() - 1
@@ -299,7 +300,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 	}()
 	data := region.Data()
 	ptr := (*int64)(allocator.ByteSliceData(data))
-	args := argsForSyncInc64Command(testLockerName, typ, remoteJobs, testMemObj, iterations, "")
+	args := argsForSyncInc64Command(testLockerName, typ, remoteJobs, testMemObj, iterations)
 	var wg sync.WaitGroup
 	flag := int32(1)
 	jobs := runtime.NumCPU()
@@ -449,4 +450,88 @@ func BenchmarkSpinMutex(b *testing.B) {
 	}, func(name string) error {
 		return DestroySpinMutex(name)
 	})
+}
+
+func BenchmarkRWMutex(b *testing.B) {
+	benchmarkLocker(b, func(name string, mode int, perm os.FileMode) (IPCLocker, error) {
+		return NewRWMutex(name, mode, perm)
+	}, func(name string) error {
+		return DestroyRWMutex(name)
+	})
+}
+
+func benchmarkRWLocker(b *testing.B, rLocker, wLocker IPCLocker) {
+	const (
+		readers  = 10
+		writers  = 2
+		dataSize = 2048
+	)
+	data := make([]int, dataSize)
+	data[0] = rand.Intn(1024)
+	for i := 1; i < dataSize; i++ {
+		data[i] = data[i-1] + 1
+	}
+	var wg sync.WaitGroup
+	wg.Add(readers + writers)
+	for i := 0; i < readers; i++ {
+		go func() {
+			for i := 0; i < b.N; i++ {
+				rLocker.Lock()
+				for i := 1; i < dataSize; i++ {
+					if data[i] != data[i-1]+1 {
+						b.Errorf("error at %d, %d != %d+1", i, data[i], data[i-1])
+					}
+				}
+				rLocker.Unlock()
+			}
+			wg.Done()
+		}()
+	}
+	for i := 0; i < writers; i++ {
+		go func() {
+			for i := 0; i < b.N; i++ {
+				wLocker.Lock()
+				data[0] = rand.Intn(1024)
+				for i := 1; i < dataSize; i++ {
+					data[i] = data[i-1] + 1
+				}
+				wLocker.Unlock()
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkRWMutexAsRW(b *testing.B) {
+	a := assert.New(b)
+	DestroyRWMutex(testLockerName)
+	m, err := NewRWMutex(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer m.Close()
+	benchmarkRWLocker(b, m.RLocker(), m)
+}
+
+func BenchmarkSemaMutexAsRW(b *testing.B) {
+	a := assert.New(b)
+	DestroySemaMutex(testLockerName)
+	m, err := NewSemaMutex(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer m.Close()
+	benchmarkRWLocker(b, m, m)
+}
+
+func BenchmarkSpinMutexAsRW(b *testing.B) {
+	a := assert.New(b)
+	DestroySpinMutex(testLockerName)
+	m, err := NewSpinMutex(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
+	if !a.NoError(err) {
+		return
+	}
+	defer m.Close()
+	benchmarkRWLocker(b, m, m)
 }

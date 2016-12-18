@@ -3,29 +3,30 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
+	ipc_sync "bitbucket.org/avd/go-ipc/sync"
 )
 
 var (
-	objName   = flag.String("object", "", "synchronization object name")
-	objType   = flag.String("type", "m", "synchronization object type - m | spin")
-	jobs      = flag.Int("jobs", 1, "count of simultaneous jobs")
-	logFile   = flag.String("log", "", "file to write log into")
-	logObject *log.Logger
+	objName  = flag.String("object", "", "synchronization object name")
+	objType  = flag.String("type", "m", "synchronization object type - m | spin")
+	jobs     = flag.Int("jobs", 1, "count of simultaneous jobs")
+	readlock = flag.Bool("ro", false, "use read lock where possible")
 )
+
+type readLocker interface {
+	RLocker() ipc_sync.IPCLocker
+}
 
 const usage = `  test program for synchronization primitives.
 available commands:
@@ -44,10 +45,8 @@ func create() error {
 		return fmt.Errorf("destroy: must not provide any arguments")
 	}
 	if _, err := createLocker(*objType, *objName, os.O_CREATE|os.O_EXCL); err != nil {
-		writeLog(fmt.Sprintf("error creating %q: %v", *objName, err))
 		return err
 	}
-	writeLog(fmt.Sprintf("%q has been created successfully", *objName))
 	return nil
 }
 
@@ -125,6 +124,13 @@ func test() error {
 	if err != nil {
 		return err
 	}
+	if *readlock {
+		if rLocker, ok := locker.(readLocker); ok {
+			locker = rLocker.RLocker()
+		} else {
+			return fmt.Errorf("%q mutex type does not implement RLocker")
+		}
+	}
 	return performTest(expected, region, locker, n)
 }
 
@@ -159,10 +165,8 @@ func performParallel(f func(int) error) error {
 
 func testData(expected, actual []byte, locker sync.Locker, id int) error {
 	locker.Lock()
-	writeLog(fmt.Sprintf("%d got the lock", id))
 	defer func() {
 		locker.Unlock()
-		writeLog(fmt.Sprintf("%d released the lock", id))
 	}()
 	for i, expectedValue := range expected {
 		actualValue := actual[i]
@@ -192,34 +196,6 @@ func runCommand() error {
 	}
 }
 
-func initLogs() func() {
-	result := func() {}
-	if len(*logFile) == 0 {
-		return result
-	}
-	if file, err := os.Create(*logFile); err == nil {
-		buff := bufio.NewWriter(file)
-		logObject = log.New(buff, "", log.LstdFlags|log.Lmicroseconds)
-		go func() {
-			<-time.After(time.Millisecond * 350)
-			buff.Flush()
-		}()
-		result = func() {
-			buff.Flush()
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "can't init logs: %v", err)
-		os.Exit(1)
-	}
-	return result
-}
-
-func writeLog(message string) {
-	if logObject != nil {
-		logObject.Println(message)
-	}
-}
-
 func main() {
 	flag.Parse()
 	if len(*objName) == 0 || flag.NArg() == 0 {
@@ -227,9 +203,6 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	flushLogs := initLogs()
-	defer flushLogs()
-	writeLog("started")
 	if err := runCommand(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

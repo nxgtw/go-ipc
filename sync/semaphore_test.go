@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -253,6 +254,10 @@ func TestSemaWaitAnotherProcess(t *testing.T) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
+	if _, ok := s.(TimedSemaphore); !ok {
+		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		return
+	}
 	args := argsForSemaWaitCommand(testSemaName, -1)
 	killCh := make(chan bool, 1)
 	resultCh := testutil.RunTestAppAsync(args, killCh)
@@ -281,6 +286,10 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
+	if _, ok := s.(TimedSemaphore); !ok {
+		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		return
+	}
 	args := argsForSemaWaitCommand(testSemaName, 250)
 	killCh := make(chan bool, 1)
 	resultCh := testutil.RunTestAppAsync(args, killCh)
@@ -291,8 +300,52 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		} else if !a.True(strings.Contains(result.Output, "timeout exceeded")) {
 			t.Logf("invalid error message: %s", result.Output)
 		}
-	case <-time.After(time.Second * 3):
+	case <-time.After(time.Second * 10):
 		killCh <- true
 		t.Errorf("timeout")
 	}
+}
+
+func ExampleSemaphore() {
+	// create new semaphore with initial count set to 3.
+	DestroySemaphore("sema")
+	sema, err := NewSemaphore("sema", os.O_CREATE|os.O_EXCL, 0666, 3)
+	if err != nil {
+		panic(err)
+	}
+	defer sema.Close()
+	// in the following cycle we consume three units of the resource and won't block.
+	for i := 0; i < 3; i++ {
+		sema.Wait()
+		fmt.Println("got one resource unit")
+	}
+	// the following two goroutines won't continue until we call Signal().
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			defer wg.Done()
+			// open existing semaphore
+			sema, err := NewSemaphore("sema", 0, 0666, 0)
+			if err != nil {
+				panic(err)
+			}
+			defer sema.Close()
+			sema.Wait()
+			fmt.Println("got one resource unit after waiting")
+		}()
+	}
+	// wake up goroutines
+	fmt.Println("waking up...")
+	sema.Signal(2)
+	wg.Wait()
+	fmt.Println("done")
+	// Output:
+	// got one resource unit
+	// got one resource unit
+	// got one resource unit
+	// waking up...
+	// got one resource unit after waiting
+	// got one resource unit after waiting
+	// done
 }
