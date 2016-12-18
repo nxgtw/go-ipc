@@ -55,9 +55,7 @@ func (arr *mappedArray) decLen() {
 }
 
 func (arr *mappedArray) atPointer(idx int) unsafe.Pointer {
-	slotsPtr := uintptr(unsafe.Pointer(&arr.dummyDataArray))
-	slotsPtr += uintptr(idx * int(arr.elemSize))
-	return unsafe.Pointer(slotsPtr)
+	return allocator.AdvancePointer(unsafe.Pointer(&arr.dummyDataArray), uintptr(idx*int(arr.elemSize)))
 }
 
 func (arr *mappedArray) at(idx int) []byte {
