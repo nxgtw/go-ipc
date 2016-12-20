@@ -43,7 +43,7 @@ func wait() error {
 			return fmt.Errorf("timeout passed")
 		}
 	} else {
-		return fmt.Errorf("semaphore on %s aren't timed", runtime.GOARCH)
+		return fmt.Errorf("semaphores on %s aren't timed", runtime.GOARCH)
 	}
 	if err = s.Close(); err != nil {
 		return err

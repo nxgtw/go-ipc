@@ -202,7 +202,7 @@ func TestTimedSema(t *testing.T) {
 	}(s)
 	ts, ok := s.(TimedSemaphore)
 	if !ok {
-		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
 		return
 	}
 	ts.Wait()
@@ -255,7 +255,7 @@ func TestSemaWaitAnotherProcess(t *testing.T) {
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
 	if _, ok := s.(TimedSemaphore); !ok {
-		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
 		return
 	}
 	args := argsForSemaWaitCommand(testSemaName, -1)
@@ -287,7 +287,7 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
 	if _, ok := s.(TimedSemaphore); !ok {
-		t.Skipf("semaphore on %s aren't timed", runtime.GOARCH)
+		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
 		return
 	}
 	args := argsForSemaWaitCommand(testSemaName, 250)
