@@ -32,7 +32,7 @@ type systemInfo struct {
 }
 
 var (
-	modkernel32           = syscall.NewLazyDLL("kernel32.dll")
+	modkernel32           = windows.NewLazyDLL("kernel32.dll")
 	procGetSystemInfo     = modkernel32.NewProc("GetSystemInfo")
 	procOpenFileMapping   = modkernel32.NewProc("OpenFileMappingW")
 	procCreateFileMapping = modkernel32.NewProc("CreateFileMappingW")
@@ -56,6 +56,9 @@ func OpenFileMapping(access uint32, inheritHandle uint32, name string) (windows.
 	r1, _, err := procOpenFileMapping.Call(uintptr(access), uintptr(inheritHandle), uintptr(nameu))
 	allocator.Use(nameu)
 	if r1 == 0 {
+		if err == windows.ERROR_FILE_NOT_FOUND {
+			return 0, &os.PathError{name, "CreateFileMapping", err}
+		}
 		return 0, os.NewSyscallError("OpenFileMapping", err)
 	}
 	if err == syscall.Errno(0) {
@@ -82,6 +85,9 @@ func CreateFileMapping(fhandle windows.Handle, sa *windows.SecurityAttributes, p
 	allocator.Use(sau)
 	allocator.Use(nameu)
 	if r1 == 0 {
+		if err == windows.ERROR_ALREADY_EXISTS {
+			return 0, &os.PathError{name, "CreateFileMapping", err}
+		}
 		return 0, os.NewSyscallError("CreateFileMapping", err)
 	}
 	if err == syscall.Errno(0) {

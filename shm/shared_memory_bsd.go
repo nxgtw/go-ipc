@@ -11,6 +11,8 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+
+	"golang.org/x/sys/unix"
 )
 
 func doDestroyMemoryObject(path string) error {
@@ -27,7 +29,7 @@ func shmName(name string) (string, error) {
 	const maxNameLen = 30
 	// workaround from http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
 	if isDarwin() {
-		newName := fmt.Sprintf("%s\t%d", name, syscall.Geteuid())
+		newName := fmt.Sprintf("%s\t%d", name, unix.Geteuid())
 		if len(newName) < maxNameLen {
 			name = newName
 		}
@@ -36,7 +38,7 @@ func shmName(name string) (string, error) {
 }
 
 func shmOpen(path string, flag int, perm os.FileMode) (*os.File, error) {
-	flag |= syscall.O_CLOEXEC
+	flag |= unix.O_CLOEXEC
 	fd, err := shm_open(path, flag, int(perm))
 	if err != nil {
 		return nil, err
@@ -47,28 +49,34 @@ func shmOpen(path string, flag int, perm os.FileMode) (*os.File, error) {
 // syscalls
 
 func shm_open(name string, flags, mode int) (uintptr, error) {
-	nameBytes, err := syscall.BytePtrFromString(name)
+	nameBytes, err := unix.BytePtrFromString(name)
 	if err != nil {
 		return 0, err
 	}
 	bytes := unsafe.Pointer(nameBytes)
-	fd, _, err := syscall.Syscall(syscall.SYS_SHM_OPEN, uintptr(bytes), uintptr(flags), uintptr(mode))
+	fd, _, err := unix.Syscall(unix.SYS_SHM_OPEN, uintptr(bytes), uintptr(flags), uintptr(mode))
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
+		if err == unix.ENOENT || err == unix.EEXIST {
+			return 0, &os.PathError{name, "shm_open", err}
+		}
 		return 0, err
 	}
 	return fd, nil
 }
 
 func shm_unlink(name string) error {
-	nameBytes, err := syscall.BytePtrFromString(name)
+	nameBytes, err := unix.BytePtrFromString(name)
 	if err != nil {
 		return err
 	}
 	bytes := unsafe.Pointer(nameBytes)
-	_, _, err = syscall.Syscall(syscall.SYS_SHM_UNLINK, uintptr(bytes), uintptr(0), uintptr(0))
+	_, _, err = unix.Syscall(unix.SYS_SHM_UNLINK, uintptr(bytes), uintptr(0), uintptr(0))
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
+		if err == unix.ENOENT {
+			return &os.PathError{name, "shm_unlink", err}
+		}
 		return err
 	}
 	return nil

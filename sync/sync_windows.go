@@ -34,6 +34,9 @@ func sys_OpenEvent(name string, desiredAccess uint32, inheritHandle uint32) (win
 	h, _, err := procOpenEvent.Call(uintptr(desiredAccess), uintptr(inheritHandle), uintptr(unsafe.Pointer(namep)))
 	allocator.Use(unsafe.Pointer(namep))
 	if h == 0 {
+		if err == windows.ERROR_FILE_NOT_FOUND {
+			return 0, &os.PathError{"OpenEvent", name, err}
+		}
 		return 0, os.NewSyscallError("OpenEvent", err)
 	}
 	return windows.Handle(h), nil
@@ -52,7 +55,10 @@ func sys_CreateEvent(name string, eventAttrs *windows.SecurityAttributes, manual
 	allocator.Use(unsafe.Pointer(eventAttrs))
 	allocator.Use(unsafe.Pointer(namep))
 	if h == 0 {
-		err = os.NewSyscallError("CreateEvent", err)
+		if err == windows.ERROR_FILE_EXISTS || err == windows.ERROR_ALREADY_EXISTS {
+			return 0, &os.PathError{"CreateEvent", name, err}
+		}
+		return 0, os.NewSyscallError("CreateEvent", err)
 	} else if err == syscall.Errno(0) {
 		err = nil
 	}
@@ -94,6 +100,9 @@ func sys_CreateSemaphore(name string, initial, maximum int, attrs *windows.Secur
 	allocator.Use(unsafe.Pointer(attrs))
 	allocator.Use(unsafe.Pointer(namep))
 	if h == 0 {
+		if err == windows.ERROR_FILE_EXISTS || err == windows.ERROR_ALREADY_EXISTS {
+			return 0, &os.PathError{"CreateSemaphore", name, err}
+		}
 		err = os.NewSyscallError("CreateSemaphore", err)
 	} else if err == syscall.Errno(0) {
 		err = nil
@@ -126,6 +135,9 @@ func sys_OpenSemaphore(name string, desiredAccess uint32, inheritHandle uint32) 
 	h, _, err := procOpenSemaphore.Call(uintptr(desiredAccess), uintptr(inheritHandle), uintptr(unsafe.Pointer(namep)))
 	allocator.Use(unsafe.Pointer(namep))
 	if h == 0 {
+		if err == windows.ERROR_FILE_NOT_FOUND {
+			return 0, &os.PathError{"OpenSemaphore", name, err}
+		}
 		return 0, os.NewSyscallError("OpenSemaphore", err)
 	}
 	return windows.Handle(h), nil

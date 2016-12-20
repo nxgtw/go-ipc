@@ -24,13 +24,16 @@ var (
 func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall(sysSemGet, uintptr(k), uintptr(nsems), uintptr(semflg))
 	if err != syscall.Errno(0) {
+		if err == unix.EEXIST || err == unix.ENOENT {
+			return 0, &os.PathError{"SEMGET", "", err}
+		}
 		return 0, os.NewSyscallError("SEMGET", err)
 	}
 	return int(id), nil
 }
 
 func semctl(id, num, cmd int) error {
-	_, _, err := syscall.Syscall(sysSemCtl, uintptr(id), uintptr(num), uintptr(cmd))
+	_, _, err := unix.Syscall(sysSemCtl, uintptr(id), uintptr(num), uintptr(cmd))
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMCTL", err)
 	}
@@ -42,7 +45,7 @@ func semop(id int, ops []sembuf) error {
 		return nil
 	}
 	pOps := unsafe.Pointer(&ops[0])
-	_, _, err := syscall.Syscall(sysSemOp, uintptr(id), uintptr(pOps), uintptr(len(ops)))
+	_, _, err := unix.Syscall(sysSemOp, uintptr(id), uintptr(pOps), uintptr(len(ops)))
 	allocator.Use(pOps)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMOP", err)

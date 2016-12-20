@@ -35,13 +35,16 @@ var (
 func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall6(unix.SYS_IPC, cSEMGET, uintptr(k), uintptr(nsems), uintptr(semflg), 0, 0)
 	if err != syscall.Errno(0) {
+		if err == unix.EEXIST || err == unix.ENOENT {
+			return 0, &os.PathError{"SEMGET", "", err}
+		}
 		return 0, err
 	}
 	return int(id), nil
 }
 
 func semctl(id, num, cmd int) error {
-	_, _, err := syscall.Syscall6(unix.SYS_IPC, cSEMCTL, uintptr(id), uintptr(num), uintptr(cmd), uintptr(semun_inst), 0)
+	_, _, err := unix.Syscall6(unix.SYS_IPC, cSEMCTL, uintptr(id), uintptr(num), uintptr(cmd), uintptr(semun_inst), 0)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("SEMCTL", err)
 	}
@@ -58,7 +61,7 @@ func semtimedop(id int, ops []sembuf, timeout *unix.Timespec) error {
 	}
 	pOps := unsafe.Pointer(&ops[0])
 	pTimeout := unsafe.Pointer(timeout)
-	_, _, err := syscall.Syscall6(unix.SYS_IPC, cSEMTIMEDOP, uintptr(id), uintptr(len(ops)), 0, uintptr(pOps), uintptr(pTimeout))
+	_, _, err := unix.Syscall6(unix.SYS_IPC, cSEMTIMEDOP, uintptr(id), uintptr(len(ops)), 0, uintptr(pOps), uintptr(pTimeout))
 	allocator.Use(pOps)
 	allocator.Use(pTimeout)
 	if err != syscall.Errno(0) {

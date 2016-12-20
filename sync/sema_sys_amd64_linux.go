@@ -20,7 +20,7 @@ func semtimedop(id int, ops []sembuf, timeout *unix.Timespec) error {
 	}
 	pOps := unsafe.Pointer(&ops[0])
 	pTimeout := unsafe.Pointer(timeout)
-	_, _, err := syscall.Syscall6(unix.SYS_SEMTIMEDOP, uintptr(id), uintptr(pOps), uintptr(len(ops)), uintptr(pTimeout), 0, 0)
+	_, _, err := unix.Syscall6(unix.SYS_SEMTIMEDOP, uintptr(id), uintptr(pOps), uintptr(len(ops)), uintptr(pTimeout), 0, 0)
 	allocator.Use(pOps)
 	allocator.Use(pTimeout)
 	if err != syscall.Errno(0) {

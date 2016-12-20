@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	modkernel32                 = syscall.NewLazyDLL("kernel32.dll")
+	modkernel32                 = windows.NewLazyDLL("kernel32.dll")
 	procCreateNamedPipe         = modkernel32.NewProc("CreateNamedPipeW")
 	procConnectNamedPipe        = modkernel32.NewProc("ConnectNamedPipe")
 	procWaitNamedPipe           = modkernel32.NewProc("WaitNamedPipeW")

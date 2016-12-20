@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build darwin freebsd linux
 
 package common
 
@@ -75,7 +75,7 @@ func TimeoutToTimeSpec(timeout time.Duration) *unix.Timespec {
 
 // IsInterruptedSyscallErr returns true, if the given error is a syscall.EINTR error.
 func IsInterruptedSyscallErr(err error) bool {
-	return SyscallErrHasCode(err, syscall.EINTR)
+	return SyscallErrHasCode(err, unix.EINTR)
 }
 
 // SyscallNameFromErr returns name of a syscall from a syscall errror.
@@ -102,32 +102,24 @@ func UninterruptedSyscall(f func() error) error {
 // It acts like UninterruptedSyscall, however, before every run it
 // recalculates timeout value according to the passed time.
 func UninterruptedSyscallTimeout(f func(time.Duration) error, timeout time.Duration) error {
-	for {
-		opStart := time.Now()
-		err := f(timeout)
-		if !IsInterruptedSyscallErr(err) {
-			return err
+	var err error
+	CallTimeout(func(timeout time.Duration) bool {
+		if err = f(timeout); IsInterruptedSyscallErr(err) {
+			return true
 		}
-		if timeout >= 0 {
-			// we were interrupted by a signal. recalculate timeout
-			elapsed := time.Since(opStart)
-			if timeout > elapsed {
-				timeout = timeout - elapsed
-			} else {
-				return os.NewSyscallError(SyscallNameFromErr(err), syscall.EAGAIN)
-			}
-		}
-	}
+		return false
+	}, timeout)
+	return err
 }
 
 func ftok(name string) (Key, error) {
 	var statfs unix.Stat_t
 	if err := unix.Stat(name, &statfs); err != nil {
-		return Key(0), err
+		return 0, err
 	}
 	// unconvert says there is 'redundant type conversion' to uint64,
 	// however, this is not always true, as the types of statfs.Ino and statfs.Dev
-	// may vary on different platforms
+	// may vary on different platforms.
 	return Key(uint64(statfs.Ino)&0xFFFF | ((uint64(statfs.Dev) & 0xFF) << 16)), nil
 }
 

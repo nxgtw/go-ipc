@@ -11,6 +11,8 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -21,8 +23,11 @@ var (
 )
 
 func msgget(k common.Key, flags int) (int, error) {
-	id, _, err := syscall.Syscall(sysMsgGet, uintptr(k), uintptr(flags), 0)
+	id, _, err := unix.Syscall(sysMsgGet, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
+		if err == unix.EEXIST || err == unix.ENOENT {
+			return 0, &os.PathError{"", "MSGGET", err}
+		}
 		return 0, os.NewSyscallError("MSGGET", err)
 	}
 	return int(id), nil
@@ -34,7 +39,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	rawData := allocator.ByteSliceData(message)
 	*(*int)(rawData) = typ
 	copy(message[typeDataSize:], data)
-	_, _, err := syscall.Syscall6(sysMsgSnd,
+	_, _, err := unix.Syscall6(sysMsgSnd,
 		uintptr(id),
 		uintptr(rawData),
 		uintptr(len(data)),
@@ -52,7 +57,7 @@ func msgrcv(id int, data []byte, typ int, flags int) (int, error) {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	len, _, err := syscall.Syscall6(sysMsgRcv,
+	len, _, err := unix.Syscall6(sysMsgRcv,
 		uintptr(id),
 		uintptr(rawData),
 		uintptr(len(data)),
@@ -69,7 +74,7 @@ func msgrcv(id int, data []byte, typ int, flags int) (int, error) {
 
 func msgctl(id, cmd int, buf *msqidDs) error {
 	pBuf := unsafe.Pointer(buf)
-	_, _, err := syscall.Syscall(sysMsgCtl, uintptr(id), uintptr(cmd), uintptr(pBuf))
+	_, _, err := unix.Syscall(sysMsgCtl, uintptr(id), uintptr(cmd), uintptr(pBuf))
 	allocator.Use(pBuf)
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGCTL", err)

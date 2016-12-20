@@ -4,7 +4,6 @@ package shm
 
 import (
 	"os"
-	"syscall"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/sys/windows"
@@ -17,7 +16,7 @@ const (
 	// O_COPY_ON_WRITE used as a flag for NewWindowsNativeMemoryObject.
 	// It is passed to CreateFileMapping and OpebFileMapping calls.
 	// Its value was chosen simply not to intersect with O_RDONLY and O_RDWR.
-	O_COPY_ON_WRITE = syscall.O_NONBLOCK
+	O_COPY_ON_WRITE = windows.O_NONBLOCK
 )
 
 var (

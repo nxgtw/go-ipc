@@ -1,7 +1,7 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
 // Package ipc provides primitives for inter-process communication.
-// Works on Linux, OSX, FreeBSD, and Windows.
+// Works on Linux, OSX, FreeBSD, and Windows (both x86 and x86-64).
 // Supports following mechanisms:
 //	fifo (all supported platforms)
 //	memory mapped files (all supported platforms)

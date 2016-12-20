@@ -7,9 +7,10 @@ package sync
 import (
 	"math"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
@@ -33,7 +34,7 @@ func (w *futex) add(value int) {
 
 func (w *futex) wait(value uint32, timeout time.Duration) error {
 	err := FutexWait(w.ptr, value, timeout, 0)
-	if err != nil && common.SyscallErrHasCode(err, syscall.EWOULDBLOCK) {
+	if err != nil && common.SyscallErrHasCode(err, unix.EWOULDBLOCK) {
 		return nil
 	}
 	return err

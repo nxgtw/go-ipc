@@ -27,10 +27,10 @@ func FlagsForAccess(flag int) int {
 
 // OpenOrCreate performs open/create file operation according to the given mode.
 // It allows to find out if the object was opened or created.
-//	creator is the function which performs actual operation.
-//		It is called with 'true', if it must create an object, and with false otherwise.
-//		It must return an 'not exists error' if the param is false, and the object does not exist.
-//		It must return an 'already exists error' if the param is true, and the object already exists.
+//	creator is the function which performs actual operation:
+//		if is called with 'true', if it must create an object, and with false otherwise.
+//		it must return an 'not exists error' if the param is false, and the object does not exist.
+//		it must return an 'already exists error' if the param is true, and the object already exists.
 //	flag is the combination of open flags from os package.
 //		If flag == os.O_CREATE, OpenOrCreate makes several attempts to open or create an object,
 //		and analyzes the return error. It tries to open the object first.

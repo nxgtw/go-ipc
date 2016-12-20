@@ -23,7 +23,7 @@ const (
 )
 
 func msgget(k common.Key, flags int) (int, error) {
-	id, _, err := syscall.Syscall6(unix.SYS_IPC, uintptr(cMSGGET), uintptr(k), uintptr(flags), 0, 0, 0)
+	id, _, err := unix.Syscall6(unix.SYS_IPC, uintptr(cMSGGET), uintptr(k), uintptr(flags), 0, 0, 0)
 	if err != syscall.Errno(0) {
 		return 0, os.NewSyscallError("MSGGET", err)
 	}
@@ -36,7 +36,7 @@ func msgsnd(id int, typ int, data []byte, flags int) error {
 	rawData := allocator.ByteSliceData(message)
 	*(*int)(unsafe.Pointer(rawData)) = typ
 	copy(message[typeDataSize:], data)
-	_, _, err := syscall.Syscall6(unix.SYS_IPC,
+	_, _, err := unix.Syscall6(unix.SYS_IPC,
 		uintptr(cMSGSND),
 		uintptr(id),
 		uintptr(len(data)),
@@ -54,7 +54,7 @@ func msgrcv(id int, data []byte, typ int, flags int) (int, error) {
 	messageLen := typeDataSize + len(data)
 	message := make([]byte, messageLen)
 	rawData := allocator.ByteSliceData(message)
-	len, _, err := syscall.Syscall6(unix.SYS_IPC,
+	len, _, err := unix.Syscall6(unix.SYS_IPC,
 		uintptr(cMSGRCV|(1<<16)),
 		uintptr(id),
 		uintptr(len(data)),
@@ -70,7 +70,7 @@ func msgrcv(id int, data []byte, typ int, flags int) (int, error) {
 }
 
 func msgctl(id int, cmd int, buf *msqidDs) error {
-	_, _, err := syscall.Syscall(unix.SYS_IPC, uintptr(cMSGCTL), uintptr(id), uintptr(cmd))
+	_, _, err := unix.Syscall(unix.SYS_IPC, uintptr(cMSGCTL), uintptr(id), uintptr(cmd))
 	if err != syscall.Errno(0) {
 		return os.NewSyscallError("MSGCTL", err)
 	}

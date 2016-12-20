@@ -5,7 +5,7 @@ This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD
 
 
 * Pure Go implementation, no cgo is required.
-* Works on Linux, OSX, FreeBSD, and Windows.
+* Works on Linux, OSX, FreeBSD, and Windows (both x86 and x86-64).
 * Support of the following mechanisms:
     - fifo (all supported platforms)
     - memory mapped files (all supported platforms)
@@ -18,14 +18,15 @@ This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD
     - conditional variables (all supported platforms)
 
 ## Install
-1. Install Go 1.6 or higher.
+1. Install Go 1.4 or higher.
 2. Run
 ```
 go get -u bitbucket.org/avd/go-ipc
 ```
 
 ## System requirements
-1. Go 1.6 or higher.
+1. Linux, OSX, FreeBSD, and Windows (both x86 and x86-64)
+2. Go 1.4 or higher.
 
 ## Documentation
 Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).

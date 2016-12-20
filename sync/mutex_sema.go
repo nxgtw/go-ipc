@@ -62,7 +62,7 @@ func (m *SemaMutex) Lock() {
 	m.lwm.lock()
 }
 
-// TryLock makes one attempt to lock the mutex. It return true on succeess and false otherwise.
+// TryLock makes one attempt to lock the mutex. It returns true on succeess and false otherwise.
 func (m *SemaMutex) TryLock() bool {
 	return m.lwm.tryLock()
 }
