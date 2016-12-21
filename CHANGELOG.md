@@ -1,3 +1,7 @@
+# Release Next (xxxx-xx-xx)
+
+ - minimum go version is 1.4.
+
 # Release 0.4.0 (2016-12-18)
 
  - sync: RWMutex for all platforms.
