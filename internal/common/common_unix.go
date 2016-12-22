@@ -132,3 +132,8 @@ func IsTimeoutErr(err error) bool {
 	}
 	return false
 }
+
+// NewTimeoutError returns new syscall error with EAGAIN code.
+func NewTimeoutError(op string) error {
+	return os.NewSyscallError(op, unix.EAGAIN)
+}

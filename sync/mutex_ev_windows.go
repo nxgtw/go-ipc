@@ -4,7 +4,6 @@ package sync
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
@@ -19,7 +18,7 @@ import (
 // all implementations must satisfy IPCLocker interface.
 var (
 	_          IPCLocker = (*EventMutex)(nil)
-	timeoutErr           = os.NewSyscallError("WaitForSingleObject", syscall.Errno(common.ERROR_TIMEOUT))
+	timeoutErr           = common.NewTimeoutError("WaitForSingleObject")
 )
 
 // EventMutex is a mutex built on named windows events.
