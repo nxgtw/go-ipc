@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// This is an emulation of timed semaphore wait.
+// This is the emulation of semtimedop.
 // As darwin/bsd don't have semtimedop, we call semop
 // waiting for timeout to elapse in another goroutine.
 // After that, it sends SIGUSR2 to the blocked goroutie,
