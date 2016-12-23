@@ -4,10 +4,10 @@ package sync
 
 import "golang.org/x/sys/unix"
 
-func mach_reply_port() uint32
+func mach_thread_self() uint32
 
 func gettid() (uint32, error) {
-	return mach_reply_port(), nil
+	return mach_thread_self(), nil
 }
 
 func killThread(port uint32) error {
