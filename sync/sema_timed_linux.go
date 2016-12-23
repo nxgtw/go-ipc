@@ -8,7 +8,6 @@ import (
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
-// WaitTimeout is supported on linux only.
 func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
 	err := common.UninterruptedSyscallTimeout(func(curTimeout time.Duration) error {
 		b := sembuf{semnum: 0, semop: int16(-1), semflg: 0}

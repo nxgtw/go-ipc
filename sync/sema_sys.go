@@ -25,7 +25,7 @@ func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall(sysSemGet, uintptr(k), uintptr(nsems), uintptr(semflg))
 	if err != syscall.Errno(0) {
 		if err == unix.EEXIST || err == unix.ENOENT {
-			return 0, &os.PathError{"SEMGET", "", err}
+			return 0, &os.PathError{Op: "SEMGET", Path: "", Err: err}
 		}
 		return 0, os.NewSyscallError("SEMGET", err)
 	}
