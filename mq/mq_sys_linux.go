@@ -64,14 +64,14 @@ func listenLinuxMqNotifications(ch chan<- int, notifySocket int, cancelSocket in
 		fdZero(r)
 		fdSet(r, notifySocket)
 		fdSet(r, cancelSocket)
-		n, err := unix.Select(cancelSocket+1, r, nil, nil, nil)
+		_, err := unix.Select(cancelSocket+1, r, nil, nil, nil)
 		if err != nil {
 			return
 		}
 		if fdIsSet(r, cancelSocket) {
 			return
 		} else if fdIsSet(r, notifySocket) {
-			n, _, err = unix.Recvfrom(notifySocket, data[:], unix.MSG_NOSIGNAL|unix.MSG_WAITALL)
+			n, _, err := unix.Recvfrom(notifySocket, data[:], unix.MSG_NOSIGNAL|unix.MSG_WAITALL)
 			if n == cNOTIFY_COOKIE_LEN && err == nil {
 				ndata := (*notify_data)(allocator.ByteSliceData(data[:]))
 				ch <- ndata.mq_id
@@ -149,7 +149,7 @@ func mq_open(name string, flags int, mode uint32, attrs *linuxMqAttr) (int, erro
 	allocator.Use(attrsP)
 	if err != syscall.Errno(0) {
 		if err == unix.ENOENT || err == unix.EEXIST {
-			return -1, &os.PathError{"MQ_OPEN", name, err}
+			return -1, &os.PathError{Op: "MQ_OPEN", Path: name, Err: err}
 		}
 		return -1, os.NewSyscallError("MQ_OPEN", err)
 	}
@@ -229,7 +229,7 @@ func mq_unlink(name string) error {
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		if err == unix.ENOENT {
-			return &os.PathError{"MQ_UNLINK", name, err}
+			return &os.PathError{Op: "MQ_UNLINK", Path: name, Err: err}
 		}
 		return os.NewSyscallError("MQ_UNLINK", err)
 	}

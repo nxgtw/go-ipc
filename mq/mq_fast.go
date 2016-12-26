@@ -9,6 +9,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"
@@ -61,21 +62,19 @@ func openFastMq(name string, flag int, perm os.FileMode, maxQueueSize, maxMsgSiz
 		return nil, errors.Wrap(err, "mq size check failed")
 	}
 
-	// create a shared memory object for the queue.
-	obj, created, err := shm.NewMemoryObjectSize(name, openFlags, perm, int64(size))
+	region, created, err := helper.CreateWritableRegion(fastMqStateName(name), openFlags, perm, size)
 	if err != nil {
-		return nil, errors.Wrap(err, "fast mq: failed to open/create shm object")
+		return nil, errors.Wrap(err, "failed to create shared state")
 	}
-	result = &FastMq{flag: flag, name: name}
-	defer func() {
-		fastMqCleanup(result, obj, created, err)
-	}()
 
-	// mmap memory object.
-	result.region, err = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, size)
-	if err != nil {
-		return nil, errors.Wrap(err, "fast mq: failed to create new shm region")
+	result = &FastMq{
+		region: region,
+		name:   name,
+		flag:   flag,
 	}
+	defer func() {
+		fastMqCleanup(result, created, err)
+	}()
 
 	// cleanup previous mutex instances. it could be useful in a case,
 	// when previous mutex owner crashed, and the mutex is in incosistient state.
@@ -122,9 +121,30 @@ func OpenFastMq(name string, flag int) (*FastMq, error) {
 	return openFastMq(name, flag&O_NONBLOCK, 0666, maxQueueSize, maxMsgSize)
 }
 
+// DestroyFastMq permanently removes a FastMq.
+func DestroyFastMq(name string) error {
+	errMutex := ipc_sync.DestroyMutex(fastMqLockerName(name))
+	errObject := shm.DestroyMemoryObject(fastMqStateName(name))
+	errCondSndDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "s"))
+	errCondRcvDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "r"))
+	if errMutex != nil {
+		return errors.Wrap(errMutex, "failed to destroy ipc locker")
+	}
+	if errObject != nil {
+		return errors.Wrap(errObject, "failed to destroy memory object")
+	}
+	if errCondSndDestroy != nil {
+		return errors.Wrap(errCondSndDestroy, "failed to destroy send condvar")
+	}
+	if errCondRcvDestroy != nil {
+		return errors.Wrap(errCondRcvDestroy, "failed to destroy receive condvar")
+	}
+	return nil
+}
+
 // FastMqAttrs returns capacity and max message size of the existing mq.
 func FastMqAttrs(name string) (int, int, error) {
-	obj, err := shm.NewMemoryObject(name, os.O_RDONLY, 0666)
+	obj, err := shm.NewMemoryObject(fastMqStateName(name), os.O_RDONLY, 0666)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "failed to open shm object")
 	}
@@ -140,24 +160,6 @@ func FastMqAttrs(name string) (int, int, error) {
 	defer region.Close()
 	impl := newFastMq(region.Data(), 0, 0, false)
 	return impl.heap.maxSize(), impl.heap.maxMsgSize(), nil
-}
-
-// DestroyFastMq permanently removes a FastMq.
-func DestroyFastMq(name string) error {
-	errMutex := ipc_sync.DestroyMutex(name)
-	if errObject := shm.DestroyMemoryObject(name); errObject != nil {
-		return errors.Wrap(errObject, "failed to destroy memory object")
-	}
-	if errMutex != nil {
-		return errors.Wrap(errMutex, "failed to destroy ipc locker")
-	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "s")); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy send condvar")
-	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(name, "r")); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy receive condvar")
-	}
-	return nil
 }
 
 // Send sends a message. It blocks if the queue is full.
@@ -294,18 +296,12 @@ func (mq *FastMq) Close() error {
 
 // Destroy permanently removes a FastMq instance.
 func (mq *FastMq) Destroy() error {
-	errClose := mq.Close()
-	if errDestroy := DestroyFastMq(mq.name); errDestroy != nil {
-		return errors.Wrap(errDestroy, "failed to destroy fastmq")
+	e1, e2 := mq.Close(), DestroyFastMq(mq.name)
+	if e1 != nil {
+		return errors.Wrapf(e1, "failed to close mq")
 	}
-	if errClose != nil {
-		return errors.Wrap(errClose, "failed to close fastmq")
-	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name, "s")); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy send condvar")
-	}
-	if errCondDestroy := ipc_sync.DestroyCond(fastMqCondName(mq.name, "r")); errCondDestroy != nil {
-		return errors.Wrap(errCondDestroy, "failed to destroy recv condvar")
+	if e2 != nil {
+		return errors.Wrapf(e2, "failed to destroy mq")
 	}
 	return nil
 }
@@ -380,6 +376,10 @@ func (mq *FastMq) doSendWait(timeout time.Duration) bool {
 	return !full
 }
 
+func fastMqStateName(mqName string) string {
+	return mqName + ".st"
+}
+
 func fastMqLockerName(mqName string) string {
 	return mqName + ".m"
 }
@@ -388,8 +388,7 @@ func fastMqCondName(mqName, typ string) string {
 	return mqName + ".cv" + typ
 }
 
-func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err error) {
-	obj.Close()
+func fastMqCleanup(mq *FastMq, created bool, err error) {
 	if err == nil {
 		return
 	}
@@ -397,31 +396,24 @@ func fastMqCleanup(mq *FastMq, obj shm.SharedMemoryObject, created bool, err err
 		mq.region.Close()
 	}
 	if mq.locker != nil {
-		if created {
-			if d, ok := mq.locker.(ipc.Destroyer); ok {
-				d.Destroy()
-			} else {
-				mq.locker.Close()
-			}
+		if d, ok := mq.locker.(ipc.Destroyer); ok && created {
+			d.Destroy()
 		} else {
 			mq.locker.Close()
 		}
 	}
-	if mq.condSend != nil {
-		if created {
-			mq.condSend.Destroy()
-		} else {
-			mq.condSend.Close()
+	cd := func(cond *ipc_sync.Cond) {
+		if cond != nil {
+			if created {
+				cond.Destroy()
+			} else {
+				cond.Close()
+			}
 		}
 	}
-	if mq.condRecv != nil {
-		if created {
-			mq.condRecv.Destroy()
-		} else {
-			mq.condRecv.Close()
-		}
-	}
+	cd(mq.condRecv)
+	cd(mq.condSend)
 	if created {
-		obj.Destroy()
+		shm.DestroyMemoryObject(fastMqStateName(mq.name))
 	}
 }
