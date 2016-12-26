@@ -19,12 +19,6 @@ const (
 	lwmLockedHaveWaiters = uint32(2)
 )
 
-// waitWaker is an object, which implements wake/wait semantics.
-type waitWaker interface {
-	wake(count uint32) (int, error)
-	wait(value uint32, timeout time.Duration) error
-}
-
 // lwMutex is a lightweight mutex implementation operating on a uint32 memory cell.
 // it tries to minimize amount of syscalls needed to do locking.
 // actual sleeping must be implemented by a waitWaker object.
