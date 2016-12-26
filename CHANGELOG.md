@@ -1,5 +1,7 @@
 # Release Next (xxxx-xx-xx)
 
+ - sync: timed mutex for darwin
+ - sync: timed semaphore for freebsd/darwin
  - minimum go version is 1.4.
 
 # Release 0.4.0 (2016-12-18)
