@@ -58,7 +58,7 @@ func shm_open(name string, flags, mode int) (uintptr, error) {
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		if err == unix.ENOENT || err == unix.EEXIST {
-			return 0, &os.PathError{name, "shm_open", err}
+			return 0, &os.PathError{Path: name, Op: "shm_open", Err: err}
 		}
 		return 0, err
 	}
@@ -75,7 +75,7 @@ func shm_unlink(name string) error {
 	allocator.Use(bytes)
 	if err != syscall.Errno(0) {
 		if err == unix.ENOENT {
-			return &os.PathError{name, "shm_unlink", err}
+			return &os.PathError{Path: name, Op: "shm_unlink", Err: err}
 		}
 		return err
 	}

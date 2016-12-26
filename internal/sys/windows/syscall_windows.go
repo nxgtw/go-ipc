@@ -57,7 +57,7 @@ func OpenFileMapping(access uint32, inheritHandle uint32, name string) (windows.
 	allocator.Use(nameu)
 	if r1 == 0 {
 		if err == windows.ERROR_FILE_NOT_FOUND {
-			return 0, &os.PathError{name, "CreateFileMapping", err}
+			return 0, &os.PathError{Path: name, Op: "CreateFileMapping", Err: err}
 		}
 		return 0, os.NewSyscallError("OpenFileMapping", err)
 	}
@@ -86,7 +86,7 @@ func CreateFileMapping(fhandle windows.Handle, sa *windows.SecurityAttributes, p
 	allocator.Use(nameu)
 	if r1 == 0 {
 		if err == windows.ERROR_ALREADY_EXISTS {
-			return 0, &os.PathError{name, "CreateFileMapping", err}
+			return 0, &os.PathError{Path: name, Op: "CreateFileMapping", Err: err}
 		}
 		return 0, os.NewSyscallError("CreateFileMapping", err)
 	}
