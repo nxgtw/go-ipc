@@ -9,7 +9,7 @@ import "os"
 //	name - object name.
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
-func NewMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+func NewMutex(name string, flag int, perm os.FileMode) (TimedIPCLocker, error) {
 	return newMutex(name, flag, perm)
 }
 

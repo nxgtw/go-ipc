@@ -5,6 +5,7 @@ package sync
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -196,6 +197,31 @@ func TestEventWait4(t *testing.T) {
 	}
 	a.True(ev.WaitTimeout(0))
 	a.NoError(ev.Destroy())
+}
+
+func TestEventWait5(t *testing.T) {
+	a := assert.New(t)
+	if !a.NoError(DestroyEvent(testEventName)) {
+		return
+	}
+	ev, err := NewEvent(testEventName, os.O_CREATE|os.O_EXCL, 0666, true)
+	if !a.NoError(err) || !a.NotNil(ev) {
+		return
+	}
+	defer func() {
+		a.NoError(ev.Destroy())
+	}()
+	var wg sync.WaitGroup
+	for i := 0; i < 1024; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ev.Wait()
+			ev.Set()
+		}()
+	}
+	ev.Set()
+	wg.Wait()
 }
 
 func TestEventSetAnotherProcess(t *testing.T) {

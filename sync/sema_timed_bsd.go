@@ -56,12 +56,7 @@ func (ti *threadInterrupter) done() {
 	atomic.StoreInt32(&ti.state, 1)
 }
 
-// WaitTimeout emulates timed wait via semop and signal interrupt.
-func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
-	if timeout < 0 {
-		s.Wait()
-		return true
-	}
+func doSemaTimedWait(id int, timeout time.Duration) bool {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	ti := threadInterrupter{}
@@ -69,7 +64,7 @@ func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
 	if err := ti.start(timeout); err != nil {
 		panic(errors.Wrap(err, "failed to setup timeout"))
 	}
-	err := semop(s.id, []sembuf{b})
+	err := semop(id, []sembuf{b})
 	ti.done()
 	if err == nil {
 		return true

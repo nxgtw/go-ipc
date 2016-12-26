@@ -4,6 +4,7 @@ package sync
 
 import (
 	"os"
+	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/mmf"
@@ -60,6 +61,11 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 // Lock locks the mutex. It panics on an error.
 func (m *SemaMutex) Lock() {
 	m.lwm.lock()
+}
+
+// LockTimeout tries to lock the locker, waiting for not more, than timeout.
+func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
+	return m.lwm.lockTimeout(timeout)
 }
 
 // TryLock makes one attempt to lock the mutex. It returns true on succeess and false otherwise.

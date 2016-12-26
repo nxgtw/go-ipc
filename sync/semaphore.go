@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
 const (
@@ -38,7 +40,7 @@ type TimedSemaphore interface {
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
 //	initial - this value will be added to the semaphore's value, if it was created.
-func NewSemaphore(name string, flag int, perm os.FileMode, initial int) (Semaphore, error) {
+func NewSemaphore(name string, flag int, perm os.FileMode, initial int) (TimedSemaphore, error) {
 	result, err := newSemaphore(name, flag, perm, initial)
 	if err != nil {
 		return nil, err
@@ -49,4 +51,24 @@ func NewSemaphore(name string, flag int, perm os.FileMode, initial int) (Semapho
 // DestroySemaphore removes the semaphore permanently.
 func DestroySemaphore(name string) error {
 	return destroySemaphore(name)
+}
+
+type semaWaiter struct {
+	s *semaphore
+}
+
+func newSemaWaiter(s Semaphore) *semaWaiter {
+	return &semaWaiter{s: s.(*semaphore)}
+}
+
+func (sw *semaWaiter) wake(count uint32) (int, error) {
+	sw.s.Signal(int(count))
+	return int(count), nil
+}
+
+func (sw *semaWaiter) wait(unused uint32, timeout time.Duration) error {
+	if !sw.s.WaitTimeout(timeout) {
+		return common.NewTimeoutError("SEMWAWIT")
+	}
+	return nil
 }

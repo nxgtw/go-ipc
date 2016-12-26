@@ -6,10 +6,10 @@ import "os"
 
 // this is to ensure, that all implementations of ipc mutex satisfy the same minimal interface.
 var (
-	_ IPCLocker = (*EventMutex)(nil)
+	_ TimedIPCLocker = (*EventMutex)(nil)
 )
 
-func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+func newMutex(name string, flag int, perm os.FileMode) (TimedIPCLocker, error) {
 	l, err := NewEventMutex(name, flag, perm)
 	if err != nil {
 		return nil, err

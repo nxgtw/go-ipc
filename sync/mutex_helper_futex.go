@@ -6,7 +6,12 @@ package sync
 
 import "os"
 
-func newMutex(name string, flag int, perm os.FileMode) (IPCLocker, error) {
+// this is to ensure, that all implementations of ipc mutex satisfy the same minimal interface.
+var (
+	_ TimedIPCLocker = (*FutexMutex)(nil)
+)
+
+func newMutex(name string, flag int, perm os.FileMode) (TimedIPCLocker, error) {
 	l, err := NewFutexMutex(name, flag, perm)
 	if err != nil {
 		return nil, err

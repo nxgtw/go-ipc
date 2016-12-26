@@ -6,6 +6,7 @@ package sync
 
 import (
 	"os"
+	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"github.com/pkg/errors"
@@ -78,6 +79,14 @@ func (s *semaphore) Wait() {
 	if err := s.add(-1); err != nil {
 		panic(err)
 	}
+}
+
+func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
+	if timeout < 0 {
+		s.Wait()
+		return true
+	}
+	return doSemaTimedWait(s.id, timeout)
 }
 
 // Close is a no-op on unix.
