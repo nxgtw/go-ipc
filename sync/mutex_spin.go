@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -46,16 +47,19 @@ func NewSpinMutex(name string, flag int, perm os.FileMode) (*SpinMutex, error) {
 		return nil, err
 	}
 	name = spinName(name)
-	region, created, err := createWritableRegion(name, flag, perm, lwmStateSize, nil)
+	region, created, err := helper.CreateWritableRegion(name, flag, perm, lwmStateSize)
 	if err != nil {
 		return nil, err
 	}
-	lwm := newLightweightMutex(allocator.ByteSliceData(region.Data()), &spinWW{})
-	if created {
-		lwm.init()
+	result := &SpinMutex{
+		region: region,
+		name:   name,
+		lwm:    newLightweightMutex(allocator.ByteSliceData(region.Data()), new(spinWW)),
 	}
-	impl := &SpinMutex{region: region, name: name, lwm: lwm}
-	return impl, nil
+	if created {
+		result.lwm.init()
+	}
+	return result, nil
 }
 
 // Lock locks the mutex waiting in a busy loop if needed.

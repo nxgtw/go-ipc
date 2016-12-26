@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -34,16 +33,14 @@ func wait() error {
 	}
 	if *timeout < 0 {
 		s.Wait()
-	} else if ts, ok := s.(sync.TimedSemaphore); ok {
-		ok := ts.WaitTimeout(time.Duration(*timeout) * time.Millisecond)
+	} else {
+		ok := s.WaitTimeout(time.Duration(*timeout) * time.Millisecond)
 		if ok != !*fail {
 			if !ok {
 				return fmt.Errorf("timeout exceeded")
 			}
 			return fmt.Errorf("timeout passed")
 		}
-	} else {
-		return fmt.Errorf("semaphores on %s aren't timed", runtime.GOARCH)
 	}
 	if err = s.Close(); err != nil {
 		return err

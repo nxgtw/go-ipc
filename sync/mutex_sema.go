@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -20,7 +21,7 @@ var (
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
-	s      Semaphore
+	s      *Semaphore
 	region *mmf.MemoryRegion
 	name   string
 	lwm    *lwMutex
@@ -34,7 +35,7 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmStateSize, nil)
+	region, created, err := helper.CreateWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmStateSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}

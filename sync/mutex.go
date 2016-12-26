@@ -2,7 +2,25 @@
 
 package sync
 
-import "os"
+import (
+	"io"
+	"os"
+	"sync"
+	"time"
+)
+
+// IPCLocker is a minimal interface, which must be satisfied by any synchronization primitive on any platform.
+type IPCLocker interface {
+	sync.Locker
+	io.Closer
+}
+
+// TimedIPCLocker is a locker, whose lock operation can be limited with duration.
+type TimedIPCLocker interface {
+	IPCLocker
+	// LockTimeout tries to lock the locker, waiting for not more, than timeout
+	LockTimeout(timeout time.Duration) bool
+}
 
 // NewMutex creates a new interprocess mutex.
 // It uses the default implementation on the current platform.

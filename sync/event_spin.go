@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	"github.com/pkg/errors"
@@ -26,32 +27,21 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	internalName := eventName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, 4)
-	if resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm object")
+
+	region, created, err := helper.CreateWritableRegion(eventName(name), flag, perm, 4)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
 	}
-	var region *mmf.MemoryRegion
-	defer func() {
-		obj.Close()
-		if resultErr == nil {
-			return
-		}
-		if region != nil {
-			region.Close()
-		}
-		if created {
-			obj.Destroy()
-		}
-	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, 4); resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm region")
+	result := &event{
+		waiter: (*uint32)(allocator.ByteSliceData(region.Data())),
+		name:   name,
+		region: region,
 	}
-	waiter := (*uint32)(allocator.ByteSliceData(region.Data()))
+
 	if created && initial {
-		*waiter = 1
+		*result.waiter = 1
 	}
-	return &event{waiter: waiter, name: name, region: region}, nil
+	return result, nil
 }
 
 func (e *event) set() {

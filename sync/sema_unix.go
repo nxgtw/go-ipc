@@ -69,28 +69,27 @@ func newSemaphoreKey(key uint64, flag int, perm os.FileMode, initial int) (*sema
 	return result, nil
 }
 
-func (s *semaphore) Signal(count int) {
+func (s *semaphore) signal(count int) {
 	if err := s.add(count); err != nil {
 		panic(err)
 	}
 }
 
-func (s *semaphore) Wait() {
+func (s *semaphore) wait() {
 	if err := s.add(-1); err != nil {
 		panic(err)
 	}
 }
 
-func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
+func (s *semaphore) waitTimeout(timeout time.Duration) bool {
 	if timeout < 0 {
-		s.Wait()
+		s.wait()
 		return true
 	}
 	return doSemaTimedWait(s.id, timeout)
 }
 
-// Close is a no-op on unix.
-func (s *semaphore) Close() error {
+func (s *semaphore) close() error {
 	return nil
 }
 

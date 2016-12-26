@@ -28,24 +28,24 @@ func newSemaphore(name string, flag int, perm os.FileMode, initial int) (*semaph
 	return &semaphore{handle: handle}, nil
 }
 
-func (s *semaphore) Close() error {
+func (s *semaphore) close() error {
 	if err := windows.CloseHandle(s.handle); err != nil {
 		return errors.Wrap(err, "failed to close windows handle")
 	}
 	return nil
 }
 
-func (s *semaphore) Signal(count int) {
+func (s *semaphore) signal(count int) {
 	if _, err := sys_ReleaseSemaphore(s.handle, count); err != nil {
 		panic(err)
 	}
 }
 
-func (s *semaphore) Wait() {
-	s.WaitTimeout(-1)
+func (s *semaphore) wait() {
+	s.waitTimeout(-1)
 }
 
-func (s *semaphore) WaitTimeout(timeout time.Duration) bool {
+func (s *semaphore) waitTimeout(timeout time.Duration) bool {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		waitMillis = uint32(timeout.Nanoseconds() / 1e6)

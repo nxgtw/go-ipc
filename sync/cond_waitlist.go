@@ -10,7 +10,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/array"
-	"bitbucket.org/avd/go-ipc/internal/common"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	"github.com/pkg/errors"
@@ -27,28 +27,22 @@ type cond struct {
 
 func newCond(name string, flag int, perm os.FileMode, l IPCLocker) (*cond, error) {
 	size := array.CalcSharedArraySize(MaxCondWaiters, condWaiterSize)
-	openFlags := common.FlagsForOpen(flag)
-	// create a shared memory object for the queue.
-	obj, created, err := shm.NewMemoryObjectSize(condSharedStateName(name), openFlags, perm, int64(size))
-	if err != nil {
-		return nil, errors.Wrap(err, "cond: failed to open/create shm object")
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
 	}
 
-	result := &cond{L: l, name: name}
+	region, created, err := helper.CreateWritableRegion(condSharedStateName(name), flag, perm, size)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
+	}
+
+	result := &cond{L: l, name: name, waitersRegion: region}
 
 	defer func() {
-		obj.Close()
-		if err == nil {
-			return
+		if err != nil {
+			condCleanup(result, name, created)
 		}
-		condCleanup(result, name, obj, created)
 	}()
-
-	// mmap memory object.
-	result.waitersRegion, err = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, size)
-	if err != nil {
-		return nil, errors.Wrap(err, "cond: failed to create new shm region")
-	}
 
 	// cleanup previous mutex instances. it could be useful in a case,
 	// when previous mutex owner crashed, and the mutex is in incosistient state.
@@ -167,7 +161,7 @@ func condSharedStateName(name string) string {
 	return name + ".st"
 }
 
-func condCleanup(result *cond, name string, obj shm.SharedMemoryObject, created bool) {
+func condCleanup(result *cond, name string, created bool) {
 	if result.waitersRegion != nil {
 		result.waitersRegion.Close()
 	}
@@ -176,7 +170,7 @@ func condCleanup(result *cond, name string, obj shm.SharedMemoryObject, created 
 		DestroyMutex(condMutexName(name))
 	}
 	if created {
-		obj.Destroy()
+		shm.DestroyMemoryObject(condSharedStateName(name))
 	}
 }
 

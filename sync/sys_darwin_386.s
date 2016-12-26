@@ -8,6 +8,6 @@ TEXT sysenter(SB),NOSPLIT,$0
 	
 TEXT ·mach_thread_self(SB),NOSPLIT,$0
 	MOVL	$-27, AX
-	CALL	runtime·sysenter(SB)
+	CALL	sysenter(SB)
 	MOVL	AX, ret+0(FP)
 	RET

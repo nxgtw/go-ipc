@@ -7,9 +7,9 @@ package sync
 import (
 	"os"
 	"time"
-	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -21,7 +21,7 @@ var (
 	_ TimedIPCLocker = (*FutexMutex)(nil)
 )
 
-// FutexMutex is a mutex based on linux futex object.
+// FutexMutex is a mutex based on linux/freebsd futex object.
 type FutexMutex struct {
 	lwm    *lwMutex
 	region *mmf.MemoryRegion
@@ -38,33 +38,21 @@ func NewFutexMutex(name string, flag int, perm os.FileMode) (*FutexMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	obj, created, resultErr := shm.NewMemoryObjectSize(mutexSharedStateName(name, "f"), flag, perm, int64(lwmStateSize))
-	if resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm object")
+	region, created, err := helper.CreateWritableRegion(mutexSharedStateName(name, "f"), flag, perm, lwmStateSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
 	}
-	var region *mmf.MemoryRegion
-	defer func() {
-		obj.Close()
-		if resultErr == nil {
-			return
-		}
-		if region != nil {
-			region.Close()
-		}
-		if created {
-			obj.Destroy()
-		}
-	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, lwmStateSize); resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm region")
+
+	data := allocator.ByteSliceData(region.Data())
+	result := &FutexMutex{
+		region: region,
+		name:   name,
+		lwm:    newLightweightMutex(data, &futex{ptr: data}),
 	}
-	fw := new(futex)
-	lwm := newLightweightMutex(allocator.ByteSliceData(region.Data()), fw)
-	fw.ptr = unsafe.Pointer(lwm.state)
 	if created {
-		lwm.init()
+		result.lwm.init()
 	}
-	return &FutexMutex{lwm: lwm, name: name, region: region}, nil
+	return result, nil
 }
 
 // Lock locks the mutex. It panics on an error.
