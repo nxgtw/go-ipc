@@ -5,7 +5,6 @@ package sync
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -33,7 +32,7 @@ func TestSemaOpenMode(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -53,7 +52,7 @@ func TestSemaOpenMode2(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -61,7 +60,7 @@ func TestSemaOpenMode2(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 	}(s)
 	s, err = NewSemaphore(testSemaName, os.O_CREATE|os.O_EXCL, 0666, 1)
@@ -80,7 +79,7 @@ func TestSemaOpenMode3(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -100,7 +99,7 @@ func TestSemaOpenMode4(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -108,7 +107,7 @@ func TestSemaOpenMode4(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 	}(s)
 	s, err = NewSemaphore(testSemaName, os.O_CREATE|os.O_EXCL, 0666, 1)
@@ -147,7 +146,7 @@ func TestSemaCount(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -171,7 +170,7 @@ func TestSemaCount2(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -196,17 +195,12 @@ func TestTimedSema(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
-	ts, ok := s.(TimedSemaphore)
-	if !ok {
-		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
-		return
-	}
-	ts.Wait()
-	a.False(ts.WaitTimeout(time.Millisecond * 50))
+	s.Wait()
+	a.False(s.WaitTimeout(time.Millisecond * 50))
 }
 
 func TestSemaSignalAnotherProcess(t *testing.T) {
@@ -218,7 +212,7 @@ func TestSemaSignalAnotherProcess(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
@@ -250,14 +244,10 @@ func TestSemaWaitAnotherProcess(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
-	if _, ok := s.(TimedSemaphore); !ok {
-		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
-		return
-	}
 	args := argsForSemaWaitCommand(testSemaName, -1)
 	killCh := make(chan bool, 1)
 	resultCh := testutil.RunTestAppAsync(args, killCh)
@@ -282,14 +272,10 @@ func TestSemaTimedWaitAnotherProcess(t *testing.T) {
 	if !a.NoError(err) {
 		return
 	}
-	defer func(s Semaphore) {
+	defer func(s *Semaphore) {
 		a.NoError(s.Close())
 		a.NoError(DestroySemaphore(testSemaName))
 	}(s)
-	if _, ok := s.(TimedSemaphore); !ok {
-		t.Skipf("semaphores on %s aren't timed", runtime.GOARCH)
-		return
-	}
 	args := argsForSemaWaitCommand(testSemaName, 250)
 	killCh := make(chan bool, 1)
 	resultCh := testutil.RunTestAppAsync(args, killCh)

@@ -10,6 +10,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	"github.com/pkg/errors"
@@ -24,35 +25,21 @@ type cond struct {
 }
 
 func newCond(name string, flag int, perm os.FileMode, l IPCLocker) (*cond, error) {
-	openFlags := common.FlagsForOpen(flag)
-	// create a shared memory object for the queue.
-	obj, created, err := shm.NewMemoryObjectSize(condSharedStateName(name), openFlags, perm, int64(futexSize))
-	if err != nil {
-		return nil, errors.Wrap(err, "cond: failed to open/create shm object")
-	}
-	defer obj.Close()
-
-	result := &cond{L: l, name: name}
-
-	defer func() {
-		if err == nil {
-			return
-		}
-		if result.region != nil {
-			result.region.Close()
-		}
-		if created {
-			obj.Destroy()
-		}
-	}()
-
-	// mmap memory object.
-	result.region, err = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, futexSize)
-	if err != nil {
-		return nil, errors.Wrap(err, "cond: failed to create new shm region")
+	if err := ensureOpenFlags(flag); err != nil {
+		return nil, err
 	}
 
-	result.ftx = &futex{(allocator.ByteSliceData(result.region.Data()))}
+	region, _, err := helper.CreateWritableRegion(condSharedStateName(name), flag, perm, lwmStateSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
+	}
+
+	result := &cond{
+		L:      l,
+		name:   name,
+		ftx:    &futex{(allocator.ByteSliceData(region.Data()))},
+		region: region,
+	}
 
 	return result, nil
 }

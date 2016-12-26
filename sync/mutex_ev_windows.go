@@ -4,11 +4,11 @@ package sync
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -19,7 +19,7 @@ import (
 // all implementations must satisfy IPCLocker interface.
 var (
 	_          IPCLocker = (*EventMutex)(nil)
-	timeoutErr           = os.NewSyscallError("WaitForSingleObject", syscall.Errno(common.ERROR_TIMEOUT))
+	timeoutErr           = common.NewTimeoutError("WaitForSingleObject")
 )
 
 // EventMutex is a mutex built on named windows events.
@@ -41,7 +41,7 @@ func NewEventMutex(name string, flag int, perm os.FileMode) (*EventMutex, error)
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "e"), flag, perm, lwmStateSize, nil)
+	region, created, err := helper.CreateWritableRegion(mutexSharedStateName(name, "e"), flag, perm, lwmStateSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}

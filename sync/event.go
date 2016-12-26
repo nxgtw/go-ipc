@@ -56,5 +56,5 @@ func DestroyEvent(name string) error {
 }
 
 func eventName(baseName string) string {
-	return "go-ipc.event." + baseName
+	return baseName + ".ev"
 }

@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build linux,386
-
 package sync
 
 import (
@@ -36,7 +34,7 @@ func semget(k common.Key, nsems, semflg int) (int, error) {
 	id, _, err := unix.Syscall6(unix.SYS_IPC, cSEMGET, uintptr(k), uintptr(nsems), uintptr(semflg), 0, 0)
 	if err != syscall.Errno(0) {
 		if err == unix.EEXIST || err == unix.ENOENT {
-			return 0, &os.PathError{"SEMGET", "", err}
+			return 0, &os.PathError{Op: "SEMGET", Path: "", Err: err}
 		}
 		return 0, err
 	}

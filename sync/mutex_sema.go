@@ -4,8 +4,10 @@ package sync
 
 import (
 	"os"
+	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -19,7 +21,7 @@ var (
 
 // SemaMutex is a semaphore-based mutex for unix.
 type SemaMutex struct {
-	s      Semaphore
+	s      *Semaphore
 	region *mmf.MemoryRegion
 	name   string
 	lwm    *lwMutex
@@ -33,7 +35,7 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmStateSize, nil)
+	region, created, err := helper.CreateWritableRegion(mutexSharedStateName(name, "s"), flag, perm, lwmStateSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}
@@ -60,6 +62,11 @@ func NewSemaMutex(name string, flag int, perm os.FileMode) (*SemaMutex, error) {
 // Lock locks the mutex. It panics on an error.
 func (m *SemaMutex) Lock() {
 	m.lwm.lock()
+}
+
+// LockTimeout tries to lock the locker, waiting for not more, than timeout.
+func (m *SemaMutex) LockTimeout(timeout time.Duration) bool {
+	return m.lwm.lockTimeout(timeout)
 }
 
 // TryLock makes one attempt to lock the mutex. It returns true on succeess and false otherwise.

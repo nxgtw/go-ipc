@@ -7,15 +7,15 @@ This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD
 * Pure Go implementation, no cgo is required.
 * Works on Linux, OSX, FreeBSD, and Windows (x86 or x86-64).
 * Support of the following mechanisms:
-    - fifo (all supported platforms)
-    - memory mapped files (all supported platforms)
-    - shared memory (all supported platforms)
+    - fifo (unix and windows pipes)
+    - memory mapped files
+    - shared memory
     - system message queues (Linux, FreeBSD, OSX)
-    - cross-platform priority message queue (all supported platforms)
-    - mutexes, rw mutexes (all supported platforms)
-    - semaphores (all supported platforms)
-    - events (all supported platforms)
-    - conditional variables (all supported platforms)
+    - cross-platform priority message queue
+    - mutexes, rw mutexes
+    - semaphores
+    - events
+    - conditional variables
 
 ## Install
 1. Install Go 1.4 or higher.
@@ -32,7 +32,7 @@ go get -u bitbucket.org/avd/go-ipc
 Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
 
 ## Notes
-* Convars use futexes no Linux and FreeBSD. Currently spin locks are used on Windows and OSX.
+* Convars currently use spin locks on OSX.
 
 ## Build status
 This library is currently alpha. The 'master' branch is not guaranteed to contain stable code,

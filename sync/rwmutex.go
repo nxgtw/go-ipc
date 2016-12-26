@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 
@@ -33,7 +34,7 @@ func NewRWMutex(name string, flag int, perm os.FileMode) (*RWMutex, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	region, created, err := createWritableRegion(mutexSharedStateName(name, "rw"), flag, perm, lwRWMStateSize, nil)
+	region, created, err := helper.CreateWritableRegion(mutexSharedStateName(name, "rw"), flag, perm, lwRWMStateSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}

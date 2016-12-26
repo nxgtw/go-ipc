@@ -26,7 +26,7 @@ func msgget(k common.Key, flags int) (int, error) {
 	id, _, err := unix.Syscall(sysMsgGet, uintptr(k), uintptr(flags), 0)
 	if err != syscall.Errno(0) {
 		if err == unix.EEXIST || err == unix.ENOENT {
-			return 0, &os.PathError{"", "MSGGET", err}
+			return 0, &os.PathError{Op: "MSGGET", Path: "", Err: err}
 		}
 		return 0, os.NewSyscallError("MSGGET", err)
 	}

@@ -1,7 +1,5 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build freebsd
-
 package sync
 
 func init() {
