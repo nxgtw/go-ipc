@@ -101,14 +101,14 @@ type eventWaiter struct {
 	handle windows.Handle
 }
 
-func (e *eventWaiter) wake(uint32) (int, error) {
+func (e *eventWaiter) wake(int32) (int, error) {
 	if err := windows.SetEvent(e.handle); err != nil {
 		panic("failed to unlock mutex: " + err.Error())
 	}
 	return 1, nil
 }
 
-func (e *eventWaiter) wait(unused uint32, timeout time.Duration) error {
+func (e *eventWaiter) wait(unused int32, timeout time.Duration) error {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		waitMillis = uint32(timeout.Nanoseconds() / 1e6)

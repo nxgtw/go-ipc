@@ -1,6 +1,6 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build linux freebsd
+// +build freebsd
 
 package sync
 
@@ -11,6 +11,7 @@ import (
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
 	"bitbucket.org/avd/go-ipc/internal/common"
+	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	"github.com/pkg/errors"
@@ -26,36 +27,25 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
-	internalName := eventName(name)
-	obj, created, resultErr := shm.NewMemoryObjectSize(internalName, flag, perm, int64(futexSize))
-	if resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm object")
+
+	region, created, err := helper.CreateWritableRegion(eventName(name), flag, perm, futexSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create shared state")
 	}
-	var region *mmf.MemoryRegion
-	defer func() {
-		obj.Close()
-		if resultErr == nil {
-			return
-		}
-		if region != nil {
-			region.Close()
-		}
-		if created {
-			obj.Destroy()
-		}
-	}()
-	if region, resultErr = mmf.NewMemoryRegion(obj, mmf.MEM_READWRITE, 0, futexSize); resultErr != nil {
-		return nil, errors.Wrap(resultErr, "failed to create shm region")
+
+	result := &event{
+		ftx:    &futex{allocator.ByteSliceData(region.Data())},
+		name:   name,
+		region: region,
 	}
-	ftx := &futex{allocator.ByteSliceData(region.Data())}
 	if created {
 		if initial {
-			*ftx.addr() = 1
+			*result.ftx.addr() = 1
 		} else {
-			*ftx.addr() = 0
+			*result.ftx.addr() = 0
 		}
 	}
-	return &event{ftx: ftx, name: name, region: region}, nil
+	return result, nil
 }
 
 func (e *event) set() {
@@ -71,7 +61,7 @@ func (e *event) wait() {
 
 func (e *event) waitTimeout(timeout time.Duration) bool {
 	for {
-		if atomic.CompareAndSwapUint32(e.ftx.addr(), 1, 0) {
+		if atomic.CompareAndSwapInt32(e.ftx.addr(), 1, 0) {
 			return true
 		}
 		if err := e.ftx.wait(0, timeout); err != nil {

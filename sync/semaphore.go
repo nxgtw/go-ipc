@@ -67,12 +67,12 @@ func newSemaWaiter(s *Semaphore) *semaWaiter {
 	return &semaWaiter{s: s}
 }
 
-func (sw *semaWaiter) wake(count uint32) (int, error) {
+func (sw *semaWaiter) wake(count int32) (int, error) {
 	sw.s.Signal(int(count))
 	return int(count), nil
 }
 
-func (sw *semaWaiter) wait(unused uint32, timeout time.Duration) error {
+func (sw *semaWaiter) wait(unused int32, timeout time.Duration) error {
 	if !sw.s.WaitTimeout(timeout) {
 		return common.NewTimeoutError("SEMWAWIT")
 	}

@@ -19,6 +19,6 @@ func ensureOpenFlags(flags int) error {
 
 // waitWaker is an object, which implements wake/wait semantics.
 type waitWaker interface {
-	wake(count uint32) (int, error)
-	wait(value uint32, timeout time.Duration) error
+	wake(count int32) (int, error)
+	wait(value int32, timeout time.Duration) error
 }
