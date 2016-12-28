@@ -1,16 +1,14 @@
 // Copyright 2016 Aleksandr Demakin. All rights reserved.
 
-// +build freebsd
+// +build freebsd linux
 
 package sync
 
 import (
 	"os"
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -20,7 +18,7 @@ import (
 type event struct {
 	name   string
 	region *mmf.MemoryRegion
-	ftx    *futex
+	lwe    *lwEvent
 }
 
 func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, error) {
@@ -32,27 +30,20 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create shared state")
 	}
-
+	state := allocator.ByteSliceData(region.Data())
 	result := &event{
-		ftx:    &futex{allocator.ByteSliceData(region.Data())},
+		lwe:    newLightweightEvent(state, &futex{ptr: state}),
 		name:   name,
 		region: region,
 	}
 	if created {
-		if initial {
-			*result.ftx.addr() = 1
-		} else {
-			*result.ftx.addr() = 0
-		}
+		result.lwe.init(initial)
 	}
 	return result, nil
 }
 
 func (e *event) set() {
-	*e.ftx.addr() = 1
-	if _, err := e.ftx.wake(1); err != nil {
-		panic(err)
-	}
+	e.lwe.set()
 }
 
 func (e *event) wait() {
@@ -60,33 +51,14 @@ func (e *event) wait() {
 }
 
 func (e *event) waitTimeout(timeout time.Duration) bool {
-	for {
-		if atomic.CompareAndSwapInt32(e.ftx.addr(), 1, 0) {
-			return true
-		}
-		if err := e.ftx.wait(0, timeout); err != nil {
-			if common.IsTimeoutErr(err) {
-				return false
-			}
-			panic(err)
-		}
-	}
+	return e.lwe.waitTimeout(timeout)
 }
 
 func (e *event) close() error {
-	if e.region == nil {
-		return nil
-	}
-	err := e.region.Close()
-	e.region = nil
-	e.ftx = nil
-	return err
+	return e.region.Close()
 }
 
 func (e *event) destroy() error {
-	if e.region == nil {
-		return nil
-	}
 	if err := e.close(); err != nil {
 		return errors.Wrap(err, "failed to close shm region")
 	}

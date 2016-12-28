@@ -17,6 +17,9 @@ const (
 
 // Semaphore is a synchronization object with a resource counter,
 // which can be used to control access to a shared resource.
+// It provides access to actual OS semaphore primitive via:
+//	CreateSemaprore on windows
+//	semget on unix
 type Semaphore semaphore
 
 // NewSemaphore creates new semaphore with the given name.

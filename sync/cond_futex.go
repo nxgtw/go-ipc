@@ -83,11 +83,10 @@ func (c *cond) waitTimeout(timeout time.Duration) bool {
 }
 
 func (c *cond) close() error {
-	var result error
 	if err := c.region.Close(); err != nil {
-		result = errors.Wrap(err, "failed to close waiters list memory region")
+		return errors.Wrap(err, "failed to close waiters list memory region")
 	}
-	return result
+	return nil
 }
 
 func (c *cond) destroy() error {
