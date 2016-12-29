@@ -68,14 +68,14 @@ func (e *event) close() error {
 		return errors.Wrap(e1, "failed to close sema")
 	}
 	if e2 != nil {
-		return errors.Wrap(e2, "failed to shared state")
+		return errors.Wrap(e2, "failed to close shared state")
 	}
 	return nil
 }
 
 func (e *event) destroy() error {
 	if err := e.close(); err != nil {
-		return errors.Wrap(err, "failed to close shm region")
+		return errors.Wrap(err, "failed to close the event")
 	}
 	return destroyEvent(e.name)
 }

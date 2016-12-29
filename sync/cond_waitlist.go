@@ -124,7 +124,7 @@ func (c *cond) addToWaitersList() *waiter {
 	if c.waiters.Len() >= MaxCondWaiters {
 		panic(ErrTooManyWaiters)
 	}
-	c.waiters.PushBack(nil)
+	c.waiters.PushBack()
 	return newWaiter(c.waiters.AtPointer(c.waiters.Len() - 1))
 }
 

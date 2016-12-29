@@ -68,7 +68,7 @@ func (e *lwEvent) obtainOrChange(inc int32) (new int32, obtained bool) {
 			new = old + inc
 		}
 		if atomic.CompareAndSwapInt32(e.state, old, new) {
-			if old < 0 { // bit was set and we reset it. success. otherwise, changed the value.
+			if old < 0 { // bit was set and we reset it. success. otherwise, we changed the value.
 				obtained = true
 			}
 			return
