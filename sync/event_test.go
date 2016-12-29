@@ -233,6 +233,9 @@ func TestEventWait6(t *testing.T) {
 	if !a.NoError(err) || !a.NotNil(ev) {
 		return
 	}
+	defer func() {
+		a.NoError(ev.Destroy())
+	}()
 	a.False(ev.WaitTimeout(0))
 	a.False(ev.WaitTimeout(0))
 	ev.Set()

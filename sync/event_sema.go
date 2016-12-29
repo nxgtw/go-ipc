@@ -43,6 +43,7 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 		lwe:    newLightweightEvent(allocator.ByteSliceData(region.Data()), newSemaWaiter(s)),
 		name:   name,
 		region: region,
+		s:      s,
 	}
 	if created {
 		result.lwe.init(initial)
