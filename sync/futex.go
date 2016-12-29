@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	futexSize     = 4
 	cFutexWakeAll = math.MaxInt32
 )
 
