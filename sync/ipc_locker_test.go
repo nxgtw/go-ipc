@@ -505,7 +505,9 @@ func benchmarkRWLocker(b *testing.B, rLocker, wLocker IPCLocker) {
 
 func BenchmarkRWMutexAsRW(b *testing.B) {
 	a := assert.New(b)
-	DestroyRWMutex(testLockerName)
+	if !a.NoError(DestroyRWMutex(testLockerName)) {
+		return
+	}
 	m, err := NewRWMutex(testLockerName, os.O_CREATE|os.O_EXCL, 0666)
 	if !a.NoError(err) {
 		return

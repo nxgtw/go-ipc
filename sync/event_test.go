@@ -224,6 +224,24 @@ func TestEventWait5(t *testing.T) {
 	wg.Wait()
 }
 
+func TestEventWait6(t *testing.T) {
+	a := assert.New(t)
+	if !a.NoError(DestroyEvent(testEventName)) {
+		return
+	}
+	ev, err := NewEvent(testEventName, os.O_CREATE|os.O_EXCL, 0666, false)
+	if !a.NoError(err) || !a.NotNil(ev) {
+		return
+	}
+	defer func() {
+		a.NoError(ev.Destroy())
+	}()
+	a.False(ev.WaitTimeout(0))
+	a.False(ev.WaitTimeout(0))
+	ev.Set()
+	a.True(ev.WaitTimeout(0))
+}
+
 func TestEventSetAnotherProcess(t *testing.T) {
 	a := assert.New(t)
 	if !a.NoError(DestroyEvent(testEventName)) {

@@ -24,7 +24,7 @@ const (
 // FutexWait checks if the the value equals futex's value.
 // If it doesn't, Wait returns EWOULDBLOCK.
 // Otherwise, it waits for the Wake call on the futex for not longer, than timeout.
-func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags int32) error {
+func FutexWait(addr unsafe.Pointer, value int32, timeout time.Duration, flags int32) error {
 	return common.UninterruptedSyscallTimeout(func(tm time.Duration) error {
 		var ptr unsafe.Pointer
 		if flags&cUMTX_ABSTIME != 0 {
@@ -39,7 +39,7 @@ func FutexWait(addr unsafe.Pointer, value uint32, timeout time.Duration, flags i
 
 // FutexWake wakes count threads waiting on the futex.
 // Returns the number of woken threads.
-func FutexWake(addr unsafe.Pointer, count uint32, flags int32) (int, error) {
+func FutexWake(addr unsafe.Pointer, count int32, flags int32) (int, error) {
 	var woken int32
 	err := common.UninterruptedSyscall(func() error {
 		var err error
@@ -52,7 +52,7 @@ func FutexWake(addr unsafe.Pointer, count uint32, flags int32) (int, error) {
 	return 0, err
 }
 
-func sys_umtx_op(addr unsafe.Pointer, mode int32, val uint32, ptr2, ts unsafe.Pointer) (int32, error) {
+func sys_umtx_op(addr unsafe.Pointer, mode int32, val int32, ptr2, ts unsafe.Pointer) (int32, error) {
 	r1, _, err := unix.Syscall6(unix.SYS__UMTX_OP,
 		uintptr(addr),
 		uintptr(mode),

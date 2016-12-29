@@ -17,6 +17,7 @@ type Event event
 //	name - object name.
 //	flag - flag is a combination of open flags from 'os' package.
 //	perm - object's permission bits.
+//	initial - if true, the event will be set after creation.
 func NewEvent(name string, flag int, perm os.FileMode, initial bool) (*Event, error) {
 	e, err := newEvent(name, flag, perm, initial)
 	if err != nil {

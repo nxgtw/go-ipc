@@ -17,6 +17,9 @@ const (
 
 // Semaphore is a synchronization object with a resource counter,
 // which can be used to control access to a shared resource.
+// It provides access to actual OS semaphore primitive via:
+//	CreateSemaprore on windows
+//	semget on unix
 type Semaphore semaphore
 
 // NewSemaphore creates new semaphore with the given name.
@@ -67,12 +70,12 @@ func newSemaWaiter(s *Semaphore) *semaWaiter {
 	return &semaWaiter{s: s}
 }
 
-func (sw *semaWaiter) wake(count uint32) (int, error) {
+func (sw *semaWaiter) wake(count int32) (int, error) {
 	sw.s.Signal(int(count))
 	return int(count), nil
 }
 
-func (sw *semaWaiter) wait(unused uint32, timeout time.Duration) error {
+func (sw *semaWaiter) wait(unused int32, timeout time.Duration) error {
 	if !sw.s.WaitTimeout(timeout) {
 		return common.NewTimeoutError("SEMWAWIT")
 	}

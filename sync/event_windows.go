@@ -10,11 +10,17 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type event struct {
+// WindowsEvent gives access to system event object.
+type WindowsEvent struct {
 	handle windows.Handle
 }
 
-func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, error) {
+// NewWindowsEvent returns new WindowsEvent.
+//	name - object name.
+//	flag - flag is a combination of open flags from 'os' package.
+//	perm - object's permission bits.
+//	initial - if truem the event will be set after creation.
+func NewWindowsEvent(name string, flag int, perm os.FileMode, initial bool) (*WindowsEvent, error) {
 	if err := ensureOpenFlags(flag); err != nil {
 		return nil, err
 	}
@@ -26,20 +32,23 @@ func newEvent(name string, flag int, perm os.FileMode, initial bool) (*event, er
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open/create event")
 	}
-	return &event{handle: handle}, nil
+	return &WindowsEvent{handle: handle}, nil
 }
 
-func (e *event) set() {
+// Set sets the specified event object to the signaled state.
+func (e *WindowsEvent) Set() {
 	if err := windows.SetEvent(e.handle); err != nil {
 		panic("failed to set an event: " + err.Error())
 	}
 }
 
-func (e *event) wait() {
-	e.waitTimeout(-1)
+// Wait waits for the event to be signaled.
+func (e *WindowsEvent) Wait() {
+	e.WaitTimeout(-1)
 }
 
-func (e *event) waitTimeout(timeout time.Duration) bool {
+// WaitTimeout waits until the event is signaled or the timeout elapses.
+func (e *WindowsEvent) WaitTimeout(timeout time.Duration) bool {
 	waitMillis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		waitMillis = uint32(timeout.Nanoseconds() / 1e6)
@@ -59,23 +68,12 @@ func (e *event) waitTimeout(timeout time.Duration) bool {
 	}
 }
 
-func (e *event) close() error {
+// Close closes the event.
+func (e *WindowsEvent) Close() error {
 	if e.handle == windows.InvalidHandle {
 		return nil
 	}
 	err := windows.CloseHandle(e.handle)
 	e.handle = windows.InvalidHandle
 	return err
-}
-
-func (e *event) destroy() error {
-	if err := e.close(); err != nil {
-		return errors.Wrap(err, "failed to close windows handle")
-	}
-	return nil
-}
-
-// windows event is destroyed when all its instances are closed.
-func destroyEvent(name string) error {
-	return nil
 }

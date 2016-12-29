@@ -29,11 +29,11 @@ type SpinMutex struct {
 
 type spinWW struct{}
 
-func (sw spinWW) wake(uint32) (int, error) {
+func (sw spinWW) wake(int32) (int, error) {
 	return 1, nil
 }
 
-func (sw spinWW) wait(unused uint32, timeout time.Duration) error {
+func (sw spinWW) wait(unused int32, timeout time.Duration) error {
 	runtime.Gosched()
 	return nil
 }

@@ -13,6 +13,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	isDarwin = runtime.GOOS == "darwin"
+)
+
 type memoryObject struct {
 	file *os.File
 }
@@ -45,7 +49,7 @@ func (obj *memoryObject) Name() string {
 	result := filepath.Base(obj.file.Name())
 	// on darwin we do this trick due to
 	// http://www.opensource.apple.com/source/Libc/Libc-320/sys/shm_open.c
-	if isDarwin() {
+	if isDarwin {
 		result = result[:strings.LastIndex(result, "\t")]
 	}
 	return result
@@ -57,7 +61,7 @@ func (obj *memoryObject) Close() error {
 	if err == nil {
 		return nil
 	}
-	if isDarwin() {
+	if isDarwin {
 		// we're closing the file for the first time, and
 		// we haven't truncated the file and it hasn't been closed
 		if obj.Size() == 0 && int(fdBeforeClose) >= 0 {
@@ -92,8 +96,4 @@ func destroyMemoryObject(name string) error {
 		err = errors.Wrapf(err, "failed to destroy shm object %q", path)
 	}
 	return err
-}
-
-func isDarwin() bool {
-	return runtime.GOOS == "darwin"
 }

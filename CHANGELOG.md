@@ -1,7 +1,9 @@
-# Release Next (xxxx-xx-xx)
+# Release 0.5.0 (2016-12-29)
 
- - sync: timed mutex for darwin
- - sync: timed semaphore for freebsd/darwin
+ - sync: condvar on darwin now uses semaphore-based events.
+ - sync: events optimization with lightweight event.
+ - sync: timed mutex for darwin.
+ - sync: timed semaphore for freebsd/darwin.
  - minimum go version is 1.4.
 
 # Release 0.4.0 (2016-12-18)

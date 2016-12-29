@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	futexSize     = int(unsafe.Sizeof(uint32(0)))
 	cFutexWakeAll = math.MaxInt32
 )
 
@@ -24,15 +23,15 @@ type futex struct {
 	ptr unsafe.Pointer
 }
 
-func (w *futex) addr() *uint32 {
-	return (*uint32)(w.ptr)
+func (w *futex) addr() *int32 {
+	return (*int32)(w.ptr)
 }
 
 func (w *futex) add(value int) {
-	atomic.AddUint32(w.addr(), uint32(value))
+	atomic.AddInt32(w.addr(), int32(value))
 }
 
-func (w *futex) wait(value uint32, timeout time.Duration) error {
+func (w *futex) wait(value int32, timeout time.Duration) error {
 	err := FutexWait(w.ptr, value, timeout, 0)
 	if err != nil && common.SyscallErrHasCode(err, unix.EWOULDBLOCK) {
 		return nil
@@ -40,7 +39,7 @@ func (w *futex) wait(value uint32, timeout time.Duration) error {
 	return err
 }
 
-func (w *futex) wake(count uint32) (int, error) {
+func (w *futex) wake(count int32) (int, error) {
 	return FutexWake(w.ptr, count, 0)
 }
 

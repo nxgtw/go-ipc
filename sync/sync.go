@@ -4,6 +4,7 @@ package sync
 
 import (
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -14,4 +15,10 @@ func ensureOpenFlags(flags int) error {
 		return errors.New("only os.O_CREATE and os.O_EXCL are allowed")
 	}
 	return nil
+}
+
+// waitWaker is an object, which implements wake/wait semantics.
+type waitWaker interface {
+	wake(count int32) (int, error)
+	wait(value int32, timeout time.Duration) error
 }

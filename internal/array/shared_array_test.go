@@ -28,7 +28,7 @@ func TestSharedArray(t *testing.T) {
 	}
 	a.Equal(arr.Len(), 10)
 	a.Panics(func() {
-		arr.PushBack(nil)
+		arr.PushBack()
 	})
 	for i := 0; i < 10; i++ {
 		data[0] = byte(i)

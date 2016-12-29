@@ -123,7 +123,7 @@ func (lwrw *lwRWMutex) unlock() {
 		}
 	}
 	if new.readers() > 0 {
-		lwrw.rWaiter.wake(uint32(new.readers()))
+		lwrw.rWaiter.wake(int32(new.readers()))
 	} else if new.writers() > 0 {
 		lwrw.wWaiter.wake(1)
 	}
