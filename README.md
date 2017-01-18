@@ -32,7 +32,6 @@ go get -u bitbucket.org/avd/go-ipc
 Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
 
 ## Notes
-* Convars currently use spin locks on OSX.
 
 ## Build status
 This library is currently alpha. The 'master' branch is not guaranteed to contain stable code,
