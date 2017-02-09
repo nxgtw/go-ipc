@@ -11,5 +11,5 @@
 //	mutexes, rw mutexes
 //	semaphores
 //	events
-//	conditional variables (all supported platforms)
+//	conditional variables
 package ipc
