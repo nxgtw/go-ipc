@@ -29,7 +29,7 @@ go get -u bitbucket.org/avd/go-ipc
 2. Go 1.4 or higher.
 
 ## Documentation
-Documentation can be found at [`godoc`](https://godoc.com/bitbucket.org/avd/go-ipc).
+Documentation can be found at [`godoc`](https://godoc.org/bitbucket.org/avd/go-ipc).
 
 ## Notes
 
