@@ -34,7 +34,7 @@ Documentation can be found at [`godoc`](https://godoc.org/bitbucket.org/avd/go-i
 ## Notes
 
 ## Build status
-This library is currently alpha. The 'master' branch is not guaranteed to contain stable code,
+This library is currently beta. The 'master' branch is not guaranteed to contain stable code,
 it is even not guaranteed, that it builds correctly on all platforms. The library uses
 [Semantic Versioning 2.0.0](http://semver.org/), so it is recommended to checkout the latest release.
 

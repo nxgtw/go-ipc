@@ -1,3 +1,8 @@
+# Release 0.6.0 (2018-10-29)
+
+ - vendor: gomod support.
+ - ipc: remove Destroyer interface.
+
 # Release 0.5.0 (2016-12-29)
 
  - sync: condvar on darwin now uses semaphore-based events.

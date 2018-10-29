@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	ipc "bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/allocator"
+	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
@@ -43,7 +43,7 @@ func testLockerOpenMode(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -68,7 +68,7 @@ func testLockerOpenMode2(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -97,7 +97,7 @@ func testLockerOpenMode3(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -122,7 +122,7 @@ func testLockerOpenMode4(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -175,7 +175,7 @@ func testLockerLock(t *testing.T, ctor lockerCtor, dtor lockerDtor) {
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -213,7 +213,7 @@ func testLockerMemory(t *testing.T, typ string, ro bool, ctor lockerCtor, dtor l
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())
@@ -283,7 +283,7 @@ func testLockerValueInc(t *testing.T, typ string, ctor lockerCtor, dtor lockerDt
 		return
 	}
 	defer func(lk IPCLocker) {
-		if d, ok := lk.(ipc.Destroyer); ok {
+		if d, ok := lk.(common.Destroyer); ok {
 			a.NoError(d.Destroy())
 		} else {
 			a.NoError(lk.Close())

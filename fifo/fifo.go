@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 )
 
@@ -19,7 +18,7 @@ const (
 type Fifo interface {
 	io.ReadWriter
 	io.Closer
-	ipc.Destroyer
+	Destroy() error
 }
 
 // New creates or opens a new FIFO object

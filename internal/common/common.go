@@ -15,6 +15,11 @@ const (
 	O_NONBLOCK = syscall.O_NONBLOCK
 )
 
+// Destroyer is an object which can be permanently removed.
+type Destroyer interface {
+	Destroy() error
+}
+
 // FlagsForOpen extracts os.O_CREATE and os.O_EXCL flag values.
 func FlagsForOpen(flag int) int {
 	return flag & (os.O_CREATE | os.O_EXCL)

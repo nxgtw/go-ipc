@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"time"
 
-	"bitbucket.org/avd/go-ipc"
 	"bitbucket.org/avd/go-ipc/internal/common"
 	"bitbucket.org/avd/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
@@ -396,7 +395,7 @@ func fastMqCleanup(mq *FastMq, created bool, err error) {
 		mq.region.Close()
 	}
 	if mq.locker != nil {
-		if d, ok := mq.locker.(ipc.Destroyer); ok && created {
+		if d, ok := mq.locker.(common.Destroyer); ok && created {
 			d.Destroy()
 		} else {
 			mq.locker.Close()
