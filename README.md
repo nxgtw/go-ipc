@@ -1,7 +1,7 @@
 # go-ipc: A library for inter-process communication written in pure Go.
 This package gives you access to os-native ipc mechanisms on Linux, OSX, FreeBSD, and Windows.
 
-[![wercker status](https://app.wercker.com/status/129bec18234e65c4d2bfb97d96af6eee/s/master "wercker status")](https://app.wercker.com/project/bykey/129bec18234e65c4d2bfb97d96af6eee) [![GoDoc](https://godoc.org/bitbucket.org/avd/go-ipc?status.svg)](https://godoc.org/bitbucket.org/avd/go-ipc) [![Go Report Card](https://goreportcard.com/badge/bitbucket.org/avd/go-ipc)](https://goreportcard.com/report/bitbucket.org/avd/go-ipc) 
+[![CircleCI](https://circleci.com/bb/avd/go-ipc/tree/master.svg?style=svg)](https://circleci.com/bb/avd/go-ipc/tree/master) [![GoDoc](https://godoc.org/bitbucket.org/avd/go-ipc?status.svg)](https://godoc.org/bitbucket.org/avd/go-ipc) [![Go Report Card](https://goreportcard.com/badge/bitbucket.org/avd/go-ipc)](https://goreportcard.com/report/bitbucket.org/avd/go-ipc) 
 
 
 * Pure Go implementation, no cgo is required.
