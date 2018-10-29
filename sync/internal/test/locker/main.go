@@ -11,7 +11,7 @@ import (
 	"unsafe"
 
 	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/test"
+	testutil "bitbucket.org/avd/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"
@@ -151,7 +151,7 @@ func performParallel(f func(int) error) error {
 	ch := make(chan error, *jobs)
 	for nJob := 0; nJob < *jobs; nJob++ {
 		go func(id int) {
-			ch <- f(nJob)
+			ch <- f(id)
 		}(nJob)
 	}
 	for nJob := 0; nJob < *jobs; nJob++ {

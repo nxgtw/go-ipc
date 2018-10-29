@@ -41,10 +41,7 @@ func wait() error {
 			return fmt.Errorf("timeout passed")
 		}
 	}
-	if err = ev.Close(); err != nil {
-		return err
-	}
-	return nil
+	return ev.Close()
 }
 
 func set() error {
@@ -56,10 +53,7 @@ func set() error {
 		return err
 	}
 	ev.Set()
-	if err = ev.Close(); err != nil {
-		return err
-	}
-	return nil
+	return ev.Close()
 }
 
 func runCommand() error {

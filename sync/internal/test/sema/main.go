@@ -42,10 +42,7 @@ func wait() error {
 			return fmt.Errorf("timeout passed")
 		}
 	}
-	if err = s.Close(); err != nil {
-		return err
-	}
-	return nil
+	return s.Close()
 }
 
 func signal() error {
@@ -61,10 +58,7 @@ func signal() error {
 		return err
 	}
 	s.Signal(count)
-	if err = s.Close(); err != nil {
-		return err
-	}
-	return nil
+	return s.Close()
 }
 
 func runCommand() error {

@@ -120,11 +120,10 @@ func TestSharedArray3(t *testing.T) {
 		arr.PushBack([]byte{byte(data[i])})
 	}
 	d := data[:]
-	popped := make([]byte, 8)
 	rand.Seed(time.Now().Unix())
 	for i := 0; i < len(data); i++ {
 		idx := rand.Intn(len(d))
-		popped = arr.At(idx)
+		popped := arr.At(idx)
 		a.Equal(d[idx], int(popped[0]))
 		arr.RemoveAt(idx)
 		d = append(d[:idx], d[idx+1:]...)

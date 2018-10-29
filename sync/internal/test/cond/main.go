@@ -72,10 +72,7 @@ func signal() error {
 		return nil
 	}
 	cond.Signal()
-	if err := cond.Close(); err != nil {
-		return err
-	}
-	return nil
+	return cond.Close()
 }
 
 func broadcast() error {
@@ -88,10 +85,7 @@ func broadcast() error {
 		return nil
 	}
 	cond.Broadcast()
-	if err := cond.Close(); err != nil {
-		return err
-	}
-	return nil
+	return cond.Close()
 }
 
 func runCommand() error {

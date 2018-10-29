@@ -283,7 +283,7 @@ func (mq *LinuxMessageQueue) Notify(ch chan<- int) error {
 	return err
 }
 
-// NotifyCancel cancels notification subscribtion.
+// NotifyCancel cancels notification subscription.
 func (mq *LinuxMessageQueue) NotifyCancel() error {
 	var err error
 	if err = mq_notify(mq.ID(), nil); err == nil {
