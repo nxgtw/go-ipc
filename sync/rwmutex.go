@@ -5,8 +5,8 @@ package sync
 import (
 	"os"
 
-	"bitbucket.org/avd/go-ipc/internal/allocator"
-	"bitbucket.org/avd/go-ipc/internal/helper"
+	"github.com/nxgtw/go-ipc/internal/allocator"
+	"github.com/nxgtw/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 

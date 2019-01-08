@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/internal/common"
+	"github.com/nxgtw/go-ipc/internal/common"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"

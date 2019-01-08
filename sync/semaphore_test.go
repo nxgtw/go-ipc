@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/internal/test"
+	"github.com/nxgtw/go-ipc/internal/test"
 
 	"github.com/stretchr/testify/assert"
 )

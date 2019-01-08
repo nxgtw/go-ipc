@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/internal/common"
-	"bitbucket.org/avd/go-ipc/internal/helper"
+	"github.com/nxgtw/go-ipc/internal/common"
+	"github.com/nxgtw/go-ipc/internal/helper"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 	ipc_sync "bitbucket.org/avd/go-ipc/sync"

@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"bitbucket.org/avd/go-ipc/internal/common"
+	"github.com/nxgtw/go-ipc/internal/common"
 )
 
 const (

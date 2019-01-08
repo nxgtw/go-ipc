@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/avd/go-ipc/internal/test"
+	"github.com/nxgtw/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mq"
 )
 

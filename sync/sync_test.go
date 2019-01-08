@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"strconv"
 
-	testutil "bitbucket.org/avd/go-ipc/internal/test"
+	testutil "github.com/nxgtw/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 	"bitbucket.org/avd/go-ipc/shm"
 )

@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"bitbucket.org/avd/go-ipc/internal/test"
+	"github.com/nxgtw/go-ipc/internal/test"
 	"bitbucket.org/avd/go-ipc/mmf"
 )
 

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"bitbucket.org/avd/go-ipc/fifo"
-	"bitbucket.org/avd/go-ipc/internal/test"
+	"github.com/nxgtw/go-ipc/internal/test"
 )
 
 var (

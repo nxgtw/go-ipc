@@ -5,8 +5,8 @@ package shm
 import (
 	"os"
 
-	"bitbucket.org/avd/go-ipc/internal/common"
-	"bitbucket.org/avd/go-ipc/internal/sys/windows"
+	"github.com/nxgtw/go-ipc/internal/common"
+	"github.com/nxgtw/go-ipc/internal/sys/windows"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
