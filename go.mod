@@ -1,4 +1,4 @@
-module bitbucket.org/avd/go-ipc
+module github.com/nxgtw/go-ipc
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
